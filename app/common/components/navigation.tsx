@@ -20,28 +20,33 @@ const menus = [
             {
                 name: "Tomorrow",
                 description: "Plan for tomorrow",
-                to: "/plan/tomorrow"
+                to: "/plan-tomorrow"
             },
             {
                 name: "Weekly",
                 description: "Plan for weekly",
-                to: "/plan/weekly"
+                to: "/plan-weekly"
             },
             {
                 name: "Monthly",
                 description: "Plan for monthly",
-                to: "/plan/monthly"
+                to: "/plan-monthly"
             },
             // {
             //     name: "Quarterly",
             //     description: "Plan for quarterly",
-            //     to: "/plan/quarterly"
+            //     to: "/plan-quarterly"
             // },
             // {
             //     name: "Wishlist",
             //     description: "Plan for wishlist",
             //     to: "/wishlist"
             // }
+            // {
+            //     name: "Routine",
+            //     description: "Plan for routine",
+            //     to: "/routine"
+            // }        
         ]
     },
     {

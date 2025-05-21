@@ -140,7 +140,7 @@ function PlanBanner({ plans, onAddAll, onDismiss, onAdd, addedPlanIds }: {
                   <span className="font-medium">{CATEGORIES[plan.category_code].label}</span>
                 </td>
                 <td className="py-2 px-2">
-                  {plan.duration ? `${plan.duration} ${plan.unit || "min"}` : "-"}
+                  {plan.duration ? `${plan.duration}분` : "-"}
                 </td>
                 <td className="py-2 px-2">{plan.comment || <span className="text-muted-foreground">No memo</span>}</td>
                 <td className="py-2 px-2 text-center">
@@ -177,10 +177,16 @@ export default function DailyPage() {
   const [originalLongMemo, setOriginalLongMemo] = useState("");
   const [editSubcode, setEditSubcode] = useState("");
   const [originalSubcode, setOriginalSubcode] = useState("");
-  const [expandedType, setExpandedType] = useState<null | 'memo' | 'subcode'>(null);
+  const [expandedType, setExpandedType] = useState<null | 'memo' | 'subcode' | 'edit'>('edit');
   const [plans, setPlans] = useState<DailyPlan[]>(mockPlans);
   const [showPlanBanner, setShowPlanBanner] = useState(plans.length > 0);
   const [addedPlanIds, setAddedPlanIds] = useState<Set<string>>(new Set());
+  const [dailyNote, setDailyNote] = useState('');
+  const [savedDailyNote, setSavedDailyNote] = useState('');
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [editRowDuration, setEditRowDuration] = useState('');
+  const [editRowComment, setEditRowComment] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
 
   function handleCategorySelect(code: CategoryCode) {
     setForm((f) => ({ ...f, category: code }));
@@ -323,17 +329,58 @@ export default function DailyPage() {
     setShowPlanBanner(false);
   }
 
+  function handleDeleteRow(id: string) {
+    setRecords(prev => prev.filter(r => r.id !== id));
+    setExpandedRow(null);
+    setExpandedType(null);
+  }
+
+  function handleSaveDailyNote(e: React.FormEvent) {
+    e.preventDefault();
+    setSavedDailyNote(dailyNote);
+  }
+
+  function handleRowClick(id: string, duration: number | undefined, comment: string | undefined) {
+    if (selectedRowId === id && !isEditing) {
+      setSelectedRowId(null);
+      return;
+    }
+    setSelectedRowId(id);
+    setIsEditing(false);
+    setEditRowDuration(duration ? String(duration) : '');
+    setEditRowComment(comment || '');
+  }
+
+  function handleEditRow() {
+    setIsEditing(true);
+  }
+
+  function handleEditRowSave(id: string) {
+    setRecords(prev =>
+      prev.map(r =>
+        r.id === id ? { ...r, duration: Number(editRowDuration), comment: editRowComment } : r
+      )
+    );
+    setIsEditing(false);
+    setSelectedRowId(null);
+  }
+
+  function handleEditRowCancel() {
+    setIsEditing(false);
+    setSelectedRowId(null);
+  }
+
   return (
     <div className="max-w-4xl mx-auto py-12 px-4 pt-16">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <h1 className="font-bold text-3xl">StartBeyond</h1>
+          <h1 className="font-bold text-3xl">Daily</h1>
           <CalendarPopover markedDates={mockRecordDates} />
         </div>
         <div className="text-gray-500 text-lg">{getToday()}</div>
         <Button asChild className="ml-2" variant="default" size="sm">
           <Link to="/plan/tomorrow">
-            <Plus className="w-4 h-4 mr-1" /> New Record
+            <Plus className="w-4 h-4 mr-1" />Tomorrow Plan
           </Link>
         </Button>
       </div>
@@ -351,16 +398,17 @@ export default function DailyPage() {
           <CardTitle>Daily Record</CardTitle>
         </CardHeader>
         <CardContent>
-          <form className="flex flex-col gap-4" onSubmit={handleAdd}>
+          <form className="flex flex-col gap-4" onSubmit={selectedRowId && isEditing ? (e) => { e.preventDefault(); handleEditRowSave(selectedRowId); } : handleAdd}>
             <div className="flex gap-2 overflow-x-auto no-scrollbar mb-2">
               {Object.entries(CATEGORIES).map(([code, cat]) => (
                 <Button
                   key={code}
                   type="button"
                   variant={form.category === code ? "default" : "outline"}
-                  className={`w-16 h-16 flex flex-col items-center justify-center rounded-lg border ${getCategoryColor(code as CategoryCode)} ${form.category === code ? 'ring-2 ring-primary' : ''}`}
-                  onClick={() => handleCategorySelect(code as CategoryCode)}
+                  className={`w-16 h-16 flex flex-col items-center justify-center rounded-lg border ${form.category === code ? 'ring-2 ring-primary' : ''}`}
+                  onClick={() => setForm(f => ({ ...f, category: code as CategoryCode }))}
                   style={{ minWidth: 64, minHeight: 64 }}
+                  disabled={!!selectedRowId}
                 >
                   <span className="text-2xl mb-1">{cat.icon}</span>
                   <span className="text-xs font-medium text-center leading-tight">{cat.label}</span>
@@ -373,27 +421,34 @@ export default function DailyPage() {
                 type="number"
                 min={0}
                 placeholder="분"
-                value={form.duration}
-                onChange={handleFormChange}
+                value={selectedRowId && isEditing ? editRowDuration : form.duration}
+                onChange={selectedRowId && isEditing ? (e) => setEditRowDuration(e.target.value) : handleFormChange}
                 className="w-24"
-                disabled={!CATEGORIES[form.category].hasDuration}
-              />
-              <Input
-                id="unit"
-                placeholder="min, pages, sets..."
-                value={form.unit}
-                onChange={handleFormChange}
-                className="w-24"
-                disabled={!CATEGORIES[form.category].hasDuration}
+                disabled={!CATEGORIES[form.category].hasDuration && !selectedRowId}
               />
               <Input
                 id="comment"
                 placeholder="간단 메모"
-                value={form.comment}
-                onChange={handleFormChange}
+                value={selectedRowId && isEditing ? editRowComment : form.comment}
+                onChange={selectedRowId && isEditing ? (e) => setEditRowComment(e.target.value) : handleFormChange}
                 className="flex-1"
+                disabled={!!selectedRowId && !isEditing}
               />
-              <Button type="submit" className="ml-2">Add</Button>
+              {selectedRowId ? (
+                isEditing ? (
+                  <>
+                    <Button type="submit" className="ml-2" size="sm">저장</Button>
+                    <Button type="button" className="ml-2" size="sm" variant="outline" onClick={handleEditRowCancel}>취소</Button>
+                  </>
+                ) : (
+                  <>
+                    <Button type="button" className="ml-2" size="sm" variant="default" onClick={handleEditRow}>수정</Button>
+                    <Button type="button" className="ml-2" size="sm" variant="destructive" onClick={() => handleDeleteRow(selectedRowId)}>삭제</Button>
+                  </>
+                )
+              ) : (
+                <Button type="submit" className="ml-2">Add</Button>
+              )}
             </div>
           </form>
         </CardContent>
@@ -419,14 +474,18 @@ export default function DailyPage() {
                   const cat = CATEGORIES[rec.category_code];
                   return (
                     <>
-                      <tr key={rec.id} className="border-b">
+                      <tr
+                        key={rec.id}
+                        className={`border-b cursor-pointer ${selectedRowId === rec.id ? 'bg-accent/30' : ''}`}
+                        onClick={() => handleRowClick(rec.id, rec.duration, rec.comment)}
+                      >
                         <td className="py-2 px-2 flex items-center gap-2">
                           <span className={`text-2xl ${getCategoryColor(rec.category_code)}`}>{cat.icon}</span>
                           <span className="font-medium">{cat.label}</span>
                         </td>
                         <td className="py-2 px-2">{rec.subcode || <span className="text-muted-foreground">-</span>}</td>
                         <td className="py-2 px-2">
-                          {cat.hasDuration && rec.duration ? `${rec.duration} ${rec.unit || "min"}` : "-"}
+                          {cat.hasDuration && rec.duration ? `${rec.duration}분` : "-"}
                         </td>
                         <td className="py-2 px-2">{rec.comment || <span className="text-muted-foreground">No memo</span>}</td>
                         <td className="py-2 px-2 text-center flex gap-2 justify-center">
@@ -446,7 +505,7 @@ export default function DailyPage() {
                           </Button>
                         </td>
                       </tr>
-                      {expandedRow === rec.id && expandedType === 'subcode' && (
+                      {selectedRowId === rec.id && expandedType === 'subcode' && (
                         <tr>
                           <td colSpan={5} className="bg-muted px-4 py-3">
                             <form
@@ -469,7 +528,7 @@ export default function DailyPage() {
                           </td>
                         </tr>
                       )}
-                      {expandedRow === rec.id && expandedType === 'memo' && (
+                      {selectedRowId === rec.id && expandedType === 'memo' && (
                         <tr>
                           <td colSpan={5} className="bg-muted px-4 py-3">
                             <form
@@ -518,6 +577,23 @@ export default function DailyPage() {
               <span className="ml-4 flex-1 text-gray-500">Jogging in the park</span>
               <Button variant="outline" size="sm">메모</Button>
             </div>
+          </div>
+          <div className="mt-8">
+            <div className="font-semibold mb-2 text-sm text-muted-foreground">전체 메모</div>
+            <form className="flex flex-col gap-2" onSubmit={handleSaveDailyNote}>
+              <Textarea
+                value={dailyNote}
+                onChange={e => setDailyNote(e.target.value)}
+                placeholder="오늘 하루에 대한 자유 메모, 회고, 다짐 등을 입력하세요."
+                className="min-h-[80px]"
+              />
+              <div className="flex justify-end">
+                <Button type="submit" size="sm">저장</Button>
+              </div>
+            </form>
+            {savedDailyNote && (
+              <div className="mt-2 text-muted-foreground text-sm whitespace-pre-line">{savedDailyNote}</div>
+            )}
           </div>
         </CardContent>
       </Card>
