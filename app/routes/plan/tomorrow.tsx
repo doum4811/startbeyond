@@ -91,7 +91,7 @@ export default function TomorrowPlanPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-12 px-4 pt-16">
+    <div className="max-w-4xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <h1 className="font-bold text-3xl">Tomorrow</h1>

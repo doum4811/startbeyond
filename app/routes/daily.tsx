@@ -133,34 +133,40 @@ function PlanBanner({ plans, onAddAll, onDismiss, onAdd, addedPlanIds }: {
             </tr>
           </thead>
           <tbody>
-            {plans.map(plan => (
-              <tr key={plan.id} className="border-b">
-                <td className="py-2 px-2 flex items-center gap-2">
-                  <span className={`text-2xl ${getCategoryColor(plan.category_code)}`}>{CATEGORIES[plan.category_code].icon}</span>
-                  <span className="font-medium">{CATEGORIES[plan.category_code].label}</span>
-                </td>
-                <td className="py-2 px-2">
-                  {plan.duration ? `${plan.duration}분` : "-"}
-                </td>
-                <td className="py-2 px-2">{plan.comment || <span className="text-muted-foreground">No memo</span>}</td>
-                <td className="py-2 px-2 text-center">
-                  <Button
-                    variant={addedPlanIds.has(plan.id) ? "secondary" : "outline"}
-                    size="sm"
-                    onClick={() => onAdd(plan)}
-                    disabled={addedPlanIds.has(plan.id)}
-                  >
-                    {addedPlanIds.has(plan.id) ? "추가됨" : "추가"}
-                  </Button>
-                </td>
+            {plans.length === 0 ? (
+              <tr>
+                <td colSpan={4} className="text-center text-muted-foreground py-4">작성한 계획이 없습니다</td>
               </tr>
-            ))}
+            ) : (
+              plans.map(plan => (
+                <tr key={plan.id} className="border-b">
+                  <td className="py-2 px-2 flex items-center gap-2">
+                    <span className={`text-2xl ${getCategoryColor(plan.category_code)}`}>{CATEGORIES[plan.category_code].icon}</span>
+                    <span className="font-medium">{CATEGORIES[plan.category_code].label}</span>
+                  </td>
+                  <td className="py-2 px-2">
+                    {plan.duration ? `${plan.duration}분` : "-"}
+                  </td>
+                  <td className="py-2 px-2">{plan.comment || <span className="text-muted-foreground">No memo</span>}</td>
+                  <td className="py-2 px-2 text-center">
+                    <Button
+                      variant={addedPlanIds.has(plan.id) ? "secondary" : "outline"}
+                      size="sm"
+                      onClick={() => onAdd(plan)}
+                      disabled={addedPlanIds.has(plan.id)}
+                    >
+                      {addedPlanIds.has(plan.id) ? "추가됨" : "추가"}
+                    </Button>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
       <div className="flex gap-2 mt-3 justify-end">
         <Button variant="outline" size="sm" onClick={onAddAll} disabled={plans.every(p => addedPlanIds.has(p.id))}>모두 추가</Button>
-        <Button variant="ghost" size="sm" onClick={onDismiss}>닫기</Button>
+        <Button variant="ghost" size="sm" onClick={onDismiss}>접기</Button>
       </div>
     </div>
   );
@@ -187,19 +193,61 @@ export default function DailyPage() {
   const [editRowDuration, setEditRowDuration] = useState('');
   const [editRowComment, setEditRowComment] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const [selectedMemo, setSelectedMemo] = useState<{ id: string; title: string; content: string } | null>(null);
+  const [memos, setMemos] = useState<Array<{
+    id: string;
+    recordId: string;
+    title: string;
+    content: string;
+    created_at: string;
+  }>>([]);
+  const [durationError, setDurationError] = useState<string | null>(null);
+  const MAX_MINUTES_PER_DAY = 60 * 24; // 1440 minutes
+  const [isPlanBannerCollapsed, setIsPlanBannerCollapsed] = useState(false);
+  const [editRowCategory, setEditRowCategory] = useState<CategoryCode>(initialForm.category);
+  const selectedRecord = records.find(r => r.id === selectedRowId);
 
-  function handleCategorySelect(code: CategoryCode) {
-    setForm((f) => ({ ...f, category: code }));
+  function validateDuration(value: string) {
+    const num = Number(value);
+    if (isNaN(num)) {
+      setDurationError("숫자만 입력 가능합니다");
+      return false;
+    }
+    if (num < 0) {
+      setDurationError("0 이상의 숫자를 입력해주세요");
+      return false;
+    }
+    if (num > MAX_MINUTES_PER_DAY) {
+      setDurationError("하루의 시간(1440분)을 초과할 수 없습니다");
+      return false;
+    }
+    setDurationError(null);
+    return true;
   }
 
   function handleFormChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
-    // const { id, value, type, checke =d } = e.target;
-    // setForm((f) => ({ ...f, [id]: type === "checkbox" ? checked : value }));
+    const { id, value } = e.target;
+    if (id === "duration") {
+      if (validateDuration(value)) {
+        setForm((f) => ({ ...f, [id]: value }));
+      }
+    } else {
+      setForm((f) => ({ ...f, [id]: value }));
+    }
+  }
+
+  function handleEditRowDurationChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = e.target.value;
+    if (validateDuration(value)) {
+      setEditRowDuration(value);
+    }
   }
 
   function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    // duration is now optional, no validation
+    if (form.duration && !validateDuration(form.duration)) {
+      return;
+    }
     const newRecord: DailyRecord = {
       id: Math.random().toString(36).slice(2),
       category_code: form.category,
@@ -213,6 +261,7 @@ export default function DailyPage() {
     };
     setRecords((prev) => [newRecord, ...prev]);
     setForm(initialForm);
+    setDurationError(null);
   }
 
   function handlePublicToggle(id: string) {
@@ -250,24 +299,35 @@ export default function DailyPage() {
   }
 
   function handleMemoButton(id: string) {
-    setExpandedRow(id);
-    setExpandedType('memo');
-    const rec = records.find((r) => r.id === id);
-    setEditLongMemo(rec?.longMemo || "");
-    setOriginalLongMemo(rec?.longMemo || "");
+    setSelectedRowId(id);
+    setSelectedMemo({
+      id: Math.random().toString(36).slice(2),
+      title: '',
+      content: ''
+    });
   }
 
-  function handleMemoSave(id: string) {
-    setRecords((prev) =>
-      prev.map((r) =>
-        r.id === id ? { ...r, longMemo: editLongMemo } : r
-      )
-    );
-    setExpandedRow(null);
+  function handleMemoSave() {
+    if (!selectedMemo || !selectedRowId) return;
+    
+    const newMemo = {
+      ...selectedMemo,
+      recordId: selectedRowId,
+      created_at: new Date().toISOString()
+    };
+    
+    setMemos(prev => [newMemo, ...prev]);
+    setSelectedMemo(null);
+    setSelectedRowId(null);
   }
 
   function handleMemoCancel() {
-    setExpandedRow(null);
+    setSelectedMemo(null);
+    setSelectedRowId(null);
+  }
+
+  function handleMemoDelete(memoId: string) {
+    setMemos(prev => prev.filter(m => m.id !== memoId));
   }
 
   function handleMemoChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -331,6 +391,7 @@ export default function DailyPage() {
 
   function handleDeleteRow(id: string) {
     setRecords(prev => prev.filter(r => r.id !== id));
+    setMemos(prev => prev.filter(m => m.recordId !== id));
     setExpandedRow(null);
     setExpandedType(null);
   }
@@ -343,26 +404,46 @@ export default function DailyPage() {
   function handleRowClick(id: string, duration: number | undefined, comment: string | undefined) {
     if (selectedRowId === id && !isEditing) {
       setSelectedRowId(null);
+      setIsEditing(false);
       return;
     }
+    const rec = records.find(r => r.id === id);
     setSelectedRowId(id);
-    setIsEditing(false);
     setEditRowDuration(duration ? String(duration) : '');
     setEditRowComment(comment || '');
+    setEditRowCategory(rec ? rec.category_code : initialForm.category);
+    setIsEditing(true);
   }
 
   function handleEditRow() {
+    if (selectedRowId) {
+      const rec = records.find(r => r.id === selectedRowId);
+      setEditRowCategory(rec ? rec.category_code : initialForm.category);
+      setEditRowDuration(rec && rec.duration ? String(rec.duration) : '');
+      setEditRowComment(rec ? rec.comment || '' : '');
+    }
     setIsEditing(true);
   }
 
   function handleEditRowSave(id: string) {
+    if (editRowDuration && !validateDuration(editRowDuration)) {
+      return;
+    }
     setRecords(prev =>
       prev.map(r =>
-        r.id === id ? { ...r, duration: Number(editRowDuration), comment: editRowComment } : r
+        r.id === id
+          ? {
+              ...r,
+              duration: editRowDuration ? Number(editRowDuration) : undefined,
+              comment: editRowComment,
+              category_code: editRowCategory,
+            }
+          : r
       )
     );
     setIsEditing(false);
     setSelectedRowId(null);
+    setDurationError(null);
   }
 
   function handleEditRowCancel() {
@@ -371,7 +452,7 @@ export default function DailyPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-12 px-4 pt-16">
+    <div className="max-w-7xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <h1 className="font-bold text-3xl">Daily</h1>
@@ -384,200 +465,202 @@ export default function DailyPage() {
           </Link>
         </Button>
       </div>
-      {showPlanBanner && plans.length > 0 && (
-        <PlanBanner
-          plans={plans}
-          onAddAll={handleAddAllPlans}
-          onDismiss={handleDismissPlans}
-          onAdd={handleAddPlan}
-          addedPlanIds={addedPlanIds}
-        />
+      {showPlanBanner && (
+        <div className="mb-8">
+          {isPlanBannerCollapsed ? (
+            <div className="rounded-xl bg-muted border px-6 py-3 flex items-center justify-between">
+              <span className="font-semibold text-lg text-foreground">어제 작성한 오늘의 계획</span>
+              <Button variant="ghost" size="sm" onClick={() => setIsPlanBannerCollapsed(false)}>펴기</Button>
+            </div>
+          ) : (
+            <div className="relative">
+              <PlanBanner
+                plans={plans}
+                onAddAll={handleAddAllPlans}
+                onDismiss={() => setIsPlanBannerCollapsed(true)}
+                onAdd={handleAddPlan}
+                addedPlanIds={addedPlanIds}
+              />
+              {/* <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-2 right-2"
+                onClick={() => setIsPlanBannerCollapsed(true)}
+                aria-label="접기"
+              >
+                접기
+              </Button> */}
+            </div>
+          )}
+        </div>
       )}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Daily Record</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form className="flex flex-col gap-4" onSubmit={selectedRowId && isEditing ? (e) => { e.preventDefault(); handleEditRowSave(selectedRowId); } : handleAdd}>
-            <div className="flex gap-2 overflow-x-auto no-scrollbar mb-2">
-              {Object.entries(CATEGORIES).map(([code, cat]) => (
-                <Button
-                  key={code}
-                  type="button"
-                  variant={form.category === code ? "default" : "outline"}
-                  className={`w-16 h-16 flex flex-col items-center justify-center rounded-lg border ${form.category === code ? 'ring-2 ring-primary' : ''}`}
-                  onClick={() => setForm(f => ({ ...f, category: code as CategoryCode }))}
-                  style={{ minWidth: 64, minHeight: 64 }}
-                  disabled={!!selectedRowId}
-                >
-                  <span className="text-2xl mb-1">{cat.icon}</span>
-                  <span className="text-xs font-medium text-center leading-tight">{cat.label}</span>
-                </Button>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Input
-                id="duration"
-                type="number"
-                min={0}
-                placeholder="분"
-                value={selectedRowId && isEditing ? editRowDuration : form.duration}
-                onChange={selectedRowId && isEditing ? (e) => setEditRowDuration(e.target.value) : handleFormChange}
-                className="w-24"
-                disabled={!CATEGORIES[form.category].hasDuration && !selectedRowId}
-              />
-              <Input
-                id="comment"
-                placeholder="간단 메모"
-                value={selectedRowId && isEditing ? editRowComment : form.comment}
-                onChange={selectedRowId && isEditing ? (e) => setEditRowComment(e.target.value) : handleFormChange}
-                className="flex-1"
-                disabled={!!selectedRowId && !isEditing}
-              />
-              {selectedRowId ? (
-                isEditing ? (
-                  <>
-                    <Button type="submit" className="ml-2" size="sm">저장</Button>
-                    <Button type="button" className="ml-2" size="sm" variant="outline" onClick={handleEditRowCancel}>취소</Button>
-                  </>
-                ) : (
-                  <>
-                    <Button type="button" className="ml-2" size="sm" variant="default" onClick={handleEditRow}>수정</Button>
-                    <Button type="button" className="ml-2" size="sm" variant="destructive" onClick={() => handleDeleteRow(selectedRowId)}>삭제</Button>
-                  </>
-                )
-              ) : (
-                <Button type="submit" className="ml-2">Add</Button>
-              )}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Records</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-base">
-              <thead>
-                <tr className="border-b">
-                  <th className="py-2 px-2 text-left">Code</th>
-                  <th className="py-2 px-2 text-left">Subcode</th>
-                  <th className="py-2 px-2 text-left">Duration</th>
-                  <th className="py-2 px-2 text-left">Memo</th>
-                  <th className="py-2 px-2 text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {records.map((rec) => {
-                  const cat = CATEGORIES[rec.category_code];
-                  return (
-                    <>
-                      <tr
-                        key={rec.id}
-                        className={`border-b cursor-pointer ${selectedRowId === rec.id ? 'bg-accent/30' : ''}`}
-                        onClick={() => handleRowClick(rec.id, rec.duration, rec.comment)}
-                      >
-                        <td className="py-2 px-2 flex items-center gap-2">
-                          <span className={`text-2xl ${getCategoryColor(rec.category_code)}`}>{cat.icon}</span>
-                          <span className="font-medium">{cat.label}</span>
-                        </td>
-                        <td className="py-2 px-2">{rec.subcode || <span className="text-muted-foreground">-</span>}</td>
-                        <td className="py-2 px-2">
-                          {cat.hasDuration && rec.duration ? `${rec.duration}분` : "-"}
-                        </td>
-                        <td className="py-2 px-2">{rec.comment || <span className="text-muted-foreground">No memo</span>}</td>
-                        <td className="py-2 px-2 text-center flex gap-2 justify-center">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSubcodeButton(rec.id)}
+      <div className="flex flex-col lg:flex-row gap-8">
+        <div className="flex-1">
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle>Daily Record</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form className="flex flex-col gap-4" onSubmit={selectedRowId && isEditing ? (e) => { e.preventDefault(); handleEditRowSave(selectedRowId); } : handleAdd}>
+                <div className="flex gap-2 overflow-x-auto no-scrollbar mb-2">
+                  {Object.entries(CATEGORIES).map(([code, cat]) => (
+                    <Button
+                      key={code}
+                      type="button"
+                      variant={selectedRowId ? ((isEditing ? editRowCategory : selectedRecord?.category_code) === code ? "default" : "outline") : (form.category === code ? "default" : "outline")}
+                      className={`w-16 h-16 flex flex-col items-center justify-center rounded-lg border ${selectedRowId ? ((isEditing ? editRowCategory : selectedRecord?.category_code) === code ? 'ring-2 ring-primary' : '') : (form.category === code ? 'ring-2 ring-primary' : '')}`}
+                      onClick={() => {
+                        if (selectedRowId) {
+                          if (isEditing) setEditRowCategory(code as CategoryCode);
+                        } else {
+                          setForm(f => ({ ...f, category: code as CategoryCode }));
+                        }
+                      }}
+                      style={{ minWidth: 64, minHeight: 64 }}
+                      disabled={selectedRowId ? !isEditing : false}
+                    >
+                      <span className="text-2xl mb-1">{cat.icon}</span>
+                      <span className="text-xs font-medium text-center leading-tight">{cat.label}</span>
+                    </Button>
+                  ))}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <div className="relative">
+                      <Input
+                        id="duration"
+                        type="number"
+                        min={0}
+                        max={MAX_MINUTES_PER_DAY}
+                        placeholder="분"
+                        value={selectedRowId ? (isEditing ? editRowDuration : selectedRecord?.duration?.toString() || '') : form.duration}
+                        onChange={selectedRowId ? (isEditing ? handleEditRowDurationChange : undefined) : handleFormChange}
+                        className={`w-24 ${durationError ? 'border-red-500' : ''}`}
+                        disabled={selectedRowId ? !isEditing : false}
+                      />
+                      {durationError && (
+                        <div className="absolute -bottom-6 left-0 text-xs text-red-500">
+                          {durationError}
+                        </div>
+                      )}
+                    </div>
+                    <Input
+                      id="comment"
+                      placeholder="간단 메모"
+                      value={selectedRowId ? (isEditing ? editRowComment : selectedRecord?.comment || '') : form.comment}
+                      onChange={selectedRowId ? (isEditing ? (e) => setEditRowComment(e.target.value) : undefined) : handleFormChange}
+                      className="flex-1"
+                      disabled={selectedRowId ? !isEditing : false}
+                    />
+                    {selectedRowId ? (
+                      isEditing ? (
+                        <>
+                          <Button type="submit" className="ml-2" size="sm">저장</Button>
+                          <Button type="button" className="ml-2" size="sm" variant="outline" onClick={handleEditRowCancel}>취소</Button>
+                          <Button type="button" className="ml-2" size="sm" variant="destructive" onClick={() => handleDeleteRow(selectedRowId)}>삭제</Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button type="button" className="ml-2" size="sm" variant="default" onClick={handleEditRow}>수정</Button>
+                          <Button type="button" className="ml-2" size="sm" variant="destructive" onClick={() => handleDeleteRow(selectedRowId)}>삭제</Button>
+                        </>
+                      )
+                    ) : (
+                      <Button type="submit" className="ml-2">Add</Button>
+                    )}
+                  </div>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Records</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-base">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="py-2 px-2 text-left">Code</th>
+                      <th className="py-2 px-2 text-left">Subcode</th>
+                      <th className="py-2 px-2 text-left">Duration</th>
+                      <th className="py-2 px-2 text-left">Comment</th>
+                      <th className="py-2 px-2 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {records.map((rec) => {
+                      const cat = CATEGORIES[rec.category_code];
+                      return (
+                        <>
+                          <tr
+                            key={rec.id}
+                            className={`border-b cursor-pointer ${selectedRowId === rec.id ? 'bg-accent/30' : ''}`}
+                            onClick={() => handleRowClick(rec.id, rec.duration, rec.comment)}
                           >
-                            세부코드
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleMemoButton(rec.id)}
-                          >
-                            메모
-                          </Button>
-                        </td>
+                            <td className="py-2 px-2 flex items-center gap-2">
+                              <span className={`text-2xl ${getCategoryColor(rec.category_code)}`}>{cat.icon}</span>
+                              <span className="font-medium">{cat.label}</span>
+                            </td>
+                            <td className="py-2 px-2">{rec.subcode || <span className="text-muted-foreground">-</span>}</td>
+                            <td className="py-2 px-2">
+                              {cat.hasDuration && rec.duration ? `${rec.duration}분` : "-"}
+                            </td>
+                            <td className="py-2 px-2">{rec.comment || <span className="text-muted-foreground">No comment</span>}</td>
+                            <td className="py-2 px-2 text-center flex gap-2 justify-center">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleSubcodeButton(rec.id)}
+                              >
+                                세부코드
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleMemoButton(rec.id)}
+                              >
+                                메모
+                              </Button>
+                            </td>
+                          </tr>
+                          {selectedRowId === rec.id && expandedType === 'subcode' && (
+                            <tr>
+                              <td colSpan={5} className="bg-muted px-4 py-3">
+                                <form
+                                  className="flex flex-col md:flex-row gap-2 items-start md:items-center"
+                                  onSubmit={e => { e.preventDefault(); handleSubcodeSave(rec.id); }}
+                                >
+                                  <Input
+                                    value={editSubcode}
+                                    onChange={handleSubcodeChange}
+                                    className="flex-1"
+                                    placeholder="세부코드를 입력하세요..."
+                                  />
+                                  <div className="flex gap-2 mt-2 md:mt-0">
+                                    <Button type="submit" size="sm" disabled={editSubcode === originalSubcode}>저장</Button>
+                                    <Button type="button" size="sm" variant="outline" onClick={handleSubcodeCancel}>
+                                      <X className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </form>
+                              </td>
+                            </tr>
+                          )}
+                        </>
+                      );
+                    })}
+                    {records.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="text-center text-muted-foreground py-8">No records yet</td>
                       </tr>
-                      {selectedRowId === rec.id && expandedType === 'subcode' && (
-                        <tr>
-                          <td colSpan={5} className="bg-muted px-4 py-3">
-                            <form
-                              className="flex flex-col md:flex-row gap-2 items-start md:items-center"
-                              onSubmit={e => { e.preventDefault(); handleSubcodeSave(rec.id); }}
-                            >
-                              <Input
-                                value={editSubcode}
-                                onChange={handleSubcodeChange}
-                                className="flex-1"
-                                placeholder="세부코드를 입력하세요..."
-                              />
-                              <div className="flex gap-2 mt-2 md:mt-0">
-                                <Button type="submit" size="sm" disabled={editSubcode === originalSubcode}>저장</Button>
-                                <Button type="button" size="sm" variant="outline" onClick={handleSubcodeCancel}>
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </form>
-                          </td>
-                        </tr>
-                      )}
-                      {selectedRowId === rec.id && expandedType === 'memo' && (
-                        <tr>
-                          <td colSpan={5} className="bg-muted px-4 py-3">
-                            <form
-                              className="flex flex-col md:flex-row gap-2 items-start md:items-center"
-                              onSubmit={e => { e.preventDefault(); handleMemoSave(rec.id); }}
-                            >
-                              <Textarea
-                                value={editLongMemo}
-                                onChange={handleMemoChange}
-                                className="flex-1 min-h-[40px]"
-                                placeholder="긴 메모를 입력하세요..."
-                              />
-                              <div className="flex gap-2 mt-2 md:mt-0">
-                                <Button type="submit" size="sm" disabled={editLongMemo === originalLongMemo}>저장</Button>
-                                <Button type="button" size="sm" variant="outline" onClick={handleMemoCancel}>
-                                  <X className="w-4 h-4" />
-                                </Button>
-                              </div>
-                            </form>
-                            {originalLongMemo && (
-                              <div className="mt-2 text-xs text-muted-foreground whitespace-pre-line">
-                                <span className="font-semibold">이전 메모:</span> {originalLongMemo}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      )}
-                    </>
-                  );
-                })}
-                {records.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="text-center text-muted-foreground py-8">No records yet</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          {/* 예시 row UI */}
-          <div className="mt-8">
-            <div className="font-semibold mb-2 text-sm text-muted-foreground">예시</div>
-            <div className="border rounded-lg bg-muted flex items-center px-4 py-3 gap-4 w-full max-w-2xl">
-              <span className="text-2xl text-orange-500">🏃</span>
-              <span className="font-medium">Exercise</span>
-              <span className="text-gray-700 ml-4">30 min</span>
-              <span className="ml-4 flex-1 text-gray-500">Jogging in the park</span>
-              <Button variant="outline" size="sm">메모</Button>
-            </div>
-          </div>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
           <div className="mt-8">
             <div className="font-semibold mb-2 text-sm text-muted-foreground">전체 메모</div>
             <form className="flex flex-col gap-2" onSubmit={handleSaveDailyNote}>
@@ -595,8 +678,70 @@ export default function DailyPage() {
               <div className="mt-2 text-muted-foreground text-sm whitespace-pre-line">{savedDailyNote}</div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <div className="w-full lg:w-96 space-y-4">
+          {selectedMemo && (
+            <Card>
+              <CardHeader>
+                <CardTitle>새 메모 작성</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form className="flex flex-col gap-4" onSubmit={e => { e.preventDefault(); handleMemoSave(); }}>
+                  <Input
+                    placeholder="제목"
+                    value={selectedMemo.title}
+                    onChange={e => setSelectedMemo(prev => prev ? { ...prev, title: e.target.value } : null)}
+                  />
+                  <Textarea
+                    placeholder="내용을 입력하세요..."
+                    value={selectedMemo.content}
+                    onChange={e => setSelectedMemo(prev => prev ? { ...prev, content: e.target.value } : null)}
+                    className="min-h-[200px]"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button type="submit" size="sm">저장</Button>
+                    <Button type="button" size="sm" variant="outline" onClick={handleMemoCancel}>취소</Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+          {memos.map(memo => {
+            const record = records.find(r => r.id === memo.recordId);
+            const cat = record ? CATEGORIES[record.category_code] : null;
+            
+            return (
+              <Card key={memo.id}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {cat && record && (
+                        <span className={`text-2xl ${getCategoryColor(record.category_code)}`}>
+                          {cat.icon}
+                        </span>
+                      )}
+                      <CardTitle className="text-lg">{memo.title || '제목 없음'}</CardTitle>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleMemoDelete(memo.id)}
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {new Date(memo.created_at).toLocaleString()}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="whitespace-pre-line">{memo.content}</div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 } 
