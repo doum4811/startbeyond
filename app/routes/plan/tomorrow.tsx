@@ -8,10 +8,39 @@ import type { Route } from "~/common/types";
 import { Link } from "react-router";
 import { Calendar as CalendarIcon } from "lucide-react";
 
+interface WeeklyTask {
+  id: string;
+  category_code: CategoryCode;
+  comment: string;
+  days: Record<string, boolean>;
+  subcode: string;
+}
+
+interface WeeklyPlan {
+  tasks: WeeklyTask[];
+}
+
 function getTomorrow() {
   const d = new Date();
   d.setDate(d.getDate() + 1);
   return d.toLocaleDateString("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" });
+}
+
+function getTomorrowDay() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return ['일','월','화','수','목','금','토'][d.getDay()];
+}
+
+function getWeekRange(date = new Date()) {
+  const day = date.getDay() || 7; // 일요일=0 → 7
+  const monday = new Date(date);
+  monday.setDate(date.getDate() - day + 1);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  const format = (d: Date) =>
+    `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} (${['일','월','화','수','목','금','토'][d.getDay()]})`;
+  return `${format(monday)} ~ ${format(sunday)}`;
 }
 
 function CalendarPopover() {
@@ -50,17 +79,44 @@ interface AddPlanForm {
   category: CategoryCode;
   duration: string;
   comment: string;
+  subcode: string;
 }
 
 const initialForm: AddPlanForm = {
   category: "EX",
   duration: "",
   comment: "",
+  subcode: "",
 };
 
 export default function TomorrowPlanPage() {
   const [plans, setPlans] = useState<DailyPlan[]>([]);
   const [form, setForm] = useState<AddPlanForm>(initialForm);
+  const [showWeeklyPlans, setShowWeeklyPlans] = useState(true);
+  const [addedWeeklyTaskIds, setAddedWeeklyTaskIds] = useState<Set<string>>(new Set());
+
+  // Mock weekly plans (would come from loader in real app)
+  const [weeklyPlans] = useState<WeeklyPlan>({
+    tasks: [
+      {
+        id: "1",
+        category_code: "EX",
+        comment: "러닝 30분",
+        days: { 월: true, 수: true, 금: true },
+        subcode: "Running"
+      },
+      {
+        id: "2",
+        category_code: "BK",
+        comment: "독서 1시간",
+        days: { 화: true, 목: true },
+        subcode: "Reading"
+      }
+    ]
+  });
+
+  const tomorrowDay = getTomorrowDay();
+  const tomorrowTasks = weeklyPlans.tasks.filter(task => task.days[tomorrowDay]);
 
   function handleCategorySelect(code: CategoryCode) {
     setForm((f) => ({ ...f, category: code }));
@@ -79,6 +135,7 @@ export default function TomorrowPlanPage() {
       duration: form.duration ? Number(form.duration) : undefined,
       unit: "min",
       comment: form.comment,
+      subcode: form.subcode,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
@@ -88,6 +145,30 @@ export default function TomorrowPlanPage() {
 
   function handleDelete(id: string) {
     setPlans((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  function handleAddWeeklyTask(task: WeeklyTask) {
+    if (addedWeeklyTaskIds.has(task.id)) return;
+    const newPlan: DailyPlan = {
+      id: Math.random().toString(36).slice(2),
+      category_code: task.category_code,
+      duration: undefined,
+      unit: "min",
+      comment: task.comment,
+      subcode: task.subcode,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    setPlans(prev => [newPlan, ...prev]);
+    setAddedWeeklyTaskIds(prev => new Set(prev).add(task.id));
+  }
+
+  function handleAddAllWeeklyTasks() {
+    tomorrowTasks.forEach(task => {
+      if (!addedWeeklyTaskIds.has(task.id)) {
+        handleAddWeeklyTask(task);
+      }
+    });
   }
 
   return (
@@ -102,6 +183,66 @@ export default function TomorrowPlanPage() {
           <Link to="/daily">back to daily</Link>
         </Button>
       </div>
+
+      {showWeeklyPlans && (
+        <Card className="mb-8">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CardTitle>이번 주 계획</CardTitle>
+                <div className="text-sm text-muted-foreground">{getWeekRange()}</div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setShowWeeklyPlans(false)}>접기</Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {tomorrowTasks.map(task => (
+                <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{CATEGORIES[task.category_code].icon}</span>
+                    <div>
+                      <div className="font-medium">{task.comment}</div>
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span>{task.subcode}</span>
+                        <span>•</span>
+                        <span>{Object.entries(task.days)
+                          .filter(([_, value]) => value)
+                          .map(([day]) => day)
+                          .join(", ")}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant={addedWeeklyTaskIds.has(task.id) ? "secondary" : "outline"}
+                    size="sm"
+                    onClick={() => handleAddWeeklyTask(task)}
+                    disabled={addedWeeklyTaskIds.has(task.id)}
+                  >
+                    {addedWeeklyTaskIds.has(task.id) ? "추가됨" : "추가"}
+                  </Button>
+                </div>
+              ))}
+              {tomorrowTasks.length === 0 && (
+                <div className="text-center text-muted-foreground py-4">
+                  내일 해당하는 주간 계획이 없습니다
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddAllWeeklyTasks}
+                  disabled={tomorrowTasks.every(t => addedWeeklyTaskIds.has(t.id))}
+                >
+                  모두 추가
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="mb-8">
         <CardHeader>
           <CardTitle>Tomorrow Plan</CardTitle>
@@ -126,6 +267,13 @@ export default function TomorrowPlanPage() {
             </div>
             <div className="flex gap-2">
               <Input
+                id="subcode"
+                placeholder="세부코드"
+                value={form.subcode}
+                onChange={handleFormChange}
+                className="w-32"
+              />
+              <Input
                 id="duration"
                 type="number"
                 min={0}
@@ -146,6 +294,7 @@ export default function TomorrowPlanPage() {
           </form>
         </CardContent>
       </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Planned Activities</CardTitle>
@@ -156,8 +305,9 @@ export default function TomorrowPlanPage() {
               <thead>
                 <tr className="border-b">
                   <th className="py-2 px-2 text-left">Code</th>
+                  <th className="py-2 px-2 text-left">Subcode</th>
                   <th className="py-2 px-2 text-left">Duration</th>
-                  <th className="py-2 px-2 text-left">Memo</th>
+                  <th className="py-2 px-2 text-left">Comment</th>
                   <th className="py-2 px-2 text-center">Action</th>
                 </tr>
               </thead>
@@ -170,6 +320,7 @@ export default function TomorrowPlanPage() {
                         <span className="text-2xl">{cat.icon}</span>
                         <span className="font-medium">{cat.label}</span>
                       </td>
+                      <td className="py-2 px-2">{plan.subcode || <span className="text-muted-foreground">-</span>}</td>
                       <td className="py-2 px-2">{plan.duration ? `${plan.duration}분` : "-"}</td>
                       <td className="py-2 px-2">{plan.comment || <span className="text-muted-foreground">No memo</span>}</td>
                       <td className="py-2 px-2 text-center">
@@ -180,7 +331,7 @@ export default function TomorrowPlanPage() {
                 })}
                 {plans.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="text-center text-muted-foreground py-8">No plans yet</td>
+                    <td colSpan={5} className="text-center text-muted-foreground py-8">No plans yet</td>
                   </tr>
                 )}
               </tbody>

@@ -40,7 +40,6 @@ export interface DailyPlan {
   duration?: number;
   unit?: string;
   comment?: string;
-  subcode?: string;
   created_at: string;
   updated_at: string;
 } 

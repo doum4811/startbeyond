@@ -61,7 +61,8 @@ const mockPlans: DailyPlan[] = [
     category_code: "EX",
     duration: 30,
     unit: "min",
-    comment: "",
+    comment: "러닝",
+    subcode: "Running",
     created_at: "",
     updated_at: "",
   },
@@ -70,7 +71,8 @@ const mockPlans: DailyPlan[] = [
     category_code: "BK",
     duration: 20,
     unit: "pages",
-    comment: "",
+    comment: "독서",
+    subcode: "Reading",
     created_at: "",
     updated_at: "",
   },
@@ -127,6 +129,7 @@ function PlanBanner({ plans, onAddAll, onDismiss, onAdd, addedPlanIds }: {
           <thead>
             <tr className="border-b">
               <th className="py-2 px-2 text-left">Code</th>
+              <th className="py-2 px-2 text-left">Subcode</th>
               <th className="py-2 px-2 text-left">Duration</th>
               <th className="py-2 px-2 text-left">Memo</th>
               <th className="py-2 px-2 text-center">Action</th>
@@ -135,7 +138,7 @@ function PlanBanner({ plans, onAddAll, onDismiss, onAdd, addedPlanIds }: {
           <tbody>
             {plans.length === 0 ? (
               <tr>
-                <td colSpan={4} className="text-center text-muted-foreground py-4">작성한 계획이 없습니다</td>
+                <td colSpan={5} className="text-center text-muted-foreground py-4">작성한 계획이 없습니다</td>
               </tr>
             ) : (
               plans.map(plan => (
@@ -144,6 +147,7 @@ function PlanBanner({ plans, onAddAll, onDismiss, onAdd, addedPlanIds }: {
                     <span className={`text-2xl ${getCategoryColor(plan.category_code)}`}>{CATEGORIES[plan.category_code].icon}</span>
                     <span className="font-medium">{CATEGORIES[plan.category_code].label}</span>
                   </td>
+                  <td className="py-2 px-2">{plan.subcode || <span className="text-muted-foreground">-</span>}</td>
                   <td className="py-2 px-2">
                     {plan.duration ? `${plan.duration}분` : "-"}
                   </td>
@@ -369,6 +373,7 @@ export default function DailyPage() {
       duration: plan.duration,
       unit: plan.unit,
       comment: plan.comment,
+      subcode: plan.subcode,
       public: false,
       type: "record",
       created_at: new Date().toISOString(),
@@ -390,6 +395,15 @@ export default function DailyPage() {
   }
 
   function handleDeleteRow(id: string) {
+    const record = records.find(r => r.id === id);
+    if (record?.linked_plan_id) {
+      // 어제 작성한 계획에서 가져온 Task가 삭제되면 addedPlanIds에서 제거
+      setAddedPlanIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(record.linked_plan_id!);
+        return newSet;
+      });
+    }
     setRecords(prev => prev.filter(r => r.id !== id));
     setMemos(prev => prev.filter(m => m.recordId !== id));
     setExpandedRow(null);
@@ -511,13 +525,13 @@ export default function DailyPage() {
                       className={`w-16 h-16 flex flex-col items-center justify-center rounded-lg border ${selectedRowId ? ((isEditing ? editRowCategory : selectedRecord?.category_code) === code ? 'ring-2 ring-primary' : '') : (form.category === code ? 'ring-2 ring-primary' : '')}`}
                       onClick={() => {
                         if (selectedRowId) {
-                          if (isEditing) setEditRowCategory(code as CategoryCode);
+                          if (isEditing && !selectedRecord?.linked_plan_id) setEditRowCategory(code as CategoryCode);
                         } else {
                           setForm(f => ({ ...f, category: code as CategoryCode }));
                         }
                       }}
                       style={{ minWidth: 64, minHeight: 64 }}
-                      disabled={selectedRowId ? !isEditing : false}
+                      disabled={selectedRowId ? (!isEditing || !!selectedRecord?.linked_plan_id) : false}
                     >
                       <span className="text-2xl mb-1">{cat.icon}</span>
                       <span className="text-xs font-medium text-center leading-tight">{cat.label}</span>
