@@ -4,7 +4,7 @@ import { Button } from "~/common/components/ui/button";
 import { Input } from "~/common/components/ui/input";
 import { Textarea } from "~/common/components/ui/textarea";
 import { CATEGORIES, type CategoryCode, type DailyPlan } from "~/common/types/daily";
-import type { Route } from "~/common/types";
+// import type { Route } from "~/common/types";
 import { Link } from "react-router";
 import { Calendar as CalendarIcon } from "lucide-react";
 
@@ -60,20 +60,20 @@ function CalendarPopover() {
   );
 }
 
-export function loader({ request }: Route.LoaderArgs) {
-  return {};
-}
+// export function loader({ request }: Route.LoaderArgs) {
+//   return {};
+// }
 
-export function action({ request }: Route.ActionArgs) {
-  return {};
-}
+// export function action({ request }: Route.ActionArgs) {
+//   return {};
+// }
 
-export function meta({ data }: Route.MetaArgs) {
-  return [
-    { title: "Tomorrow Plan - StartBeyond" },
-    { name: "description", content: "Plan your tomorrow activities" },
-  ];
-}
+// export function meta({ data }: Route.MetaArgs) {
+//   return [
+//     { title: "Tomorrow Plan - StartBeyond" },
+//     { name: "description", content: "Plan your tomorrow activities" },
+//   ];
+// }
 
 interface AddPlanForm {
   category: CategoryCode;

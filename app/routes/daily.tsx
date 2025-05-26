@@ -8,7 +8,7 @@ import { Textarea } from "~/common/components/ui/textarea";
 import { Lock, Unlock, Plus, X, Bell, Calendar as CalendarIcon } from "lucide-react";
 import { CATEGORIES, type CategoryCode, type DailyRecord, type DailyPlan } from "~/common/types/daily";
 import { Calendar } from "~/common/components/ui/calendar";
-import type { Route } from "~/common/types";
+// import type { Route } from "~/common/types";
 import { Link } from "react-router";
 import { DateTime } from "luxon";
 
@@ -25,20 +25,20 @@ function getCategoryColor(code: CategoryCode) {
   return map[code];
 }
 
-export function loader({ request }: Route.LoaderArgs) {
-  return {};
-}
+// export function loader({ request }: Route.LoaderArgs) {
+//   return {};
+// }
 
-export function action({ request }: Route.ActionArgs) {
-  return {};
-}
+// export function action({ request }: Route.ActionArgs) {
+//   return {};
+// }
 
-export function meta({ data }: Route.MetaArgs) {
-  return [
-    { title: "Daily Tracking - StartBeyond" },
-    { name: "description", content: "Track your daily activities" },
-  ];
-}
+// export function meta({ data }: Route.MetaArgs) {
+//   return [
+//     { title: "Daily Tracking - StartBeyond" },
+//     { name: "description", content: "Track your daily activities" },
+//   ];
+// }
 
 interface AddFormState {
   category: CategoryCode;
