@@ -7,6 +7,7 @@ import { CATEGORIES, type CategoryCode } from "~/common/types/daily";
 import type { Route } from "~/common/types";
 import { Link } from "react-router";
 import { Calendar as CalendarIcon } from "lucide-react";
+import { DateTime } from "luxon";
 
 interface WeeklyTask {
   id: string;
@@ -42,22 +43,21 @@ const DAYS = ["월", "화", "수", "목", "금", "토", "일"];
 const DEFAULT_CATEGORY: CategoryCode = "EX";
 
 function getWeekRange(date = new Date()) {
-  const day = date.getDay() || 7; // 일요일=0 → 7
-  const monday = new Date(date);
-  monday.setDate(date.getDate() - day + 1);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  const format = (d: Date) =>
-    `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')} (${['일','월','화','수','목','금','토'][d.getDay()]})`;
+  const dt = DateTime.fromJSDate(date);
+  const monday = dt.startOf('week');
+  const sunday = monday.plus({ days: 6 });
+  
+  const format = (d: DateTime) =>
+    `${d.toFormat('yyyy.MM.dd')} (${['일','월','화','수','목','금','토'][d.weekday % 7]})`;
+  
   return `${format(monday)} ~ ${format(sunday)}`;
 }
 
 function getCurrentWeekNumber() {
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const diff = now.getTime() - start.getTime();
-  const weekNumber = Math.floor(diff / (7 * 24 * 60 * 60 * 1000)) + 1;
-  return Math.min(Math.max(weekNumber, 1), 4); // 1-4 사이의 값 반환
+  const now = DateTime.now();
+  const start = now.startOf('month');
+  const diff = now.diff(start, 'weeks').weeks;
+  return Math.min(Math.max(Math.floor(diff) + 1, 1), 4); // 1-4 사이의 값 반환
 }
 
 export default function WeeklyPlanPage() {

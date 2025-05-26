@@ -7,6 +7,9 @@ import { CATEGORIES, type CategoryCode } from "~/common/types/daily";
 import type { Route } from "~/common/types";
 import { Link } from "react-router";
 import { Calendar as CalendarIcon } from "lucide-react";
+import { DateTime } from "luxon";
+import { Calendar } from "~/common/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "~/common/components/ui/popover";
 
 interface MonthlyGoal {
   id: string;
@@ -34,13 +37,10 @@ interface MonthlyPlanState {
 }
 
 function getMonthRange(date = new Date()) {
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const format = (d: Date) =>
-    `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
-  return `${format(firstDay)} ~ ${format(lastDay)}`;
+  const dt = DateTime.fromJSDate(date);
+  const firstDay = dt.startOf('month');
+  const lastDay = dt.endOf('month');
+  return `${firstDay.toFormat('yyyy.MM.dd')} ~ ${lastDay.toFormat('yyyy.MM.dd')}`;
 }
 
 export function loader({ request }: Route.LoaderArgs) {
@@ -449,19 +449,52 @@ export default function MonthlyPlanPage() {
   );
 }
 
-function CalendarPopover() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <Button variant="ghost" size="icon" onClick={() => setOpen((v) => !v)} aria-label="달력 열기">
-        <CalendarIcon className="w-5 h-5" />
-      </Button>
-      {open && (
-        <div className="absolute left-0 mt-2 z-50 bg-background border rounded-xl shadow-lg p-2">
-          {/* 달력 컴포넌트 연결 가능 */}
-          <div className="text-muted-foreground text-sm p-4">(달력 자리)</div>
-        </div>
-      )}
-    </div>
-  );
-} 
+// function CalendarPopover() {
+//   const [open, setOpen] = useState(false);
+//   const [date, setDate] = useState<Date | undefined>(new Date());
+
+//   return (
+//     <Popover open={open} onOpenChange={setOpen}>
+//       <PopoverTrigger asChild>
+//         <Button variant="ghost" size="icon" aria-label="달력 열기">
+//           <CalendarIcon className="w-5 h-5" />
+//         </Button>
+//       </PopoverTrigger>
+//       <PopoverContent className="w-auto p-0" align="start">
+//         <Calendar
+//           mode="single"
+//           selected={date}
+//           onSelect={(newDate: Date | undefined) => {
+//             setDate(newDate);
+//             setOpen(false);
+//           }}
+//         />
+//       </PopoverContent>
+//     </Popover>
+//   );
+// } 
+
+export function CalendarPopover() {
+    const [open, setOpen] = useState(false)
+    const [date, setDate] = useState<DateTime>(DateTime.now())
+  
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="ghost" size="icon" aria-label="달력 열기">
+            <CalendarIcon className="w-5 h-5" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            selectedDate={date}
+            onDateChange={(newDate: DateTime) => {
+              setDate(newDate)
+              setOpen(false)
+            }}
+          />
+        </PopoverContent>
+      </Popover>
+    )
+  }
+  

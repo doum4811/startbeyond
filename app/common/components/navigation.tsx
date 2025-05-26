@@ -20,17 +20,17 @@ const menus = [
             {
                 name: "Tomorrow",
                 description: "Plan for tomorrow",
-                to: "/plan-tomorrow"
+                to: "/plan/tomorrow"
             },
             {
                 name: "Weekly",
                 description: "Plan for weekly",
-                to: "/plan-weekly"
+                to: "/plan/weekly"
             },
             {
                 name: "Monthly",
                 description: "Plan for monthly",
-                to: "/plan-monthly"
+                to: "/plan/monthly"
             },
             // {
             //     name: "Quarterly",

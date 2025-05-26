@@ -1,3 +1,88 @@
+// import {
+//   isRouteErrorResponse,
+//   Links,
+//   Meta,
+//   Outlet,
+//   Scripts,
+//   ScrollRestoration,
+// } from "react-router";
+
+// import type { Route } from "./+types/root";
+// import "./app.css";
+// import Navigation from "./common/components/navigation";
+
+// // console.log(stylesheet); 예시는 위가 import stylesheet from "./app.css?url"; 이였음
+
+
+// export const links: Route.LinksFunction = () => [
+//   { rel: "preconnect", href: "https://fonts.googleapis.com" },
+//   {
+//     rel: "preconnect",
+//     href: "https://fonts.gstatic.com",
+//     crossOrigin: "anonymous",
+//   },
+//   {
+//     rel: "stylesheet",
+//     href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
+//   },
+// ];
+
+// export function Layout({ children }: { children: React.ReactNode }) {
+//   return (
+//     <html lang="en" className="dark" >
+//       <head>
+//         <meta charSet="utf-8" />
+//         <meta name="viewport" content="width=device-width, initial-scale=1" />
+//         <Meta />
+//         <Links />
+//       </head>
+//       <body>
+//         {/* 에러 페이지에서도 넣고 싶은 경우 <Navigation /> */}
+//         {children}
+//         <ScrollRestoration />
+//         <Scripts />
+//       </body>
+//     </html>
+//   );
+// }
+
+// export default function App() {
+//   return (
+//     <>
+//       <Navigation isLoggedIn={true} hasNotifications={true} hasMessages={true}/>
+//       <Outlet />
+//     </>
+//   );
+// }
+
+// export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+//   let message = "Oops!";
+//   let details = "An unexpected error occurred.";
+//   let stack: string | undefined;
+
+//   if (isRouteErrorResponse(error)) {
+//     message = error.status === 404 ? "404" : "Error";
+//     details =
+//       error.status === 404
+//         ? "The requested page could not be found."
+//         : error.statusText || details;
+//   } else if (import.meta.env.DEV && error && error instanceof Error) {
+//     details = error.message;
+//     stack = error.stack;
+//   }
+
+//   return (
+//     <main className="pt-16 p-4 container mx-auto">
+//       <h1>{message}</h1>
+//       <p>{details}</p>
+//       {stack && (
+//         <pre className="w-full p-4 overflow-x-auto">
+//           <code>{stack}</code>
+//         </pre>
+//       )}
+//     </main>
+//   );
+// }
 import {
   isRouteErrorResponse,
   Links,
@@ -5,14 +90,13 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLocation,
 } from "react-router";
 
 import type { Route } from "./+types/root";
-import "./app.css";
+import stylesheet from "./app.css?url";
 import Navigation from "./common/components/navigation";
-
-// console.log(stylesheet); 예시는 위가 import stylesheet from "./app.css?url"; 이였음
-
+import { Settings } from "luxon";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -25,10 +109,14 @@ export const links: Route.LinksFunction = () => [
     rel: "stylesheet",
     href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
   },
+  { rel: "stylesheet", href: stylesheet },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  Settings.defaultLocale = "ko";
+  Settings.defaultZone = "Asia/Seoul";
   return (
+    // <html lang="en" className="">
     <html lang="en" className="dark" >
       <head>
         <meta charSet="utf-8" />
@@ -37,8 +125,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        {/* 에러 페이지에서도 넣고 싶은 경우 <Navigation /> */}
-        {children}
+        <main>{children}</main>
         <ScrollRestoration />
         <Scripts />
       </body>
@@ -47,11 +134,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const { pathname } = useLocation();
   return (
-    <>
-      <Navigation isLoggedIn={true} hasNotifications={true} hasMessages={true}/>
+    <div className={pathname.includes("/auth/") ? "" : "py-28 px-20"}>
+      {pathname.includes("/auth") ? null : (
+        <Navigation
+          isLoggedIn={false}
+          hasNotifications={false}
+          hasMessages={false}
+        />
+      )}
       <Outlet />
-    </>
+    </div>
   );
 }
 

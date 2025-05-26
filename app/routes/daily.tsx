@@ -10,6 +10,8 @@ import { CATEGORIES, type CategoryCode, type DailyRecord, type DailyPlan } from 
 import { Calendar } from "~/common/components/ui/calendar";
 import type { Route } from "~/common/types";
 import { Link } from "react-router";
+import { DateTime } from "luxon";
+
 
 function getToday() {
   return new Date().toLocaleDateString("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" });
@@ -86,30 +88,61 @@ const mockRecordDates = [
   "2024-05-12",
 ];
 
+// function CalendarPopover({ markedDates }: { markedDates: string[] }) {
+//   const [open, setOpen] = useState(false);
+//   return (
+//     <div className="relative">
+//       <Button variant="ghost" size="icon" onClick={() => setOpen((v) => !v)} aria-label="달력 열기">
+//         <CalendarIcon className="w-5 h-5" />
+//       </Button>
+//       {open && (
+//         <div className="absolute left-0 mt-2 z-50 bg-background border rounded-xl shadow-lg p-2">
+//           <Calendar
+//             mode="single"
+//             modifiers={{
+//              // marked: (date) => markedDates.includes(date.toISOString().slice(0, 10)),
+//             }}
+//             modifiersClassNames={{
+//               marked: "after:content-[''] after:block after:w-1.5 after:h-1.5 after:rounded-full after:bg-primary after:mx-auto after:mt-0.5",
+//             }}
+//             onDayClick={() => setOpen(false)}
+//           />
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
 function CalendarPopover({ markedDates }: { markedDates: string[] }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false)
+  const [date, setDate] = useState(DateTime.now())
+
   return (
     <div className="relative">
-      <Button variant="ghost" size="icon" onClick={() => setOpen((v) => !v)} aria-label="달력 열기">
-        <CalendarIcon className="w-5 h-5" />
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="달력 열기"
+      >
+        <CalendarIcon className="w-10 h-10" />
       </Button>
       {open && (
         <div className="absolute left-0 mt-2 z-50 bg-background border rounded-xl shadow-lg p-2">
           <Calendar
-            mode="single"
-            modifiers={{
-              marked: (date) => markedDates.includes(date.toISOString().slice(0, 10)),
+            className="w-[320px] p-6" 
+            selectedDate={date}
+            onDateChange={(d) => {
+              setDate(d)
+              setOpen(false)
             }}
-            modifiersClassNames={{
-              marked: "after:content-[''] after:block after:w-1.5 after:h-1.5 after:rounded-full after:bg-primary after:mx-auto after:mt-0.5",
-            }}
-            onDayClick={() => setOpen(false)}
+            markedDates={markedDates}
           />
         </div>
       )}
     </div>
-  );
+  )
 }
+
 
 function PlanBanner({ plans, onAddAll, onDismiss, onAdd, addedPlanIds }: {
   plans: DailyPlan[];
@@ -131,7 +164,7 @@ function PlanBanner({ plans, onAddAll, onDismiss, onAdd, addedPlanIds }: {
               <th className="py-2 px-2 text-left">Code</th>
               <th className="py-2 px-2 text-left">Subcode</th>
               <th className="py-2 px-2 text-left">Duration</th>
-              <th className="py-2 px-2 text-left">Memo</th>
+              <th className="py-2 px-2 text-left">Comment</th>
               <th className="py-2 px-2 text-center">Action</th>
             </tr>
           </thead>
