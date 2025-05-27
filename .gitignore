@@ -1,6 +1,14 @@
+# 환경 설정
+.env
+!.env.example
+
+# macOS
 .DS_Store
+
+# 의존성
 /node_modules/
 
-# React Router
-/.react-router/
+# 빌드 및 캐시
 /build/
+.react-router/
+*.tsbuildinfo
