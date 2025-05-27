@@ -9,6 +9,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '~
 import { Switch } from '~/common/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/common/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '~/common/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '~/common/components/ui/alert-dialog';
 import { PlusCircle, Edit, Trash2, Palette, Search, GripVertical, Check, X, Star } from 'lucide-react';
 import { type CategoryCode, CATEGORIES as DEFAULT_CATEGORIES } from '~/common/types/daily'; // 기본 카테고리 및 타입 임포트
 
@@ -84,6 +94,7 @@ function UserCategoryForm({ category, onSave, onCancel }: {
   const [customIconText, setCustomIconText] = useState(() => isTextIcon ? (category?.icon || '') : '');
   const [color, setColor] = useState(category?.color || '#cccccc');
   const [isActive, setIsActive] = useState(category?.isActive ?? true);
+  const [codeError, setCodeError] = useState('');
 
   useEffect(() => {
     if (category) {
@@ -96,6 +107,7 @@ function UserCategoryForm({ category, onSave, onCancel }: {
       setCustomIconText(textIcon ? initialIcon : '');
       setColor(category.color || '#cccccc');
       setIsActive(category.isActive ?? true);
+      setCodeError(''); 
     } else {
         // Reset for new category form
         setCode('');
@@ -106,10 +118,16 @@ function UserCategoryForm({ category, onSave, onCancel }: {
         setCustomIconText('');
         setColor('#cccccc');
         setIsActive(true);
+        setCodeError('');
     }
   }, [category]);
 
   const handleSubmit = () => {
+    if (!code.trim()) {
+      setCodeError('코드는 필수 항목입니다.');
+      return;
+    }
+    setCodeError('');
     onSave({
       id: category?.id,
       code: code.toUpperCase(),
@@ -118,13 +136,15 @@ function UserCategoryForm({ category, onSave, onCancel }: {
       color,
       isActive
     });
+    onCancel(); // Close dialog on successful save
   };
 
   return (
     <div className="space-y-4 py-2">
       <div>
         <Label htmlFor="category-code">코드 (영문 대문자, 숫자, _, 최대 10자)</Label>
-        <Input id="category-code" value={code} onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 10))} placeholder="예: MY_STUDY" />
+        <Input id="category-code" value={code} onChange={(e) => { setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 10)); setCodeError(''); }} placeholder="예: MY_STUDY" />
+        {codeError && <p className="text-sm text-red-500 pt-1">{codeError}</p>}
       </div>
       <div>
         <Label htmlFor="category-label">레이블 (화면에 표시될 이름)</Label>
@@ -162,12 +182,8 @@ function UserCategoryForm({ category, onSave, onCancel }: {
         <Label htmlFor="category-active">활성화 (앱 전체에서 사용)</Label>
       </div>
       <DialogFooter className="pt-6">
-        <DialogClose asChild>
-            <Button variant="outline" onClick={onCancel}>취소</Button>
-        </DialogClose>
-        <DialogClose asChild>
-            <Button onClick={handleSubmit}>{category ? '수정 완료' : '추가'}</Button>
-        </DialogClose>
+        <Button variant="outline" onClick={onCancel}>취소</Button>
+        <Button onClick={handleSubmit}>{category ? '수정 완료' : '추가'}</Button>
       </DialogFooter>
     </div>
   );
@@ -181,32 +197,41 @@ function UserSubcodeForm({ subcode, selectedCategoryCode, allCategories, onSave,
     onCancel: () => void;
 }) {
     const [categoryCode, setCategoryCode] = useState(subcode?.categoryCode || selectedCategoryCode);
-    const [code, setCode] = useState(subcode?.subcode || '');
+    const [currentSubcode, setCurrentSubcode] = useState(subcode?.subcode || '');
     const [description, setDescription] = useState(subcode?.description || '');
     const [isFavorite, setIsFavorite] = useState(subcode?.isFavorite || false);
+    const [subcodeError, setSubcodeError] = useState('');
 
     useEffect(() => {
         if (subcode) {
             setCategoryCode(subcode.categoryCode);
-            setCode(subcode.subcode);
+            setCurrentSubcode(subcode.subcode);
             setDescription(subcode.description || '');
             setIsFavorite(subcode.isFavorite || false);
+            setSubcodeError('');
         } else {
             setCategoryCode(selectedCategoryCode);
-            setCode('');
+            setCurrentSubcode('');
             setDescription('');
             setIsFavorite(false);
+            setSubcodeError('');
         }
     }, [subcode, selectedCategoryCode]);
 
     const handleSubmit = () => {
+        if (!currentSubcode.trim()) {
+            setSubcodeError('세부코드 명칭은 필수 항목입니다.');
+            return;
+        }
+        setSubcodeError('');
         onSave({
             id: subcode?.id,
             categoryCode,
-            subcode: code,
+            subcode: currentSubcode,
             description,
             isFavorite
         });
+        onCancel(); // Close dialog on successful save
     };
 
     return (
@@ -222,7 +247,8 @@ function UserSubcodeForm({ subcode, selectedCategoryCode, allCategories, onSave,
             </div>
             <div>
                 <Label htmlFor="subcode-code">세부코드 명칭</Label>
-                <Input id="subcode-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="예: React 강의" />
+                <Input id="subcode-code" value={currentSubcode} onChange={(e) => {setCurrentSubcode(e.target.value); setSubcodeError('');}} placeholder="예: React 강의" />
+                {subcodeError && <p className="text-sm text-red-500 pt-1">{subcodeError}</p>}
             </div>
             <div>
                 <Label htmlFor="subcode-description">설명 (선택)</Label>
@@ -233,12 +259,8 @@ function UserSubcodeForm({ subcode, selectedCategoryCode, allCategories, onSave,
                 <Label htmlFor="subcode-favorite">즐겨찾기 (입력 시 우선 추천)</Label>
             </div>
             <DialogFooter className="pt-6">
-                <DialogClose asChild>
-                    <Button variant="outline" onClick={onCancel}>취소</Button>
-                </DialogClose>
-                 <DialogClose asChild>
-                    <Button onClick={handleSubmit}>{subcode ? '수정 완료' : '추가'}</Button>
-                </DialogClose>
+                <Button variant="outline" onClick={onCancel}>취소</Button>
+                <Button onClick={handleSubmit}>{subcode ? '수정 완료' : '추가'}</Button>
             </DialogFooter>
         </div>
     );
@@ -254,6 +276,8 @@ export default function SettingsPage() {
   const [selectedCategoryForSubcode, setSelectedCategoryForSubcode] = useState<string>(
     MOCK_USER_CATEGORIES[0]?.code || Object.keys(DEFAULT_CATEGORIES)[0] || ''
   );
+  const [showDeactivationAlert, setShowDeactivationAlert] = useState(false);
+  const [codeToDeactivate, setCodeToDeactivate] = useState<DefaultCodePreference | null>(null);
 
   // 기본 코드 상태 관리 (DB 연동 가정)
   const [defaultCodePreferences, setDefaultCodePreferences] = useState<DefaultCodePreference[]>(() =>
@@ -293,14 +317,24 @@ export default function SettingsPage() {
   };
 
   // --- Default Code Preference Handlers ---
-  const toggleDefaultCategoryActive = (code: CategoryCode) => {
-    // 실제로는 API 호출하여 DB 업데이트
+  const attemptToggleDefaultCategoryActive = (codePref: DefaultCodePreference) => {
+    const numSubcodes = userSubcodes.filter(sc => sc.categoryCode === codePref.code).length;
+    if (codePref.isActive && numSubcodes > 0) { // If attempting to deactivate and subcodes exist
+        setCodeToDeactivate(codePref);
+        setShowDeactivationAlert(true);
+    } else { // Activate or deactivate without subcodes
+        proceedToggleDefaultCategoryActive(codePref.code);
+    }
+  };
+
+  const proceedToggleDefaultCategoryActive = (codeToToggle: CategoryCode) => {
     setDefaultCodePreferences(prev =>
-      prev.map(cat =>
-        cat.code === code ? { ...cat, isActive: !cat.isActive } : cat
-      )
+        prev.map(cat =>
+            cat.code === codeToToggle ? { ...cat, isActive: !cat.isActive } : cat
+        )
     );
-    // 기본 코드 비활성화 시, 관련된 세부코드도 화면에서 필터링 (DB에서 삭제는 아님)
+    setCodeToDeactivate(null); 
+    setShowDeactivationAlert(false);
   };
 
   // --- User Subcode Handlers ---
@@ -370,7 +404,7 @@ export default function SettingsPage() {
                           {!cat.isActive && <span className="text-xs text-orange-500">현재 비활성 (표시되지 않음)</span>}
                         </div>
                       </div>
-                      <Switch checked={cat.isActive} onCheckedChange={() => toggleDefaultCategoryActive(cat.code)} />
+                      <Switch checked={cat.isActive} onCheckedChange={() => attemptToggleDefaultCategoryActive(cat)} />
                     </div>
                   ))}
                 </div>
@@ -556,6 +590,26 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      
+      {/* Default Code Deactivation Alert */}
+      <AlertDialog open={showDeactivationAlert} onOpenChange={setShowDeactivationAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>기본 코드 비활성화 경고</AlertDialogTitle>
+            <AlertDialogDescription>
+              '{codeToDeactivate?.label}' ({codeToDeactivate?.code}) 코드를 비활성화하시겠습니까? 
+              이 코드에 연결된 사용자 정의 세부코드는 삭제되지 않지만, 이 기본 코드가 비활성화되어 있는 동안에는 숨겨지고 새 항목에 사용할 수 없게 됩니다.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {setShowDeactivationAlert(false); setCodeToDeactivate(null);}}>취소</AlertDialogCancel>
+            <AlertDialogAction onClick={() => codeToDeactivate && proceedToggleDefaultCategoryActive(codeToDeactivate.code)}>
+              비활성화 진행
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 } 
