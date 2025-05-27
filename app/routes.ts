@@ -2,15 +2,15 @@ import { type RouteConfig, index, layout, prefix, route } from "@react-router/de
 
 export default [
     index("common/pages/home-page.tsx"),
-    route("daily", "routes/daily.tsx"),
+    route("daily", "features/daily/pages/daily-page.tsx"),
     ...prefix("plan", [
-        //index("routes/plan/index.tsx"),
-        route("tomorrow", "routes/plan/tomorrow.tsx"),
-        route("weekly", "routes/plan/weekly.tsx"),
-        route("monthly", "routes/plan/monthly.tsx"),
+        //index("features/plan/pages/plan-page.tsx"),
+        route("tomorrow", "features/plan/pages/tomorrow-page.tsx"),
+        route("weekly", "features/plan/pages/weekly-page.tsx"),
+        route("monthly", "features/plan/pages/monthly-page.tsx"),
     ]),
-    route("stats", "routes/stats.tsx"),
-    route("settings", "routes/settings.tsx"),
+    route("stats", "features/stats/pages/stats-page.tsx"),
+    route("settings", "features/settings/pages/settings-page.tsx"),
     ...prefix("/auth", [
         layout("features/auth/layouts/auth-layout.tsx", [
           route("/login", "features/auth/pages/login-page.tsx"),
