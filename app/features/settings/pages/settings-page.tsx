@@ -249,8 +249,8 @@ function UserSubcodeForm({ subcode, selectedCategoryCode, allCategories, onSave,
                 <Label htmlFor="subcode-code">세부코드 명칭</Label>
                 <Input id="subcode-code" value={currentSubcode} onChange={(e) => {setCurrentSubcode(e.target.value); setSubcodeError('');}} placeholder="예: React 강의" />
                 {subcodeError && <p className="text-sm text-red-500 pt-1">{subcodeError}</p>}
-            </div>
-            <div>
+        </div>
+        <div>
                 <Label htmlFor="subcode-description">설명 (선택)</Label>
                 <Input id="subcode-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="예: Udemy 강의 시청" />
             </div>
