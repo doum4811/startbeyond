@@ -1,26 +1,47 @@
 import client from "~/supa-client";
 import type { Database } from "database.types";
+import { DateTime } from "luxon";
 
 // Types from database.types.ts
-type DailyPlanTable = Database['public']['Tables']['daily_plans'];
-type DailyPlan = DailyPlanTable['Row'];
-type DailyPlanInsert = DailyPlanTable['Insert'];
+export type DailyRecordTable = Database['public']['Tables']['daily_records'];
+export type DailyRecord = DailyRecordTable['Row'];
+export type DailyRecordInsert = DailyRecordTable['Insert'];
+export type DailyRecordUpdate = DailyRecordTable['Update'];
 
-type WeeklyTaskTable = Database['public']['Tables']['weekly_tasks'];
-type WeeklyTask = WeeklyTaskTable['Row'];
-type WeeklyTaskInsert = WeeklyTaskTable['Insert'];
+export type DailyNoteTable = Database['public']['Tables']['daily_notes'];
+export type DailyNote = DailyNoteTable['Row'];
+export type DailyNoteInsert = DailyNoteTable['Insert'];
+// No DailyNoteUpdate as we typically upsert notes.
 
-type WeeklyNoteTable = Database['public']['Tables']['weekly_notes'];
-type WeeklyNote = WeeklyNoteTable['Row'];
-type WeeklyNoteInsert = WeeklyNoteTable['Insert'];
+export type MemoTable = Database['public']['Tables']['memos'];
+export type Memo = MemoTable['Row'];
+export type MemoInsert = MemoTable['Insert'];
+// No MemoUpdate, perhaps delete and re-create if needed, or add if specific fields are updatable.
 
-type MonthlyGoalTable = Database['public']['Tables']['monthly_goals'];
-type MonthlyGoal = MonthlyGoalTable['Row'];
-type MonthlyGoalInsert = MonthlyGoalTable['Insert'];
+export type DailyPlanTable = Database['public']['Tables']['daily_plans'];
+export type DailyPlan = DailyPlanTable['Row'];
+export type DailyPlanInsert = DailyPlanTable['Insert'];
+export type DailyPlanUpdate = DailyPlanTable['Update'];
 
-type MonthlyReflectionTable = Database['public']['Tables']['monthly_reflections'];
-type MonthlyReflection = MonthlyReflectionTable['Row'];
-type MonthlyReflectionInsert = MonthlyReflectionTable['Insert'];
+export type WeeklyTaskTable = Database['public']['Tables']['weekly_tasks'];
+export type WeeklyTask = WeeklyTaskTable['Row'];
+export type WeeklyTaskInsert = WeeklyTaskTable['Insert'];
+export type WeeklyTaskUpdate = WeeklyTaskTable['Update'];
+
+// Renaming to avoid conflict if MonthlyGoal is already a table type from Database
+export type MonthlyGoalRow = Database['public']['Tables']['monthly_goals']['Row'];
+export type MonthlyGoalInsert = Database['public']['Tables']['monthly_goals']['Insert'];
+export type MonthlyGoalUpdate = Database['public']['Tables']['monthly_goals']['Update'];
+
+export type WeeklyNoteTable = Database['public']['Tables']['weekly_notes'];
+export type WeeklyNote = WeeklyNoteTable['Row'];
+export type WeeklyNoteInsert = WeeklyNoteTable['Insert'];
+export type WeeklyNoteUpdate = WeeklyNoteTable['Update'];
+
+export type MonthlyReflectionTable = Database['public']['Tables']['monthly_reflections'];
+export type MonthlyReflection = MonthlyReflectionTable['Row'];
+export type MonthlyReflectionInsert = MonthlyReflectionTable['Insert'];
+export type MonthlyReflectionUpdate = MonthlyReflectionTable['Update'];
 
 // Column constants
 const DAILY_PLAN_COLUMNS = `
@@ -241,7 +262,14 @@ export async function updateWeeklyTask(
     .single();
 
   if (error) {
-    console.error("Error updating weekly task:", error.message);
+    console.error("[updateWeeklyTask] Supabase error object:", JSON.stringify(error, null, 2)); // Log the full error object
+    // PGRST116: "Failed to find a unique row..." - The row was not found for update
+    if (error.code === 'PGRST116') {
+      console.warn(`[updateWeeklyTask] Task not found for update (taskId: ${taskId}, profileId: ${profileId}). No rows updated.`);
+      return null;
+    }
+    // Log details for unexpected errors before re-throwing
+    console.error(`[updateWeeklyTask] Unexpected error updating weekly task (taskId: ${taskId}, profileId: ${profileId}):`, error.message);
     throw new Error(error.message);
   }
   return data;
@@ -287,17 +315,64 @@ export async function getWeeklyNoteByWeek(
 export async function upsertWeeklyNote(
   noteData: WeeklyNoteInsert
 ) {
-  const { data, error } = await client
+  // Check if a note already exists for this profile and week
+  const { data: existingNote, error: fetchError } = await client
     .from("weekly_notes")
-    .upsert(noteData, { onConflict: 'profile_id, week_start_date' })
-    .select(WEEKLY_NOTE_COLUMNS)
+    .select("id")
+    .eq("profile_id", noteData.profile_id)
+    .eq("week_start_date", noteData.week_start_date)
     .single();
 
-  if (error) {
-    console.error("Error upserting weekly note:", error.message);
-    throw new Error(error.message);
+  if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means no rows found
+    console.error("Error fetching existing weekly note for upsert:", fetchError.message);
+    throw fetchError;
   }
-  return data;
+
+  if (existingNote) {
+    // Update existing note
+    const updatePayload: Partial<WeeklyNoteUpdate> = {};
+    if (noteData.critical_success_factor !== undefined) updatePayload.critical_success_factor = noteData.critical_success_factor;
+    if (noteData.weekly_see !== undefined) updatePayload.weekly_see = noteData.weekly_see;
+    if (noteData.words_of_praise !== undefined) updatePayload.words_of_praise = noteData.words_of_praise;
+    if (noteData.weekly_goal_note !== undefined) updatePayload.weekly_goal_note = noteData.weekly_goal_note;
+    
+    // Ensure we only update if there's something to update to avoid empty updates triggering 'now()'
+    if (Object.keys(updatePayload).length === 0) return existingNote as WeeklyNote;
+
+    const { data, error } = await client
+      .from("weekly_notes")
+      .update(updatePayload)
+      .eq("id", existingNote.id)
+      .select(WEEKLY_NOTE_COLUMNS)
+      .single();
+    if (error) {
+      console.error("Error updating weekly note:", error.message);
+      throw error;
+    }
+    return data;
+  } else {
+    // Insert new note
+    const insertPayload: WeeklyNoteInsert = {
+        profile_id: noteData.profile_id,
+        week_start_date: noteData.week_start_date,
+        critical_success_factor: noteData.critical_success_factor ?? null,
+        weekly_see: noteData.weekly_see ?? null,
+        words_of_praise: noteData.words_of_praise ?? null,
+        weekly_goal_note: noteData.weekly_goal_note ?? null,
+    };
+    if (noteData.id) insertPayload.id = noteData.id; 
+
+    const { data, error } = await client
+      .from("weekly_notes")
+      .insert(insertPayload)
+      .select(WEEKLY_NOTE_COLUMNS)
+      .single();
+    if (error) {
+      console.error("Error inserting weekly note:", error.message);
+      throw error;
+    }
+    return data;
+  }
 }
 
 // == Monthly Goals ==
@@ -354,7 +429,7 @@ export async function createMonthlyGoal(
 }
 
 export async function updateMonthlyGoal(
-  { goalId, profileId, updates }: { goalId: string; profileId: string; updates: Partial<Omit<MonthlyGoal, "id" | "profile_id" | "created_at" | "updated_at">> }
+  { goalId, profileId, updates }: { goalId: string; profileId: string; updates: Partial<Omit<MonthlyGoalRow, "id" | "profile_id" | "created_at" | "updated_at">> }
 ) {
   const { data, error } = await client
     .from("monthly_goals")
@@ -410,19 +485,102 @@ export async function getMonthlyReflectionByMonth(
 export async function upsertMonthlyReflection(
   reflectionData: MonthlyReflectionInsert
 ) {
-  const { data, error } = await client
+  // Check if a reflection already exists for this profile and month
+  const { data: existingReflection, error: fetchError } = await client
     .from("monthly_reflections")
-    .upsert(reflectionData, { onConflict: 'profile_id, month_date' })
-    .select(MONTHLY_REFLECTION_COLUMNS)
+    .select("id")
+    .eq("profile_id", reflectionData.profile_id)
+    .eq("month_date", reflectionData.month_date)
     .single();
 
-  if (error) {
-    console.error("Error upserting monthly reflection:", error.message);
-    throw new Error(error.message);
+  if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means no rows found
+    console.error("Error fetching existing monthly reflection for upsert:", fetchError.message);
+    throw fetchError;
   }
-  return data;
+
+  if (existingReflection) {
+    // Update existing reflection
+    const updatePayload: Partial<MonthlyReflectionUpdate> = {};
+    if (reflectionData.monthly_reflection !== undefined) updatePayload.monthly_reflection = reflectionData.monthly_reflection;
+    if (reflectionData.monthly_notes !== undefined) updatePayload.monthly_notes = reflectionData.monthly_notes;
+    // Ensure we only update if there's something to update to avoid empty updates triggering 'now()'
+    if (Object.keys(updatePayload).length === 0) return existingReflection as MonthlyReflection; 
+
+    const { data, error } = await client
+      .from("monthly_reflections")
+      .update(updatePayload)
+      .eq("id", existingReflection.id)
+      .select(MONTHLY_REFLECTION_COLUMNS)
+      .single();
+    if (error) {
+      console.error("Error updating monthly reflection:", error.message);
+      throw error;
+    }
+    return data;
+  } else {
+    // Insert new reflection
+    // Ensure all required fields for insert are present, even if null
+    const insertPayload: MonthlyReflectionInsert = {
+        profile_id: reflectionData.profile_id,
+        month_date: reflectionData.month_date,
+        monthly_reflection: reflectionData.monthly_reflection ?? null,
+        monthly_notes: reflectionData.monthly_notes ?? null,
+        // id, created_at, updated_at will be handled by db defaults
+    };
+    if (reflectionData.id) insertPayload.id = reflectionData.id; // Allow specifying ID if provided for some reason
+
+    const { data, error } = await client
+      .from("monthly_reflections")
+      .insert(insertPayload)
+      .select(MONTHLY_REFLECTION_COLUMNS)
+      .single();
+    if (error) {
+      console.error("Error inserting monthly reflection:", error.message);
+      throw error;
+    }
+    return data;
+  }
 }
 
 // Note: Delete functions for weekly_notes and monthly_reflections might not be common
 // as they are typically unique per period and profile, and are updated via upsert.
-// If explicit deletion is needed, it can be added similarly to other delete functions. 
+// If explicit deletion is needed, it can be added similarly to other delete functions.
+
+// Function to get monthly goals relevant for a specific week (e.g., current month's goals)
+export async function getMonthlyGoalsForWeek(
+    { profileId, dateInWeek }: { profileId: string; dateInWeek: string }
+): Promise<MonthlyGoalRow[] | null> {
+    const dt = DateTime.fromISO(dateInWeek);
+    const monthFirstDay = dt.startOf('month').toISODate(); // YYYY-MM-01
+
+    const { data, error } = await client
+        .from('monthly_goals')
+        .select('*') // Or MONTHLY_GOAL_COLUMNS for consistency
+        .eq('profile_id', profileId)
+        .eq('month_date', monthFirstDay!) // Corrected column name and logic
+        .order('created_at', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching monthly goals for week:', error);
+        throw error;
+    }
+    return data;
+}
+
+// Helper to get week number (1-4/5) within the month for a given date string
+export function getWeekOfMonth(dateString: string): number {
+  const date = DateTime.fromISO(dateString);
+  const firstDayOfMonth = date.startOf('month');
+  const firstDayOfWeek = date.startOf('week');
+  
+  let weekNumber;
+  // If the week starts in the previous month, count weeks from the start of the current month's first week.
+  if (firstDayOfWeek.month < date.month) {
+    weekNumber = Math.ceil(date.day / 7);
+  } else {
+    // Difference in days from the start of the month's first week to the current day, then divide by 7.
+    const daysSinceMonthStartWeek = date.diff(firstDayOfMonth.startOf('week'), 'days').days;
+    weekNumber = Math.floor(daysSinceMonthStartWeek / 7) + 1;
+  }
+  return Math.min(Math.max(weekNumber, 1), 5); // Clamp between 1 and 5 (common for 4-4-5 or similar week counts in a month)
+} 

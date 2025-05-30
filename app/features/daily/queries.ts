@@ -3,23 +3,26 @@
 // import type { SupabaseClient } from "@supabase/supabase-js";
 // import type { Database } from "~/supa-client"; //  경로는 실제 위치에 맞게 조정 필요
 // // import type { Profile } from "~/features/users/types"; // Profile 타입 정의가 있다면
-// import { DateTime } from "luxon";
+import { DateTime } from "luxon";
 
 import client from "~/supa-client";
 import type { Database } from "database.types"; // Ensure this path is correct
 
 // Assuming your database.types.ts is at the root, if it's elsewhere adjust the import path.
-type DailyRecordTable = Database['public']['Tables']['daily_records'];
-type DailyRecord = DailyRecordTable['Row'];
-type DailyRecordInsert = DailyRecordTable['Insert'];
+export type DailyRecordTable = Database['public']['Tables']['daily_records'];
+export type DailyRecord = DailyRecordTable['Row'];
+export type DailyRecordInsert = DailyRecordTable['Insert'];
+export type DailyRecordUpdate = DailyRecordTable['Update'];
 
-type DailyNoteTable = Database['public']['Tables']['daily_notes'];
-type DailyNote = DailyNoteTable['Row'];
-type DailyNoteInsert = DailyNoteTable['Insert'];
+export type DailyNoteTable = Database['public']['Tables']['daily_notes'];
+export type DailyNote = DailyNoteTable['Row'];
+export type DailyNoteInsert = DailyNoteTable['Insert'];
+export type DailyNoteUpdate = DailyNoteTable['Update'];
 
-type MemoTable = Database['public']['Tables']['memos'];
-type Memo = MemoTable['Row'];
-type MemoInsert = MemoTable['Insert'];
+export type MemoTable = Database['public']['Tables']['memos'];
+export type Memo = MemoTable['Row'];
+export type MemoInsert = MemoTable['Insert'];
+export type MemoUpdate = MemoTable['Update'];
 
 // Type for Memos when fetched with the profile_id from the related daily_record
 interface MemoWithRecordProfile extends Memo {
@@ -148,7 +151,12 @@ export async function updateDailyRecord(
     .single();
 
   if (error) {
-    console.error("Error updating daily record:", error.message);
+    console.error("[updateDailyRecord] Supabase error object:", JSON.stringify(error, null, 2)); // Log the full error object
+    if (error.code === 'PGRST116') {
+      console.warn(`[updateDailyRecord] Record not found for update (recordId: ${recordId}, profileId: ${profileId}). No rows updated.`);
+      return null; 
+    }
+    console.error(`[updateDailyRecord] Unexpected error updating daily record (recordId: ${recordId}, profileId: ${profileId}):`, error.message);
     throw new Error(error.message);
   }
   return data;
@@ -157,17 +165,30 @@ export async function updateDailyRecord(
 export async function deleteDailyRecord(
   { recordId, profileId }: { recordId: string; profileId: string }
 ) {
-  // 연관된 메모도 함께 삭제하거나, record_id를 null로 업데이트하는 정책 필요시 추가
-  // 여기서는 일단 daily_record만 삭제
-  const { error } = await client
+  // First, delete associated memos
+  const { error: memoError } = await client
+    .from("memos")
+    .delete()
+    .eq("record_id", recordId)
+    .eq("profile_id", profileId); // Ensure memos also belong to the same profile, good practice
+
+  if (memoError) {
+    console.error(`Error deleting memos for record ${recordId}:`, memoError.message);
+    // Decide if you want to stop or proceed if memo deletion fails.
+    // For now, we'll throw, but you could also just log and continue.
+    throw new Error(`Failed to delete associated memos: ${memoError.message}`);
+  }
+
+  // Then, delete the daily_record itself
+  const { error: recordError } = await client
     .from("daily_records")
     .delete()
     .eq("id", recordId)
     .eq("profile_id", profileId);
 
-  if (error) {
-    console.error("Error deleting daily record:", error.message);
-    throw new Error(error.message);
+  if (recordError) {
+    console.error(`Error deleting daily record ${recordId}:`, recordError.message);
+    throw new Error(recordError.message);
   }
   return true;
 }
@@ -193,19 +214,54 @@ export async function getDailyNoteByDate(
 }
 
 export async function upsertDailyNote(
-  noteData: DailyNoteInsert // { profile_id: string; date: string; content: string; }
+  noteData: DailyNoteInsert // Expects profile_id, date, content. id might be part of DailyNoteInsert.
 ) {
-  const { data, error } = await client
+  // Check if a note already exists for this profile and date
+  const { data: existingNote, error: fetchError } = await client
     .from("daily_notes")
-    .upsert(noteData, { onConflict: 'profile_id, date' }) // profile_id와 date가 충돌하면 업데이트
-    .select(DAILY_NOTE_COLUMNS)
+    .select("id")
+    .eq("profile_id", noteData.profile_id)
+    .eq("date", noteData.date)
     .single();
 
-  if (error) {
-    console.error("Error upserting daily note:", error.message);
-    throw new Error(error.message);
+  if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine for insert
+    console.error("Error fetching existing daily note for upsert:", fetchError.message);
+    throw fetchError;
   }
-  return data;
+
+  if (existingNote) {
+    // Update existing note
+    // Only update content; profile_id and date define the record. id is used for eq.
+    const { data, error } = await client
+      .from("daily_notes")
+      .update({ content: noteData.content }) 
+      .eq("id", existingNote.id)
+      .select(DAILY_NOTE_COLUMNS)
+      .single();
+    if (error) {
+      console.error("Error updating daily note:", error.message);
+      throw error;
+    }
+    return data;
+  } else {
+    // Insert new note.
+    // Construct the insert payload carefully to avoid issues with potentially undefined 'id' from DailyNoteInsert
+    const insertPayload: { profile_id: string; date: string; content: string; } = {
+        profile_id: noteData.profile_id,
+        date: noteData.date,
+        content: noteData.content,
+    };
+    const { data, error } = await client
+      .from("daily_notes")
+      .insert(insertPayload)
+      .select(DAILY_NOTE_COLUMNS)
+      .single();
+    if (error) {
+      console.error("Error inserting daily note:", error.message);
+      throw error;
+    }
+    return data;
+  }
 }
 
 export async function deleteDailyNoteByDate(
@@ -228,38 +284,54 @@ export async function deleteDailyNoteByDate(
 // == Memos ==
 
 export async function getMemosByRecordId(
-  { recordId, profileId }: { recordId: string; profileId: string }
+  { profileId, recordId }: { profileId: string; recordId: string }
 ) {
-  // First, verify the daily_record belongs to the profileId for security
-  const { data: recordData, error: recordError } = await client
-    .from("daily_records")
-    .select("id")
-    .eq("id", recordId)
-    .eq("profile_id", profileId)
-    .maybeSingle();
-
-  if (recordError) {
-    console.error("Error verifying record ownership:", recordError.message);
-    throw new Error(recordError.message);
-  }
-  if (!recordData) {
-    // Record not found or doesn't belong to the user
-    // console.warn('Attempt to fetch memos for record ' + recordId + ' not owned by profile ' + profileId);
-    return []; // Or throw an error, depending on desired behavior
-  }
-
   const { data, error } = await client
     .from("memos")
     .select(MEMO_COLUMNS)
+    .eq("profile_id", profileId)
     .eq("record_id", recordId)
-    // .eq("profile_id", profileId) // No direct profile_id on memos, ownership is via daily_records
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error('Error fetching memos for record_id ' + recordId + ':', error.message);
+    console.error(`Error fetching memos for record ${recordId}:`, error.message);
     throw new Error(error.message);
   }
-  return data;
+  return data || [];
+}
+
+export async function getMemosByRecordIds(
+  { profileId, recordIds }: { profileId: string; recordIds: string[] }
+) {
+  if (recordIds.length === 0) return [];
+  const { data, error } = await client
+    .from("memos")
+    .select(MEMO_COLUMNS)
+    .eq("profile_id", profileId)
+    .in("record_id", recordIds)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error(`Error fetching memos for multiple records:`, error.message);
+    throw new Error(error.message);
+  }
+  return data || [];
+}
+
+export async function deleteMemosByRecordId(
+  { profileId, recordId }: { profileId: string; recordId: string }
+) {
+  const { error } = await client
+    .from("memos")
+    .delete()
+    .eq("profile_id", profileId)
+    .eq("record_id", recordId);
+
+  if (error) {
+    console.error(`Error deleting memos for record ${recordId}:`, error.message);
+    throw new Error(error.message);
+  }
+  return { ok: true };
 }
 
 export async function getMemoById(
@@ -290,18 +362,20 @@ export async function getMemoById(
 
 
 export async function createMemo(
-  memoData: MemoInsert,
-  profileId: string // Required to verify daily_record ownership
+  memoData: MemoInsert
 ) {
   if (!memoData.record_id) {
     throw new Error("record_id is required to create a memo.");
+  }
+  if (!memoData.profile_id) {
+    throw new Error("profile_id is required in memoData to create a memo.");
   }
   // Verify the daily_record belongs to the profileId before inserting memo
   const { data: recordData, error: recordError } = await client
     .from("daily_records")
     .select("id")
     .eq("id", memoData.record_id)
-    .eq("profile_id", profileId)
+    .eq("profile_id", memoData.profile_id)
     .single();
 
   if (recordError || !recordData) {
@@ -434,3 +508,33 @@ export async function deleteMemo(
 //   if (error) throw new Error(error.message);
 //   return data;
 // };
+
+// == Utility / Aggregation Queries ==
+
+export async function getDatesWithRecords(
+    { profileId, year, month }: { profileId: string; year: number; month: number }
+  ): Promise<{ date: string }[]> {
+    const startDate = DateTime.fromObject({ year, month, day: 1 }).toISODate();
+    const endDate = DateTime.fromObject({ year, month, day: 1 }).endOf('month').toISODate();
+  
+    const { data, error } = await client
+      .from("daily_records")
+      .select("date")
+      .eq("profile_id", profileId)
+      .gte("date", startDate)
+      .lte("date", endDate)
+      .order("date", { ascending: true });
+      // No group by needed if we just want a list of dates that have records
+      // If you need a count per date, that would be different (RPC or JS aggregate)
+  
+    if (error) {
+      console.error("Error fetching dates with records:", error.message);
+      throw new Error(error.message);
+    }
+  
+    if (!data) return [];
+
+    // Get distinct dates
+    const distinctDates = [...new Set(data.map(item => item.date))];
+    return distinctDates.map(date => ({ date }));
+}
