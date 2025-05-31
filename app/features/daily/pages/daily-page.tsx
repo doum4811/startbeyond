@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/common/components/ui/card";
 import { Button } from "~/common/components/ui/button";
 import { Input } from "~/common/components/ui/input";
 import { Label } from "~/common/components/ui/label";
 import { Textarea } from "~/common/components/ui/textarea";
 import { Plus, X, Bell, Calendar as CalendarIcon } from "lucide-react";
-import { CATEGORIES, type CategoryCode, type Category } from "~/common/types/daily";
+import { CATEGORIES, type CategoryCode, type UICategory } from "~/common/types/daily";
 import { Calendar } from "~/common/components/ui/calendar";
 import { Link, Form, useFetcher } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
@@ -14,6 +14,24 @@ import * as dailyQueries from "~/features/daily/queries";
 import * as planQueries from "~/features/plan/queries";
 import type { DailyRecord as DbDailyRecord, DailyNote as DbDailyNote, Memo as DbMemo, DailyRecordInsert, DailyRecordUpdate, DailyNoteInsert, MemoInsert } from "~/features/daily/queries";
 import type { DailyPlan as DbDailyPlan } from "~/features/plan/queries";
+import * as settingsQueries from "~/features/settings/queries";
+// import type { UserCategory as DbUserCategory, UserDefaultCodePreference as DbUserDefaultCodePreference } from "~/features/settings/queries"; // Not directly used in this component
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "~/common/components/ui/collapsible";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "~/common/components/ui/alert-dialog";
+import { CategorySelector } from "~/common/components/ui/CategorySelector";
 
 interface DailyRecordUI extends Omit<DbDailyRecord, 'date' | 'duration_minutes' | 'created_at' | 'updated_at' | 'category_id'> {
   date: string;
@@ -39,30 +57,52 @@ interface MemoUI extends Omit<DbMemo, 'created_at' | 'updated_at'> {
 }
 
 interface DailyPlanUI extends Omit<DbDailyPlan, 'duration_minutes' | 'created_at' | 'updated_at' | 'category_id' | 'is_completed' | 'sort_order'> {
+  id: string; // Ensure id is always present for UI
   plan_date: string;
   duration?: number;
+  comment: string | null; // Allow null for comment
+  subcode: string | null; // Allow null for subcode
+  category_code: string; // Keep as string for flexibility
   is_completed: boolean;
   created_at?: string;
   updated_at?: string;
+  // Fields that might be needed from DbDailyPlan but not explicitly in Omit
+  profile_id: string;
+  linked_weekly_task_id: string | null;
 }
 
-function getToday() {
+// Helper Functions
+const MAX_MINUTES_PER_DAY = 60 * 24;
+
+function getToday(): string {
   return DateTime.now().toISODate();
 }
 
-const MAX_MINUTES_PER_DAY = 60 * 24;
-
-function getCategoryColor(code: CategoryCode): string {
-  const category = CATEGORIES[code];
-  if (!category) return "text-gray-500"; // Fallback for unknown codes
-  const map: Record<CategoryCode, string> = {
-    EX: "text-orange-500", BK: "text-green-600", ML: "text-orange-600", EM: "text-purple-500", ST: "text-yellow-500", WK: "text-teal-700", HB: "text-pink-500", SL: "text-cyan-600", RT: "text-blue-500"
-  };
-  return map[code] || "text-gray-500";
+function getCategoryColor(category: UICategory | undefined, code?: string): string {
+  if (category) {
+    if (category.isCustom && category.color) {
+      return category.color;
+    }
+    const map: Record<string, string> = {
+      EX: "text-orange-500", BK: "text-green-600", ML: "text-orange-600", 
+      EM: "text-purple-500", ST: "text-yellow-500", WK: "text-teal-700", 
+      HB: "text-pink-500", SL: "text-cyan-600", RT: "text-blue-500"
+    };
+    return map[category.code] || "text-gray-500";
+  }
+  if (code) {
+    const map: Record<string, string> = {
+      EX: "text-orange-500", BK: "text-green-600", ML: "text-orange-600", 
+      EM: "text-purple-500", ST: "text-yellow-500", WK: "text-teal-700", 
+      HB: "text-pink-500", SL: "text-cyan-600", RT: "text-blue-500"
+    };
+    return map[code] || "text-gray-500";
+  }
+  return "text-gray-500";
 }
 
-const isValidCategoryCode = (code: string): code is CategoryCode => {
-    return code in CATEGORIES;
+const isValidCategoryCode = (code: string, activeCategories: UICategory[]): boolean => {
+    return activeCategories.some(c => c.code === code && c.isActive);
 };
 
 export interface DailyPageLoaderData {
@@ -72,6 +112,7 @@ export interface DailyPageLoaderData {
   plansForBanner: DailyPlanUI[];
   markedDates: string[];
   profileId: string;
+  categories: UICategory[];
 }
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
@@ -83,8 +124,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
 };
 
 async function getProfileId(_request: Request): Promise<string> {
-  // return "mock-profile-id";
-  return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; // Updated mock profileId
+  return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c";
 }
 
 export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPageLoaderData> {
@@ -92,15 +132,25 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPage
   const url = new URL(request.url);
   const selectedDate = url.searchParams.get("date") || getToday();
 
-  const [recordsData, dailyNoteData, plansForBannerData, recordDatesResult] = await Promise.all([
+  const [
+    recordsData, 
+    dailyNoteData, 
+    plansForBannerData, 
+    recordDatesResult,
+    userCategoriesData,
+    userDefaultCodePreferencesData
+  ] = await Promise.all([
     dailyQueries.getDailyRecordsByDate({ profileId, date: selectedDate }),
     dailyQueries.getDailyNoteByDate({ profileId, date: selectedDate }),
     planQueries.getDailyPlansByDate({ profileId, date: selectedDate }),
-    dailyQueries.getDatesWithRecords({ profileId, year: DateTime.fromISO(selectedDate).year, month: DateTime.fromISO(selectedDate).month })
+    dailyQueries.getDatesWithRecords({ profileId, year: DateTime.fromISO(selectedDate).year, month: DateTime.fromISO(selectedDate).month }),
+    settingsQueries.getUserCategories({ profileId }),
+    settingsQueries.getUserDefaultCodePreferences({ profileId })
   ]);
 
   const records: DailyRecordUI[] = (recordsData || []).map(r => ({
         ...r,
+        id: r.id!, // Ensure id is present
         date: r.date || selectedDate,
         duration: r.duration_minutes ?? undefined,
         is_public: r.is_public ?? false,
@@ -110,25 +160,84 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPage
         category_code: r.category_code 
     } as DailyRecordUI));
 
-  const dailyNote: DailyNoteUI | null = dailyNoteData ? { ...dailyNoteData, date: dailyNoteData.date || selectedDate } as DailyNoteUI : null;
+  const dailyNote: DailyNoteUI | null = dailyNoteData ? { ...dailyNoteData, id: dailyNoteData.id!, date: dailyNoteData.date || selectedDate } as DailyNoteUI : null;
   
   const plansForBanner: DailyPlanUI[] = (plansForBannerData || []).map(p => ({
         ...p,
+        id: p.id!, // Ensure id from DB is used
         plan_date: p.plan_date || selectedDate,
         duration: p.duration_minutes ?? undefined,
         is_completed: p.is_completed ?? false,
-        comment: p.comment ?? "",
-        category_code: p.category_code 
+        comment: p.comment ?? null,
+        subcode: p.subcode ?? null,
+        category_code: p.category_code,
+        profile_id: p.profile_id, // Ensure these are mapped
+        linked_weekly_task_id: p.linked_weekly_task_id ?? null,
     } as DailyPlanUI));
 
   const recordIds = records.map(r => r.id).filter((id): id is string => typeof id === 'string');
   const memosData = recordIds.length > 0 ? await dailyQueries.getMemosByRecordIds({ profileId, recordIds }) : [];
-  const memos: MemoUI[] = (memosData || []) as MemoUI[];
+  const memos: MemoUI[] = (memosData || []).map(m => ({...m, id: m.id!})) as MemoUI[];
 
   const recordsWithMemos: DailyRecordUI[] = records.map(r => ({
     ...r,
     memos: memos.filter(m => m.record_id === r.id)
   }));
+
+  const processedCategories: UICategory[] = [];
+  const defaultCategoryPreferences = new Map(
+    (userDefaultCodePreferencesData || []).map(pref => [pref.default_category_code, pref.is_active])
+  );
+
+  for (const catCodeKey in CATEGORIES) {
+    if (Object.prototype.hasOwnProperty.call(CATEGORIES, catCodeKey)) {
+      const baseCategory = CATEGORIES[catCodeKey as CategoryCode];
+      const isActivePreference = defaultCategoryPreferences.get(baseCategory.code);
+      const isActive = isActivePreference === undefined ? true : isActivePreference; 
+
+      processedCategories.push({
+        code: baseCategory.code,
+        label: baseCategory.label,
+        icon: baseCategory.icon,
+        isCustom: false,
+        isActive: isActive,
+        hasDuration: baseCategory.hasDuration,
+        sort_order: baseCategory.sort_order !== undefined ? baseCategory.sort_order : 999,
+      });
+    }
+  }
+
+  (userCategoriesData || []).forEach(userCat => {
+    const existingIndex = processedCategories.findIndex(c => c.code === userCat.code && !c.isCustom);
+    if (existingIndex !== -1) { 
+        if(userCat.is_active) { 
+            processedCategories.splice(existingIndex, 1); 
+        } else { 
+            return;
+        }
+    }
+    
+    if (!processedCategories.find(c => c.code === userCat.code && c.isCustom)) { 
+        processedCategories.push({
+            code: userCat.code,
+            label: userCat.label,
+            icon: userCat.icon || '📝', 
+            color: userCat.color || undefined, 
+            isCustom: true,
+            isActive: userCat.is_active,
+            hasDuration: true, 
+            sort_order: userCat.sort_order !== null && userCat.sort_order !== undefined ? userCat.sort_order : 1000,
+        });
+    }
+  });
+  
+  processedCategories.sort((a, b) => {
+    if (a.isActive && !b.isActive) return -1;
+    if (!a.isActive && b.isActive) return 1;
+    if (a.isCustom && !b.isCustom) return -1; 
+    if (!a.isCustom && b.isCustom) return 1; 
+    return (a.sort_order ?? 999) - (b.sort_order ?? 999);
+  });
 
   return {
     today: selectedDate,
@@ -136,7 +245,8 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPage
     dailyNote,
     plansForBanner,
     markedDates: (recordDatesResult || []).map(d => d.date),
-    profileId
+    profileId,
+    categories: processedCategories,
   };
 }
 
@@ -145,6 +255,47 @@ export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
   const today = getToday();
+  
+  const activeCategoriesForAction = await (async () => {
+    const [userCategoriesDb, defaultPreferencesDb] = await Promise.all([
+        settingsQueries.getUserCategories({ profileId }),
+        settingsQueries.getUserDefaultCodePreferences({ profileId })
+    ]);
+    const categories: UICategory[] = [];
+    const defaultPrefsMap = new Map((defaultPreferencesDb || []).map(p => [p.default_category_code, p.is_active]));
+    for (const key in CATEGORIES) {
+        const base = CATEGORIES[key as CategoryCode];
+        const isActivePref = defaultPrefsMap.get(base.code);
+        if (isActivePref === undefined || isActivePref) { 
+            categories.push({ 
+                code: base.code,
+                label: base.label,
+                icon: base.icon,
+                isCustom: false, 
+                isActive: true, 
+                hasDuration: base.hasDuration,
+                sort_order: base.sort_order 
+            });
+        }
+    }
+    (userCategoriesDb || []).forEach(uc => {
+        if (uc.is_active) { 
+            if (!categories.find(c => c.code === uc.code && !c.isCustom && c.isActive)) {
+                 categories.push({
+                    code: uc.code,
+                    label: uc.label,
+                    icon: uc.icon || '📝',
+                    color: uc.color || undefined,
+                    isCustom: true,
+                    isActive: true,
+                    hasDuration: true, 
+                    sort_order: uc.sort_order !== null && uc.sort_order !== undefined ? uc.sort_order : 1000,
+                });
+            }
+        }
+    });
+    return categories.filter(c => c.isActive);
+  })();
 
   try {
     switch (intent) {
@@ -152,8 +303,8 @@ export async function action({ request }: ActionFunctionArgs) {
       case "addRecordFromPlan":
       {
         const categoryCodeStr = formData.get("category_code") as string | null;
-        if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr)) {
-          return {ok: false, error: "Invalid or missing category code."};
+        if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr, activeCategoriesForAction)) {
+          return {ok: false, error: "Invalid or missing active category code."};
         }
 
         const durationStr = formData.get("duration") as string | null;
@@ -184,8 +335,9 @@ export async function action({ request }: ActionFunctionArgs) {
           is_public: isPublic,
           linked_plan_id: linkedPlanId,
         };
-        await dailyQueries.createDailyRecord(recordData);
-        return { ok: true, intent };
+        const createdRecord = await dailyQueries.createDailyRecord(recordData);
+        const addedFromPlanIdResponse = intent === "addRecordFromPlan" ? linkedPlanId : undefined;
+        return { ok: true, intent, createdRecordId: createdRecord?.id, addedFromPlanId: addedFromPlanIdResponse };
       }
       case "updateRecord": {
         const recordId = formData.get("recordId") as string | null;
@@ -196,28 +348,25 @@ export async function action({ request }: ActionFunctionArgs) {
         const isPublic = typeof isPublicFormVal === 'string' ? isPublicFormVal === "true" : false;
 
         if (!recordId) return { ok: false, error: "Record ID is required." };
-        if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr)) {
-          return {ok: false, error: "Invalid or missing category code for update."};
+        if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr, activeCategoriesForAction)) {
+          return {ok: false, error: "Invalid or missing active category code for update."};
         }
         
-        let durationMinutes: number | undefined = undefined;
+        let durationMinutes: number | undefined | null = undefined; // Allow null
         if (durationStr && durationStr.trim() !== "") {
             durationMinutes = parseInt(durationStr, 10);
              if (isNaN(durationMinutes) || durationMinutes < 0 || durationMinutes > MAX_MINUTES_PER_DAY) {
                  return { ok: false, error: "Invalid duration value."};
             }
         } else if (durationStr === null || durationStr.trim() === "") {
-            // This case means duration should be set to null if it was previously set
-            // durationMinutes remains undefined, and we handle null assignment below
+            durationMinutes = null; 
         }
 
         const updates: Partial<DailyRecordUpdate> = {};
         updates.category_code = categoryCodeStr;
         updates.comment = comment;
-        if (durationMinutes !== undefined) {
+        if (durationMinutes !== undefined) { // This includes null
             updates.duration_minutes = durationMinutes;
-        } else if (durationStr === null || durationStr.trim() === "") {
-            updates.duration_minutes = null; // Explicitly set to null
         }
         updates.is_public = isPublic;
 
@@ -231,18 +380,15 @@ export async function action({ request }: ActionFunctionArgs) {
             return { ok: false, error: "Failed to update record or record not found.", intent, recordId };
         }
         
-        // Convert DbDailyRecord to DailyRecordUI before returning
         const updatedRecord: DailyRecordUI = {
             ...updatedRecordDb,
-            date: updatedRecordDb.date || today, // Ensure date is present
+            id: updatedRecordDb.id!,
+            date: updatedRecordDb.date || today,
             duration: updatedRecordDb.duration_minutes ?? undefined,
             is_public: updatedRecordDb.is_public ?? false,
             comment: updatedRecordDb.comment ?? null,
             subcode: updatedRecordDb.subcode ?? null,
             linked_plan_id: updatedRecordDb.linked_plan_id ?? null,
-            // category_code is already in updatedRecordDb
-            // memos will be out of sync until next loader call, or we could try to preserve them
-            // For simplicity, we'll let the loader handle memo refresh.
         };
 
         return { ok: true, intent, recordId, updatedRecord };
@@ -251,7 +397,7 @@ export async function action({ request }: ActionFunctionArgs) {
         const recordId = formData.get("recordId") as string;
         if (!recordId) return { ok: false, error: "Record ID is required." };
         await dailyQueries.deleteDailyRecord({ recordId, profileId });
-        return { ok: true, intent };
+        return { ok: true, intent, recordId }; // Return recordId for UI update
       }
       case "saveDailyNote": {
         const content = formData.get("dailyNoteContent") as string | null;
@@ -274,9 +420,8 @@ export async function action({ request }: ActionFunctionArgs) {
         if (!upsertedNoteDb) {
             return { ok: false, error: "Failed to save daily note.", intent };
         }
-        // Convert DbDailyNote to DailyNoteUI, ensuring all fields are present as expected by UI
         const upsertedNote: DailyNoteUI = {
-            id: upsertedNoteDb.id, // Assuming id is always returned
+            id: upsertedNoteDb.id!, 
             profile_id: upsertedNoteDb.profile_id,
             date: upsertedNoteDb.date || today,
             content: upsertedNoteDb.content,
@@ -291,7 +436,7 @@ export async function action({ request }: ActionFunctionArgs) {
         const content = formData.get("memoContent") as string | null;
 
         if (!recordId) return { ok: false, error: "Record ID is required for memo."};
-        if (!content) return { ok: false, error: "Content is required for memo."};
+        if (!content || content.trim() === "") return { ok: false, error: "Content is required for memo."};
         
         const memoData: MemoInsert = {
           profile_id: profileId,
@@ -299,14 +444,15 @@ export async function action({ request }: ActionFunctionArgs) {
           title: title ?? "",
           content: content,
         };
-        await dailyQueries.createMemo(memoData);
-        return { ok: true, intent };
+        // Consider returning the created memo for optimistic updates if needed
+        await dailyQueries.createMemo(memoData); 
+        return { ok: true, intent, recordId }; // recordId can be used to re-fetch or update memos for that record
       }
       case "deleteMemo": {
         const memoId = formData.get("memoId") as string;
         if (!memoId) return { ok: false, error: "Memo ID is required." };
         await dailyQueries.deleteMemo({ memoId, profileId });
-        return { ok: true, intent };
+        return { ok: true, intent, memoId }; // memoId for UI update
       }
        case "updateSubcode": {
         const recordId = formData.get("recordId") as string;
@@ -325,10 +471,10 @@ export async function action({ request }: ActionFunctionArgs) {
             return { ok: false, error: "Failed to update subcode or record not found.", intent, recordId };
         }
         
-        // Convert DbDailyRecord to DailyRecordUI before returning
         const updatedRecord: DailyRecordUI = {
             ...updatedRecordDb,
-            date: updatedRecordDb.date || today, // Ensure date is present
+            id: updatedRecordDb.id!,
+            date: updatedRecordDb.date || today, 
             duration: updatedRecordDb.duration_minutes ?? undefined,
             is_public: updatedRecordDb.is_public ?? false,
             comment: updatedRecordDb.comment ?? null,
@@ -337,6 +483,147 @@ export async function action({ request }: ActionFunctionArgs) {
         };
 
         return { ok: true, intent, recordId, updatedRecord };
+      }
+      case "activateCategoryAndAddRecordFromPlan": {
+        const planId = formData.get("planId") as string | null; // This is the original plan.id
+        const categoryCodeToActivate = formData.get("category_code_to_activate") as string | null;
+        const isCustomCategoryStr = formData.get("isCustomCategory") as string | null;
+        const isCustom = isCustomCategoryStr === 'true';
+        const addedFromPlanIdForm = formData.get("addedFromPlanId") as string | null; // Should be same as planId for this context
+
+        console.log("[Action] Intent: activateCategoryAndAddRecordFromPlan");
+        console.log("[Action] Plan ID:", planId, "Category to Activate:", categoryCodeToActivate, "Is Custom:", isCustom, "addedFromPlanIdForm:", addedFromPlanIdForm);
+
+        const subcode = formData.get("subcode") as string | null;
+        const durationStr = formData.get("duration") as string | null;
+        const comment = formData.get("comment") as string | null;
+        const date = (formData.get("date") as string | null) || today; 
+        // const linkedPlanIdForRecord = formData.get("linked_plan_id") as string | null; // This should be planId
+
+        if (!planId || !categoryCodeToActivate) {
+            console.error("[Action] Missing planId or categoryCodeToActivate");
+            return { ok: false, error: "Missing plan ID or category code for activation." };
+        }
+
+        try {
+            console.log(`[Action] Attempting to activate category: ${categoryCodeToActivate}`);
+            if (isCustom) {
+                const userCategories = await settingsQueries.getUserCategories({ profileId });
+                const categoryToUpdate = userCategories?.find(uc => uc.code === categoryCodeToActivate);
+                if (categoryToUpdate) {
+                    console.log(`[Action] Found custom category ${categoryToUpdate.id}, setting is_active to true.`);
+                    await settingsQueries.updateUserCategory({
+                        categoryId: categoryToUpdate.id,
+                        profileId,
+                        updates: { is_active: true }
+                    });
+                    console.log(`[Action] Custom category ${categoryCodeToActivate} activated.`);
+                } else {
+                    console.error(`[Action] Custom category ${categoryCodeToActivate} not found.`);
+                    return { ok: false, error: `Custom category ${categoryCodeToActivate} not found for activation.`};
+                }
+            } else { 
+                console.log(`[Action] Upserting default category preference for ${categoryCodeToActivate} to active.`);
+                await settingsQueries.upsertUserDefaultCodePreference({
+                    profile_id: profileId,
+                    default_category_code: categoryCodeToActivate,
+                    is_active: true
+                });
+                console.log(`[Action] Default category ${categoryCodeToActivate} preference set to active.`);
+            }
+        } catch (activationError: any) {
+            console.error("[Action] Error activating category:", activationError);
+            return { ok: false, error: `Failed to activate category ${categoryCodeToActivate}: ${activationError.message}` };
+        }
+
+        let durationMinutes: number | undefined = undefined;
+        if (durationStr && durationStr.trim() !== "") {
+            durationMinutes = parseInt(durationStr, 10);
+            if (isNaN(durationMinutes) || durationMinutes < 0 || durationMinutes > MAX_MINUTES_PER_DAY) {
+                console.error("[Action] Invalid duration value:", durationStr);
+                return { ok: false, error: "Invalid duration value." };
+            }
+        }
+        
+        const recordData: DailyRecordInsert = {
+            profile_id: profileId,
+            date: date,
+            category_code: categoryCodeToActivate,
+            duration_minutes: durationMinutes,
+            comment: comment,
+            subcode: subcode,
+            is_public: false, 
+            linked_plan_id: planId, // The new record is linked to the original plan
+        };
+
+        try {
+            console.log("[Action] Attempting to create daily record:", recordData);
+            const createdRecord = await dailyQueries.createDailyRecord(recordData);
+            console.log("[Action] Daily record created successfully for planId:", planId, "linkedPlanId in record:", recordData.linked_plan_id);
+            // Return planId as addedFromPlanId because this action is always for a single plan that was part of a queue or a single click
+            return { ok: true, intent, activatedCategoryCode: categoryCodeToActivate, addedFromPlanId: planId, createdRecordId: createdRecord?.id };
+        } catch (recordCreationError: any) {
+            console.error("[Action] Error creating daily record:", recordCreationError);
+            return { ok: false, error: `Failed to create daily record after activating category: ${recordCreationError.message}` };
+        }
+      }
+      case "addAllRecordsFromMultiplePlans": {
+        const plansDataString = formData.get("plansData") as string | null;
+        const dateForRecords = (formData.get("date") as string | null) || today;
+
+        if (!plansDataString) {
+          return { ok: false, error: "No plans data provided.", intent };
+        }
+
+        let plansToProcess: { plan_id: string, category_code: string, subcode: string | null, duration: number | undefined, comment: string | null, linked_plan_id: string }[] = [];
+        try {
+          plansToProcess = JSON.parse(plansDataString);
+        } catch (e) {
+          return { ok: false, error: "Invalid plans data format.", intent };
+        }
+
+        if (!Array.isArray(plansToProcess) || plansToProcess.length === 0) {
+          return { ok: false, error: "Plans data is empty or not an array.", intent };
+        }
+
+        const addedRecordPlanIds: string[] = []; // Stores original plan IDs for records created
+        const errors: { plan_id: string, error: string }[] = [];
+        console.log(`[Action addAllRecordsFromMultiplePlans] Processing ${plansToProcess.length} plans.`);
+
+        for (const plan of plansToProcess) {
+          console.log(`[Action addAllRecordsFromMultiplePlans] Validating plan: ${plan.plan_id}, category: ${plan.category_code}`);
+          if (!plan.category_code || !isValidCategoryCode(plan.category_code, activeCategoriesForAction)) {
+            console.warn(`[Action addAllRecordsFromMultiplePlans] Invalid category for plan ${plan.plan_id}: ${plan.category_code}`);
+            errors.push({ plan_id: plan.plan_id, error: `Invalid or inactive category: ${plan.category_code}` });
+            continue;
+          }
+
+          const recordData: DailyRecordInsert = {
+            profile_id: profileId,
+            date: dateForRecords,
+            category_code: plan.category_code,
+            duration_minutes: plan.duration,
+            comment: plan.comment,
+            subcode: plan.subcode,
+            is_public: false, 
+            linked_plan_id: plan.linked_plan_id, 
+          };
+          console.log(`[Action addAllRecordsFromMultiplePlans] Creating record for plan ${plan.plan_id}:`, recordData);
+          try {
+            await dailyQueries.createDailyRecord(recordData);
+            addedRecordPlanIds.push(plan.plan_id); 
+            console.log(`[Action addAllRecordsFromMultiplePlans] Successfully created record for plan ${plan.plan_id}`);
+          } catch (error: any) {
+            console.error(`[Action addAllRecordsFromMultiplePlans] Error creating record for plan ${plan.plan_id}:`, error);
+            errors.push({ plan_id: plan.plan_id, error: error.message || "Failed to create record for this plan." });
+          }
+        }
+        console.log(`[Action addAllRecordsFromMultiplePlans] Finished. Added: ${addedRecordPlanIds.length}, Errors: ${errors.length}`);
+        if (errors.length > 0 && addedRecordPlanIds.length === 0) { // If all failed
+          return { ok: false, error: "All record creations failed.", intent, errors };
+        }
+        // If some or all succeeded
+        return { ok: true, intent, addedRecordPlanIds, partialErrors: errors.length > 0 ? errors : undefined };
       }
       default:
         return { ok: false, error: `Unknown intent: ${intent}` };
@@ -348,13 +635,13 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 interface AddFormState {
-  category: CategoryCode;
+  category: string; 
   duration: string;
   comment: string;
 }
 
 const initialForm: AddFormState = {
-  category: "EX",
+  category: "EX", 
   duration: "",
   comment: "",
 };
@@ -393,51 +680,62 @@ function CalendarPopover({ markedDates, currentSelectedDate }: { markedDates: st
   )
 }
 
-function PlanBanner({ plans, addedPlanIds }: {
+function PlanBanner({ 
+  plans, 
+  addedPlanIds, 
+  categories,
+  setShowActivateCategoryDialog,
+  setPlanToActivate,
+  onAddAll, 
+  isAddingAll 
+}: {
   plans: DailyPlanUI[];
   addedPlanIds: Set<string>;
+  categories: UICategory[];
+  setShowActivateCategoryDialog: (show: boolean) => void;
+  setPlanToActivate: (plan: DailyPlanUI | null) => void;
+  onAddAll: () => void; 
+  isAddingAll: boolean; 
 }) {
   const fetcher = useFetcher();
   
   return (
-    <div className="rounded-xl bg-muted border px-6 py-5 flex flex-col gap-2 mb-8">
-      <div className="flex items-center gap-2 mb-3">
-        <Bell className="w-5 h-5 text-primary" />
-        <span className="font-semibold text-lg text-foreground">어제 작성한 오늘의 계획</span>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-base">
-          <thead>
-            <tr className="border-b">
-              <th className="py-2 px-2 text-left">Code</th>
-              <th className="py-2 px-2 text-left">Subcode</th>
-              <th className="py-2 px-2 text-left">Duration</th>
-              <th className="py-2 px-2 text-left">Comment</th>
-              <th className="py-2 px-2 text-center">Action</th>
+    <div className="overflow-x-auto">
+      <table className="min-w-full text-base">
+        <thead>
+          <tr className="border-b">
+            <th className="py-2 px-2 text-left">Code</th>
+            <th className="py-2 px-2 text-left">Subcode</th>
+            <th className="py-2 px-2 text-left">Duration</th>
+            <th className="py-2 px-2 text-left">Comment</th>
+            <th className="py-2 px-2 text-center">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {plans.length === 0 ? (
+            <tr>
+              <td colSpan={5} className="text-center text-muted-foreground py-4">작성한 계획이 없습니다</td>
             </tr>
-          </thead>
-          <tbody>
-            {plans.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="text-center text-muted-foreground py-4">작성한 계획이 없습니다</td>
-              </tr>
-            ) : (
-              plans.map(plan => {
-                const categoryInfo = isValidCategoryCode(plan.category_code) 
-                  ? CATEGORIES[plan.category_code] 
-                  : { code: plan.category_code, icon: '❓', label: plan.category_code || 'Unknown', hasDuration: false };
-                return (
-                <tr key={plan.id} className="border-b">
-                  <td className="py-2 px-2 flex items-center gap-2">
-                    <span className={`text-2xl ${isValidCategoryCode(plan.category_code) ? getCategoryColor(plan.category_code) : 'text-gray-500'}`}>{categoryInfo?.icon || ''}</span>
-                    <span className="font-medium">{categoryInfo?.label || plan.category_code}</span>
-                  </td>
-                  <td className="py-2 px-2">{plan.subcode || <span className="text-muted-foreground">-</span>}</td>
-                  <td className="py-2 px-2">
-                    {plan.duration ? `${plan.duration}분` : "-"}
-                  </td>
-                  <td className="py-2 px-2">{plan.comment || <span className="text-muted-foreground">No memo</span>}</td>
-                  <td className="py-2 px-2 text-center">
+          ) : (
+            plans.map(plan => {
+              const categoryInfo = categories.find(c => c.code === plan.category_code);
+              const isCategoryActive = categoryInfo ? categoryInfo.isActive : false;
+              const displayCategory = categoryInfo || { code: plan.category_code, icon: '❓', label: plan.category_code || 'Unknown', hasDuration: false, isCustom: false, isActive: false };
+              const planCatColor = getCategoryColor(categoryInfo, plan.category_code);
+
+              return (
+              <tr key={plan.id} className="border-b">
+                <td className="py-2 px-2 flex items-center gap-2">
+                  <span className={`text-2xl ${planCatColor}`}>{displayCategory?.icon || ''}</span>
+                  <span className="font-medium">{displayCategory?.label || plan.category_code}</span>
+                </td>
+                <td className="py-2 px-2">{plan.subcode || <span className="text-muted-foreground">-</span>}</td>
+                <td className="py-2 px-2">
+                  {plan.duration ? `${plan.duration}분` : "-"}
+                </td>
+                <td className="py-2 px-2">{plan.comment || <span className="text-muted-foreground">No memo</span>}</td>
+                <td className="py-2 px-2 text-center">
+                  {isCategoryActive ? (
                     <fetcher.Form method="post">
                       <input type="hidden" name="intent" value="addRecordFromPlan" />
                       <input type="hidden" name="planId" value={plan.id} />
@@ -455,13 +753,37 @@ function PlanBanner({ plans, addedPlanIds }: {
                         {addedPlanIds.has(plan.id) ? "추가됨" : (fetcher.state !== 'idle' ? "추가중..." : "추가")}
                       </Button>
                     </fetcher.Form>
-                  </td>
-                </tr>
-              )}) 
-            )}
-          </tbody>
-        </table>
-      </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setPlanToActivate(plan);
+                        setShowActivateCategoryDialog(true);
+                      }}
+                      disabled={addedPlanIds.has(plan.id)}
+                    >
+                      {addedPlanIds.has(plan.id) ? "추가됨" : "추가 (비활성)"}
+                    </Button>
+                  )}
+                </td>
+              </tr>
+            )}) 
+          )}
+        </tbody>
+      </table>
+      {plans.length > 0 && (
+        <div className="flex justify-end mt-2 p-2">
+          <Button 
+            onClick={onAddAll} 
+            disabled={isAddingAll || plans.every(p => addedPlanIds.has(p.id))}
+            size="sm"
+          >
+            {isAddingAll ? "처리 중..." : "모두 기록에 추가"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -471,14 +793,21 @@ interface DailyPageProps {
 }
 
 export default function DailyPage({ loaderData }: DailyPageProps) {
-  const { today, records: initialRecords, dailyNote, plansForBanner, markedDates, profileId } = loaderData;
+  const { today, records: initialRecords, dailyNote, plansForBanner, markedDates, profileId, categories } = loaderData;
   
-  const fetcher = useFetcher();
-  const [form, setForm] = useState<AddFormState>(initialForm);
-  const [records, setRecords] = useState<DailyRecordUI[]>(initialRecords); // Local state for records
+  const fetcher = useFetcher<typeof action>();
+  
+  const [form, setForm] = useState<AddFormState>(() => {
+      const firstActiveCategory = categories.find(c => c.isActive);
+      return { ...initialForm, category: firstActiveCategory ? firstActiveCategory.code : "EX" }; 
+  });
+  const [records, setRecords] = useState<DailyRecordUI[]>(initialRecords); 
   
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
-  const [editRowCategory, setEditRowCategory] = useState<CategoryCode>(initialForm.category);
+  const [editRowCategory, setEditRowCategory] = useState<string>(() => {
+      const firstActiveCategory = categories.find(c => c.isActive);
+      return firstActiveCategory ? firstActiveCategory.code : "EX"; 
+  });
   const [editRowDuration, setEditRowDuration] = useState('');
   const [editRowComment, setEditRowComment] = useState('');
   const [editRowIsPublic, setEditRowIsPublic] = useState(false);
@@ -492,12 +821,27 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
   
   const [durationError, setDurationError] = useState<string | null>(null);
   const [isPlanBannerCollapsed, setIsPlanBannerCollapsed] = useState(plansForBanner.length === 0);
-  const addedPlanIds = new Set(records.map(r => r.linked_plan_id).filter(Boolean) as string[]);
+  const [addedPlanIds, setAddedPlanIds] = useState(() => new Set(loaderData.records.map(r => r.linked_plan_id).filter(Boolean) as string[]));
+  const [showActivateCategoryDialog, setShowActivateCategoryDialog] = useState(false);
+  const [planToActivate, setPlanToActivate] = useState<DailyPlanUI | null>(null);
+  const [pendingAddAllPlansQueue, setPendingAddAllPlansQueue] = useState<DailyPlanUI[]>([]);
+  const [isAddingAllPlans, setIsAddingAllPlans] = useState(false);
 
   useEffect(() => {
-    // When loaderData changes (e.g., date navigation), reset local records state
     setRecords(initialRecords);
-  }, [initialRecords]);
+    setAddedPlanIds(new Set(initialRecords.map(r => r.linked_plan_id).filter(Boolean) as string[])); 
+    const firstActiveCategory = categories.find(c => c.isActive);
+    setForm({ 
+        ...initialForm, 
+        category: firstActiveCategory ? firstActiveCategory.code : "EX" 
+    });
+    setIsEditing(false);
+    setSelectedRowId(null);
+    setShowActivateCategoryDialog(false);
+    setPlanToActivate(null);
+    setPendingAddAllPlansQueue([]);
+    setIsAddingAllPlans(false);
+  }, [initialRecords, categories]); 
 
   useEffect(() => {
     setCurrentDailyNoteContent(dailyNote?.content || '');
@@ -505,88 +849,135 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
 
   useEffect(() => {
     if (fetcher.data && fetcher.state === "idle") {
-        const actionData = fetcher.data as {
-            ok: boolean; 
-            intent?: string; 
-            recordId?: string; 
-            error?: string; 
-            updatedRecord?: DailyRecordUI; 
-            memoId?: string; // Added for deleteMemo intent
-            upsertedNote?: DailyNoteUI; // Added for saveDailyNote intent
-            // Potentially add other specific data fields for other intents if needed
-        };
+        type BaseActionResponse = { ok: boolean; intent?: string; error?: string; };
+        type ActionResponseOkAdd = BaseActionResponse & { ok: true; intent: "addRecord" | "addRecordFromPlan"; createdRecordId?: string; addedFromPlanId?: string; };
+        type ActionResponseOkActivate = BaseActionResponse & { ok: true; intent: "activateCategoryAndAddRecordFromPlan"; createdRecordId?: string; addedFromPlanId?: string; activatedCategoryCode?: string; };
+        type ActionResponseOkUpdate = BaseActionResponse & { ok: true; intent: "updateRecord" | "updateSubcode"; recordId: string; updatedRecord: DailyRecordUI; };
+        type ActionResponseOkDelete = BaseActionResponse & { ok: true; intent: "deleteRecord" | "deleteMemo"; recordId?: string; memoId?: string; };
+        type ActionResponseOkNote = BaseActionResponse & { ok: true; intent: "saveDailyNote"; upsertedNote: DailyNoteUI; };
+        type ActionResponseOkAddMemo = BaseActionResponse & { ok: true; intent: "addMemo"; recordId?: string; };
+        type ActionResponseOkAddAll = BaseActionResponse & { ok: true; intent: "addAllRecordsFromMultiplePlans"; addedRecordPlanIds: string[]; partialErrors?: {plan_id: string, error: string}[] };
+        type ActionResponseError = BaseActionResponse & { ok: false; errors?: any };
+
+        const actionData = fetcher.data as ActionResponseOkAdd | ActionResponseOkActivate | ActionResponseOkUpdate | ActionResponseOkDelete | ActionResponseOkNote | ActionResponseOkAddMemo | ActionResponseOkAddAll | ActionResponseError;
+
         if (actionData.ok) {
-            if (actionData.intent === "addRecord" || actionData.intent === "addRecordFromPlan") {
+            if (actionData.intent === "addRecord" || actionData.intent === "addRecordFromPlan" || (actionData.intent === "activateCategoryAndAddRecordFromPlan" && (actionData as ActionResponseOkActivate).createdRecordId)) {
+                const addActionResult = actionData as ActionResponseOkAdd | ActionResponseOkActivate;
                 setForm(initialForm);
                 setSelectedRowId(null);
                 setIsEditing(false);
-                // Re-fetch or optimistically add to records state for immediate UI update
-                // For now, relying on loader revalidation or manual refresh. Consider optimistic update later.
-            }
-            if (actionData.intent === "updateRecord" && actionData.recordId) {
-                if (actionData.updatedRecord) {
+                if (addActionResult.addedFromPlanId) {
+                    setAddedPlanIds(prev => new Set(prev).add(addActionResult.addedFromPlanId!));
+                }
+                if (actionData.intent === "activateCategoryAndAddRecordFromPlan" && addActionResult.addedFromPlanId) {
+                    setShowActivateCategoryDialog(false); 
+                    setPlanToActivate(null);
+                    setPendingAddAllPlansQueue(prevQueue => {
+                        const newQueue = prevQueue.filter(p => p.id !== addActionResult.addedFromPlanId);
+                        processNextPendingPlanForActivation(newQueue); 
+                        return newQueue;
+                    });
+                } else if (actionData.intent !== "activateCategoryAndAddRecordFromPlan") { // Regular add or add from plan (not via queue)
+                    setIsAddingAllPlans(false); // Ensure this is reset if not part of a batch queue
+                }
+            } else if (actionData.intent === "updateRecord" ) {
+                 const updateResult = actionData as ActionResponseOkUpdate;
+                if (updateResult.updatedRecord) {
                     setRecords(prevRecords => 
                         prevRecords.map(r => 
-                            r.id === actionData.recordId ? { ...r, ...actionData.updatedRecord } : r
+                            r.id === updateResult.recordId ? { ...r, ...updateResult.updatedRecord } : r
                         )
                     );
                 }
                 setIsEditing(false);
                 setSelectedRowId(null);
                 setForm(initialForm);
-            }
-            if (actionData.intent === "updateSubcode" && actionData.recordId) {
-                if (actionData.updatedRecord) { // Expecting updatedRecord from updateSubcode action
+            } else if (actionData.intent === "updateSubcode") { 
+                const updateSubcodeResult = actionData as ActionResponseOkUpdate;
+                if (updateSubcodeResult.updatedRecord) { 
                      setRecords(prevRecords => 
                         prevRecords.map(r => 
-                            r.id === actionData.recordId ? { ...r, ...actionData.updatedRecord } : r
+                            r.id === updateSubcodeResult.recordId ? { ...r, ...updateSubcodeResult.updatedRecord } : r
                         )
                     );
                 } else {
-                    // If updatedRecord is not returned by updateSubcode, the UI might not refresh immediately
-                    // or would need a page reload/re-fetch of records data.
-                    console.warn(`[DailyPage Effect] updateSubcode for ${actionData.recordId} was ok, but no updatedRecord data received. UI might be stale.`);
+                    console.warn(`[DailyPage Effect] updateSubcode for ${updateSubcodeResult.recordId} was ok, but no updatedRecord data received.`);
                 }
                 setEditingSubcodeForRecordId(null);
-            }
-            if (actionData.intent === "addMemo" && actionData.recordId) {
+            } else if (actionData.intent === "addMemo") { 
+                const addMemoResult = actionData as ActionResponseOkAddMemo;
                 setShowMemoFormForRecordId(null);
                 setMemoTitle("");
                 setMemoContent("");
-                // Memos are part of records. Re-fetch or optimistic update needed.
-            }
-            if (actionData.intent === "deleteRecord" && actionData.recordId) {
-                setRecords(prevRecords => prevRecords.filter(r => r.id !== actionData.recordId));
-                if (selectedRowId === actionData.recordId) {
+                console.log("Memo added for recordId:", addMemoResult.recordId); 
+                // Re-fetch or optimistic update for memos needed here.
+                // For now, if recordId is returned, it means success. UI will update on next full load.
+            } else if (actionData.intent === "deleteRecord") {
+                const deleteResult = actionData as ActionResponseOkDelete;
+                setRecords(prevRecords => prevRecords.filter(r => r.id !== deleteResult.recordId));
+                if (selectedRowId === deleteResult.recordId) {
                     setSelectedRowId(null);
                     setIsEditing(false);
                     setForm(initialForm);
                 }
-            }
-            if (actionData.intent === "deleteMemo" && actionData.memoId) { 
+            } else if (actionData.intent === "deleteMemo") { 
+                const deleteMemoResult = actionData as ActionResponseOkDelete;
                  setRecords(prevRecords => prevRecords.map(r => ({
                      ...r,
-                     memos: r.memos ? r.memos.filter(m => m.id !== actionData.memoId) : []
+                     memos: r.memos ? r.memos.filter(m => m.id !== deleteMemoResult.memoId) : []
                  })));
-            }
-            if (actionData.intent === "saveDailyNote" && actionData.upsertedNote) {
-                setCurrentDailyNoteContent(actionData.upsertedNote.content);
-                // We might also want to update the `dailyNote` state if it's held fully in state
-                // For instance, if `dailyNote` itself was a state variable `[dailyNote, setDailyNote] = useState(loaderData.dailyNote)`
-                // then we could do: setDailyNote(actionData.upsertedNote);
-            }
-        } else if (actionData.error) {
-            console.error("Action Error:", actionData.error, "Intent:", actionData.intent);
-            if (actionData.intent === "updateRecord" || actionData.intent === "addRecord") {
-                 if (actionData.error?.includes("duration")) {
-                    setDurationError(actionData.error);
+            } else if (actionData.intent === "saveDailyNote") {
+                setCurrentDailyNoteContent((actionData as ActionResponseOkNote).upsertedNote.content);
+            } else if (actionData.intent === "addAllRecordsFromMultiplePlans") {
+                const addAllResult = actionData as ActionResponseOkAddAll;
+                if (addAllResult.addedRecordPlanIds && addAllResult.addedRecordPlanIds.length > 0) {
+                    setAddedPlanIds(prev => new Set([...prev, ...addAllResult.addedRecordPlanIds!]));
+                }
+                if (addAllResult.partialErrors && addAllResult.partialErrors.length > 0) {
+                    alert(`일부 계획을 기록으로 추가하는데 실패했습니다: ${addAllResult.partialErrors.map(e => `${e.plan_id}: ${e.error}`).join("; ")}`);
+                }
+                // After direct adds, process activation queue if it exists and dialog isn't already open
+                if (pendingAddAllPlansQueue.length > 0 && !showActivateCategoryDialog) { 
+                    processNextPendingPlanForActivation(pendingAddAllPlansQueue);
+                } else if (pendingAddAllPlansQueue.length === 0) { // All done (no activation queue or queue finished)
+                    setIsAddingAllPlans(false); 
                 }
             }
-           // Consider showing a toast or alert for other errors too
+        } else { 
+            const errorResult = actionData as ActionResponseError;
+            console.error("Action Error:", errorResult.error, "Intent:", errorResult.intent);
+            if (errorResult.intent === "activateCategoryAndAddRecordFromPlan") {
+                setShowActivateCategoryDialog(false);
+                const failedPlanId = planToActivate?.id;
+                setPlanToActivate(null);
+                alert(`카테고리 활성화 및 기록 추가 중 오류 발생: ${errorResult.error}`);
+                if (isAddingAllPlans && failedPlanId) { // If part of "Add All"
+                    setPendingAddAllPlansQueue(prevQueue => {
+                        const newQueue = prevQueue.filter(p => p.id !== failedPlanId);
+                        processNextPendingPlanForActivation(newQueue); // Try next in queue
+                        return newQueue;
+                    });
+                } else { // Single activation failed, not part of batch
+                    setIsAddingAllPlans(false); 
+                }
+            } else if (errorResult.intent === "addAllRecordsFromMultiplePlans") {
+                setIsAddingAllPlans(false); // Stop batch process on error
+                alert(`여러 계획 추가 중 오류 발생: ${errorResult.error}${errorResult.errors ? ` Details: ${JSON.stringify(errorResult.errors)}` : ''}`);
+                setPendingAddAllPlansQueue([]); // Clear queue as batch submission itself failed
+            } else if (errorResult.intent === "updateRecord" || errorResult.intent === "addRecord") {
+                if (errorResult.error?.includes("duration")) {
+                    setDurationError(errorResult.error);
+                } else {
+                    alert(`오류 (${errorResult.intent || '알 수 없음'}): ${errorResult.error}`);
+                }
+            } else {
+                alert(`오류 (${errorResult.intent || '알 수 없음'}): ${errorResult.error}`);
+            }
         }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetcher.data, fetcher.state]);
+  }, [fetcher.data, fetcher.state, planToActivate, isAddingAllPlans]); 
 
   function validateDuration(value: string): boolean {
     const num = Number(value);
@@ -603,57 +994,124 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
   }
 
   function handleFormCategorySelect(code: string) {
-    if (isValidCategoryCode(code)) {
+    const selectedCat = categories.find(c => c.code === code);
+    if (selectedCat && selectedCat.isActive) { 
         if (isEditing && selectedRecord?.linked_plan_id) return;
         if (isEditing) setEditRowCategory(code);
         else setForm(f => ({ ...f, category: code }));
     } else {
-        console.warn("Invalid category code selected during form interaction:", code);
+        console.warn("Attempted to select an invalid or inactive category code:", code);
     }
   }
 
   function handleRowClick(record: DailyRecordUI) {
     if (selectedRowId === record.id && isEditing) {
-        // Already editing this row, do nothing or perhaps allow deselect/cancel?
-        // For now, do nothing to prevent accidental state changes.
         return;
     }
-    // If clicking a different row while already editing one,
-    // perhaps we should save/cancel the current edit first?
-    // For now, directly switch to the new record.
-
     setSelectedRowId(record.id);
-    if (isValidCategoryCode(record.category_code)) {
-        setEditRowCategory(record.category_code);
-    } else {
-        setEditRowCategory(initialForm.category); // Fallback to default
-        console.warn("Invalid category_code in clicked record:", record.category_code);
-    }
+    setEditRowCategory(record.category_code); 
     setEditRowDuration(record.duration ? String(record.duration) : '');
     setEditRowComment(record.comment || '');
     setEditRowIsPublic(record.is_public);
-    setIsEditing(true); // Directly enter edit mode for the main form
+    setIsEditing(true);
     setDurationError(null);
-
-    // If these were open for another record, close them.
     setEditingSubcodeForRecordId(null);
     setShowMemoFormForRecordId(null);
   }
 
   function handleEditRowCancel() {
     setIsEditing(false);
+    // Don't reset selectedRowId here, allow re-clicking same row to enter edit mode again if desired.
+    // Or, if strictly exiting edit:
+    // setSelectedRowId(null);
+    // Reset form fields based on current selected record if any, or to initial if none.
     const currentRecord = records.find(r => r.id === selectedRowId);
     if (currentRecord) {
-        if (isValidCategoryCode(currentRecord.category_code)) {
+        if (isValidCategoryCode(currentRecord.category_code, categories.filter(c => c.isActive))) { // Check against active categories
             setEditRowCategory(currentRecord.category_code);
         } else {
-            setEditRowCategory(initialForm.category);
+            // If current category is no longer active, perhaps default to first active one
+            const firstActive = categories.find(c => c.isActive);
+            setEditRowCategory(firstActive ? firstActive.code : initialForm.category);
         }
         setEditRowDuration(currentRecord.duration ? String(currentRecord.duration) : '');
         setEditRowComment(currentRecord.comment || '');
         setEditRowIsPublic(currentRecord.is_public);
+    } else { // No specific record selected or record disappeared, reset to defaults
+        const firstActive = categories.find(c => c.isActive);
+        setEditRowCategory(firstActive ? firstActive.code : initialForm.category);
+        setEditRowDuration('');
+        setEditRowComment('');
+        setEditRowIsPublic(false);
     }
     setDurationError(null);
+  }
+  
+  function processNextPendingPlanForActivation(queue: DailyPlanUI[]) {
+    if (queue.length > 0) {
+      const nextPlan = queue[0];
+      setPlanToActivate(nextPlan);
+      setShowActivateCategoryDialog(true);
+      // isAddingAllPlans should already be true if this function is called during "Add All"
+    } else {
+      setPlanToActivate(null);
+      setShowActivateCategoryDialog(false);
+      setIsAddingAllPlans(false); // All queued items (requiring activation) are processed
+    }
+  }
+  
+  function handleAddAllPlansToRecords() {
+    const plansReadyToAdd = plansForBanner.filter(p => !addedPlanIds.has(p.id));
+    if (plansReadyToAdd.length === 0) {
+      alert("추가할 새로운 계획이 없습니다.");
+      return;
+    }
+  
+    setIsAddingAllPlans(true);
+  
+    const directAddPayload: { 
+        plan_id: string; 
+        category_code: string; 
+        subcode: string | null; 
+        duration: number | undefined; 
+        comment: string | null; 
+        linked_plan_id: string;
+    }[] = [];
+    let activationNeededPlans: DailyPlanUI[] = [];
+  
+    for (const plan of plansReadyToAdd) {
+      const categoryInfo = categories.find(c => c.code === plan.category_code);
+      if (categoryInfo && categoryInfo.isActive) {
+        directAddPayload.push({
+          plan_id: plan.id, 
+          category_code: plan.category_code,
+          subcode: plan.subcode,
+          duration: plan.duration,
+          comment: plan.comment,
+          linked_plan_id: plan.id,
+        });
+      } else {
+        activationNeededPlans.push(plan);
+      }
+    }
+  
+    if (directAddPayload.length > 0) {
+      const formData = new FormData();
+      formData.append("intent", "addAllRecordsFromMultiplePlans");
+      formData.append("date", today);
+      formData.append("plansData", JSON.stringify(directAddPayload));
+      fetcher.submit(formData, { method: "post" });
+      // If there are also activation needed plans, they will be set to queue.
+      // useEffect will trigger their processing after this fetcher returns (if queue is not empty).
+      setPendingAddAllPlansQueue(activationNeededPlans); 
+    } else if (activationNeededPlans.length > 0) {
+      // No direct adds, only activation needed. Start the queue immediately.
+      setPendingAddAllPlansQueue(activationNeededPlans);
+      processNextPendingPlanForActivation(activationNeededPlans);
+    } else {
+      // This case should ideally not be hit if plansReadyToAdd.length > 0 check is done.
+      setIsAddingAllPlans(false);
+    }
   }
 
   const currentFormCategory = isEditing ? editRowCategory : form.category;
@@ -677,30 +1135,37 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
         </Button>
       </div>
       {plansForBanner.length > 0 && (
-        <div className="mb-8">
-          {isPlanBannerCollapsed ? (
-            <div className="rounded-xl bg-muted border px-6 py-3 flex items-center justify-between">
-              <span className="font-semibold text-lg text-foreground">어제 작성한 오늘의 계획</span>
-              <Button variant="ghost" size="sm" onClick={() => setIsPlanBannerCollapsed(false)}>펴기</Button>
-            </div>
-          ) : (
-            <div className="relative">
+        <Collapsible
+          open={!isPlanBannerCollapsed}
+          onOpenChange={(open:boolean) => setIsPlanBannerCollapsed(!open)}
+          className="mb-8"
+        >
+          <div className="rounded-xl bg-muted border">
+            <CollapsibleTrigger asChild>
+              <div className="px-6 py-3 flex items-center justify-between cursor-pointer">
+                <div className="flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-primary" />
+                  <span className="font-semibold text-lg text-foreground">어제 작성한 오늘의 계획</span>
+                </div>
+                <Button variant="ghost" size="sm">
+                  {isPlanBannerCollapsed ? "펴기" : "접기"} 
+                  <span className="sr-only">Toggle Plan Banner</span>
+                </Button>
+              </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
               <PlanBanner
                 plans={plansForBanner}
                 addedPlanIds={addedPlanIds}
+                categories={categories}
+                setShowActivateCategoryDialog={setShowActivateCategoryDialog}
+                setPlanToActivate={setPlanToActivate}
+                onAddAll={handleAddAllPlansToRecords} 
+                isAddingAll={isAddingAllPlans} 
               />
-               <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-2 right-2"
-                onClick={() => setIsPlanBannerCollapsed(true)}
-                aria-label="접기"
-              >
-                <X className="w-4 h-4"/>
-              </Button>
-            </div>
-          )}
-        </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
       )}
       <div className="flex flex-col lg:flex-row gap-8">
         <div className="flex-1">
@@ -714,27 +1179,15 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                 {isEditing && selectedRowId && <input type="hidden" name="recordId" value={selectedRowId} />}
                 <input type="hidden" name="date" value={today} />
                 
-                <div className="flex flex-col gap-4">
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar mb-2">
-                    {Object.keys(CATEGORIES).map((code) => {
-                        const catCode = code as CategoryCode;
-                        const cat = CATEGORIES[catCode];
-                        return (
-                        <Button
-                        key={catCode}
-                        type="button"
-                        variant={currentFormCategory === catCode ? "default" : "outline"}
-                        className={`w-16 h-16 flex flex-col items-center justify-center rounded-lg border ${currentFormCategory === catCode ? 'ring-2 ring-primary' : ''}`}
-                        onClick={() => handleFormCategorySelect(catCode)}
-                        style={{ minWidth: 64, minHeight: 64 }}
-                        disabled={(isEditing && !!selectedRecord?.linked_plan_id) || (fetcher.state !== 'idle' && fetcher.formData?.get('intent') === (isEditing ? 'updateRecord' : 'addRecord'))}
-                        >
-                        <span className="text-2xl mb-1">{cat.icon}</span>
-                        <span className="text-xs font-medium text-center leading-tight">{cat.label}</span>
-                        </Button>
-                    )})}
-                    </div>
-                    <div className="flex flex-col gap-2">
+                <CategorySelector 
+                  categories={categories.filter(cat => cat.isActive)} 
+                  selectedCategoryCode={currentFormCategory}
+                  onSelectCategory={handleFormCategorySelect}
+                  disabled={(isEditing && !!selectedRecord?.linked_plan_id) || (fetcher.state !== 'idle' && fetcher.formData?.get('intent') === (isEditing ? 'updateRecord' : 'addRecord'))}
+                  instanceId="daily-page-form-selector"
+                />
+                
+                <div className="flex flex-col gap-2 mt-2">
                     <div className="flex gap-2">
                         <div className="relative">
                         <Input
@@ -745,9 +1198,10 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                             placeholder="분"
                             value={currentFormDuration}
                             onChange={(e) => {
-                                if (validateDuration(e.target.value)) {
-                                    if (isEditing) setEditRowDuration(e.target.value);
-                                    else setForm(f => ({ ...f, duration: e.target.value }));
+                                if (isEditing) {
+                                    if (validateDuration(e.target.value)) setEditRowDuration(e.target.value);
+                                } else {
+                                    if (validateDuration(e.target.value)) setForm(f => ({ ...f, duration: e.target.value }));
                                 }
                             }}
                             className={`w-24 ${durationError ? 'border-red-500' : ''}`}
@@ -784,7 +1238,6 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                                 <Button type="submit" className="ml-2" size="sm" disabled={fetcher.state !== 'idle'}>저장</Button>
                                 <Button type="button" className="ml-1" size="sm" variant="outline" onClick={handleEditRowCancel} disabled={fetcher.state !== 'idle'}>취소</Button>
                                 <Button type="button" variant="destructive" size="sm" className="ml-1" disabled={fetcher.state !== 'idle'} onClick={() => {
-                                    // Placeholder for delete action
                                     if (confirm("Are you sure you want to delete this record?") && selectedRowId) {
                                         const formData = new FormData();
                                         formData.append("intent", "deleteRecord");
@@ -794,11 +1247,10 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                                 }}>삭제</Button>
                             </div>
                         ) : (
-                            <Button type="submit" className="ml-2 flex-shrink-0" disabled={fetcher.state !== 'idle'}>
+                            <Button type="submit" className="ml-2 flex-shrink-0" disabled={fetcher.state !== 'idle' || !form.category || !isValidCategoryCode(form.category, categories.filter(c => c.isActive))}>
                                 {fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'addRecord' ? "추가중..." : "Add"}
                             </Button>
                         )}
-                    </div>
                     </div>
                 </div>
               </fetcher.Form>
@@ -822,23 +1274,30 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                   </thead>
                   <tbody>
                     {records.map((rec) => {
-                      const cat = isValidCategoryCode(rec.category_code) 
-                        ? CATEGORIES[rec.category_code] 
-                        : { code: rec.category_code, icon: '❓', label: rec.category_code || 'Unknown', hasDuration: false };
+                      const categoryInfo = categories.find(c => c.code === rec.category_code);
+                      const displayCategory = categoryInfo || { 
+                          code: rec.category_code, 
+                          label: rec.category_code || 'Unknown', 
+                          icon: '❓', 
+                          isCustom: false, 
+                          isActive: false, 
+                          hasDuration: false 
+                        };
+                      const catColor = getCategoryColor(categoryInfo, rec.category_code);
+
                       return (
-                        <>
+                        <React.Fragment key={`record-item-${rec.id}`}>
                           <tr
-                            key={rec.id}
                             className={`border-b cursor-pointer ${selectedRowId === rec.id ? 'bg-accent/30' : ''}`}
                             onClick={() => handleRowClick(rec)}
                           >
                             <td className="py-2 px-2 flex items-center gap-2">
-                              <span className={`text-2xl ${isValidCategoryCode(rec.category_code) ? getCategoryColor(rec.category_code) : 'text-gray-500'}`}>{cat.icon}</span>
-                              <span className="font-medium">{cat.label}</span>
+                              <span className={`text-2xl ${catColor}`}>{displayCategory.icon}</span>
+                              <span className="font-medium">{displayCategory.label}</span>
                             </td>
                             <td className="py-2 px-2">{rec.subcode || <span className="text-muted-foreground">-</span>}</td>
                             <td className="py-2 px-2">
-                              {rec.duration ? `${rec.duration}분` : (cat.hasDuration ? "-" : "")}
+                              {rec.duration ? `${rec.duration}분` : (displayCategory.hasDuration ? "-" : "")}
                             </td>
                             <td className="py-2 px-2">{rec.comment || <span className="text-muted-foreground">No comment</span>}</td>
                             <td className="py-2 px-2 text-center flex gap-2 justify-center">
@@ -881,7 +1340,38 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                               </td>
                             </tr>
                           )}
-                        </>
+                          {showMemoFormForRecordId === rec.id && !isEditing && !editingSubcodeForRecordId && (
+                             <tr key={`memo-form-wrapper-${rec.id}`}>
+                                <td colSpan={5} className="bg-muted p-0">
+                                   <div className="p-4 border-t">
+                                    <h4 className="font-medium text-md mb-2">새 메모 작성 (기록: {rec.comment?.substring(0,20) || categories.find(c=>c.code === rec.category_code)?.label || 'N/A'})</h4>
+                                    <fetcher.Form method="post" className="flex flex-col gap-3" onSubmit={() => setShowMemoFormForRecordId(null)}>
+                                        <input type="hidden" name="intent" value="addMemo" />
+                                        <input type="hidden" name="recordId" value={rec.id} />
+                                        <Input
+                                            name="memoTitle"
+                                            placeholder="제목 (선택)"
+                                            value={memoTitle}
+                                            onChange={e => setMemoTitle(e.target.value)}
+                                        />
+                                        <Textarea
+                                            name="memoContent"
+                                            placeholder="내용을 입력하세요..."
+                                            value={memoContent}
+                                            onChange={e => setMemoContent(e.target.value)}
+                                            className="min-h-[100px]"
+                                            required
+                                        />
+                                        <div className="flex justify-end gap-2">
+                                            <Button type="submit" size="sm" disabled={!memoContent.trim() || (fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'addMemo' && fetcher.formData?.get('recordId') === rec.id) }>저장</Button>
+                                            <Button type="button" size="sm" variant="outline" onClick={() => setShowMemoFormForRecordId(null)}>취소</Button>
+                                        </div>
+                                    </fetcher.Form>
+                                   </div>
+                                </td>
+                             </tr>
+                          )}
+                        </React.Fragment>
                       );
                     })}
                     {records.length === 0 && (
@@ -916,54 +1406,25 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
           </div>
         </div>
         <div className="w-full lg:w-96 space-y-4">
-          {showMemoFormForRecordId && (
-            <Card>
-              <CardHeader>
-                <CardTitle>새 메모 작성 (기록: {records.find(r=>r.id === showMemoFormForRecordId)?.comment?.substring(0,20) || 'N/A'})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <fetcher.Form method="post" className="flex flex-col gap-4" onSubmit={() => setShowMemoFormForRecordId(null)}>
-                  <input type="hidden" name="intent" value="addMemo" />
-                  <input type="hidden" name="recordId" value={showMemoFormForRecordId} />
-                  <Input
-                    name="memoTitle"
-                    placeholder="제목 (선택)"
-                    value={memoTitle}
-                    onChange={e => setMemoTitle(e.target.value)}
-                  />
-                  <Textarea
-                    name="memoContent"
-                    placeholder="내용을 입력하세요..."
-                    value={memoContent}
-                    onChange={e => setMemoContent(e.target.value)}
-                    className="min-h-[150px]"
-                    required
-                  />
-                  <div className="flex justify-end gap-2">
-                    <Button type="submit" size="sm" disabled={!memoContent.trim() || (fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'addMemo') }>저장</Button>
-                    <Button type="button" size="sm" variant="outline" onClick={() => setShowMemoFormForRecordId(null)}>취소</Button>
-                  </div>
-                </fetcher.Form>
-              </CardContent>
-            </Card>
-          )}
+          {/* Memos are now displayed under each record or in a dedicated section if a record is selected for memo */}
           <div className="font-semibold mb-2 text-sm text-muted-foreground mt-4">기록별 메모</div>
-          {records.flatMap(r => r.memos || []).length === 0 && <p className="text-muted-foreground text-sm">작성된 메모가 없습니다.</p>}
+          {records.flatMap(r => r.memos || []).length === 0 && !showMemoFormForRecordId && <p className="text-muted-foreground text-sm">작성된 메모가 없습니다. 메모를 추가하려면 각 기록 옆의 '메모' 버튼을 클릭하세요.</p>}
           {records.map(record => (
             record.memos && record.memos.length > 0 && (
-              <div key={`record-memos-${record.id}`} className="mb-4">
-                 <h4 className="font-medium text-sm mb-1">
-                    {(isValidCategoryCode(record.category_code) ? CATEGORIES[record.category_code]?.icon : '❓')} {record.comment || (isValidCategoryCode(record.category_code) ? CATEGORIES[record.category_code]?.label : record.category_code)}
+              <div key={`record-memos-summary-${record.id}`} className="mb-4">
+                 <h4 className="font-medium text-sm mb-1 flex items-center gap-1">
+                    <span className={`text-lg ${getCategoryColor(categories.find(c=>c.code === record.category_code), record.category_code)}`}>{categories.find(c => c.code === record.category_code)?.icon || '❓'}</span>
+                    {record.comment || (categories.find(c => c.code === record.category_code)?.label || record.category_code)}
                  </h4>
                 {record.memos.map(memo => (
-                  <Card key={memo.id} className="mb-2">
+                  <Card key={memo.id} className="mb-2 bg-muted/30">
                     <CardHeader className="pb-2 pt-3 px-4">
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-md">{memo.title || '제목 없음'}</CardTitle>
                         <fetcher.Form method="post" style={{display: 'inline-block'}}>
                             <input type="hidden" name="intent" value="deleteMemo" />
                             <input type="hidden" name="memoId" value={memo.id} />
-                            <Button variant="ghost" size="icon" type="submit" disabled={fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'deleteMemo' && fetcher.formData?.get('memoId') === memo.id}><X className="w-4 h-4" /></Button>
+                            <Button variant="ghost" size="icon" type="submit" disabled={fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'deleteMemo' && fetcher.formData?.get('memoId') === memo.id}><X className="w-4 h-4 text-destructive/70 hover:text-destructive" /></Button>
                         </fetcher.Form>
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -980,6 +1441,63 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
           ))}
         </div>
       </div>
+      {showActivateCategoryDialog && planToActivate && (
+        <AlertDialog open={showActivateCategoryDialog} onOpenChange={(open) => {
+            if (!open) { // Dialog is closing
+                setPlanToActivate(null); 
+                // If part of "Add All" and user cancelled, we need to decide if queue processing stops or continues.
+                // For now, closing dialog via Cancel button will stop the current queue processing.
+                // If it was the last item, isAddingAllPlans will be set to false by processNext.
+                // If there were more items, this manual cancel effectively halts the queue.
+                if(isAddingAllPlans) {
+                    setPendingAddAllPlansQueue([]); // Clear queue on cancel
+                    setIsAddingAllPlans(false); // Stop adding all mode
+                }
+            }
+            setShowActivateCategoryDialog(open);
+        }}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>비활성 카테고리</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        선택한 계획의 카테고리 '{categories.find(c => c.code === planToActivate.category_code)?.label || planToActivate.category_code}'는 현재 비활성 상태입니다.
+                        이 기록을 추가하려면 카테고리를 활성화해야 합니다. 활성화하고 기록을 추가하시겠습니까?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => { 
+                        // setPlanToActivate(null); // Already handled by onOpenChange
+                        // setShowActivateCategoryDialog(false); // Already handled
+                        // Logic for stopping queue if "Add All" is in onOpenChange
+                    }}>취소</AlertDialogCancel>
+                    <AlertDialogAction
+                        type="button"
+                        onClick={() => {
+                            if (planToActivate) {
+                                const formData = new FormData();
+                                formData.append("intent", "activateCategoryAndAddRecordFromPlan");
+                                formData.append("planId", planToActivate.id); // Original plan ID
+                                formData.append("addedFromPlanId", planToActivate.id); // For queue tracking
+                                formData.append("category_code_to_activate", planToActivate.category_code);
+                                if (planToActivate.subcode) formData.append("subcode", planToActivate.subcode);
+                                if (planToActivate.duration) formData.append("duration", planToActivate.duration.toString());
+                                formData.append("comment", planToActivate.comment || '');
+                                formData.append("linked_plan_id", planToActivate.id); // For the new record
+                                formData.append("isCustomCategory", String(categories.find(c=>c.code === planToActivate.category_code)?.isCustom || false));
+                                formData.append("date", today); // Ensure date is passed
+                                
+                                fetcher.submit(formData, { method: "post" });
+                                // setShowActivateCategoryDialog(false); // Dialog will close from useEffect on success/error
+                                // setPlanToActivate(null);
+                            }
+                        }}
+                    >
+                        활성화하고 추가
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
-} 
+}

@@ -20,7 +20,10 @@ import type {
     MonthlyGoalRow as DbMonthlyGoal
 } from "~/features/plan/queries";
 import { CATEGORIES } from "~/common/types/daily";
-import type { CategoryCode } from "~/common/types/daily";
+import type { CategoryCode, UICategory } from "~/common/types/daily";
+import { CategorySelector } from "~/common/components/ui/CategorySelector";
+import * as settingsQueries from "~/features/settings/queries";
+import type { UserCategory as DbUserCategory, UserDefaultCodePreference as DbUserDefaultCodePreference } from "~/features/settings/queries";
 
 // --- UI Specific Types ---
 interface WeeklyTaskUI {
@@ -63,17 +66,27 @@ function getWeekRangeString(startDateISO: string): string {
 
 const DAYS_OF_WEEK = ["월", "화", "수", "목", "금", "토", "일"];
 
-const isValidCategoryCode = (code: string): code is CategoryCode => {
-    return code in CATEGORIES;
+const isValidCategoryCode = (code: string, activeCategories: UICategory[]): boolean => {
+    return activeCategories.some(c => c.code === code && c.isActive);
 };
 
-function getCategoryColor(code: string): string {
-  if (!isValidCategoryCode(code)) return "text-gray-500";
-  const category = CATEGORIES[code];
-  const map: Record<CategoryCode, string> = {
-    EX: "text-orange-500", BK: "text-green-600", ML: "text-orange-600", EM: "text-purple-500", ST: "text-yellow-500", WK: "text-teal-700", HB: "text-pink-500", SL: "text-cyan-600", RT: "text-blue-500"
-  };
-  return map[code] || "text-gray-500";
+function getCategoryColor(category: UICategory | undefined, code?: string): string {
+  if (category) {
+    if (category.isCustom && category.color) {
+      return category.color;
+    }
+    const map: Record<string, string> = {
+      EX: "text-orange-500", BK: "text-green-600", ML: "text-orange-600", EM: "text-purple-500", ST: "text-yellow-500", WK: "text-teal-700", HB: "text-pink-500", SL: "text-cyan-600", RT: "text-blue-500"
+    };
+    return map[category.code] || "text-gray-500";
+  }
+  if (code) {
+     const map: Record<string, string> = {
+      EX: "text-orange-500", BK: "text-green-600", ML: "text-orange-600", EM: "text-purple-500", ST: "text-yellow-500", WK: "text-teal-700", HB: "text-pink-500", SL: "text-cyan-600", RT: "text-blue-500"
+    };
+    return map[code] || "text-gray-500";
+  }
+  return "text-gray-500";
 }
 
 function sortWeeklyTasksArray(tasks: WeeklyTaskUI[]): WeeklyTaskUI[] {
@@ -101,6 +114,7 @@ export interface WeeklyPageLoaderData {
   weeklyNote: WeeklyNoteUI | null;
   monthlyGoalsForWeek: MonthlyGoalUI[];
   currentWeekNumberInMonth: number;
+  categories: UICategory[];
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<WeeklyPageLoaderData> => {
@@ -108,10 +122,18 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<WeeklyPag
   const currentWeekStartDate = getCurrentWeekStartDateISO();
   const currentWeekNumberInMonth = planQueries.getWeekOfMonth(currentWeekStartDate);
 
-  const [dbWeeklyTasks, dbWeeklyNoteData, dbMonthlyGoals] = await Promise.all([
+  const [
+    dbWeeklyTasks, 
+    dbWeeklyNoteData, 
+    dbMonthlyGoals,
+    userCategoriesData,
+    userDefaultCodePreferencesData
+  ] = await Promise.all([
     planQueries.getWeeklyTasksByWeek({ profileId, weekStartDate: currentWeekStartDate }),
     planQueries.getWeeklyNoteByWeek({ profileId, weekStartDate: currentWeekStartDate }),
-    planQueries.getMonthlyGoalsForWeek({ profileId, dateInWeek: currentWeekStartDate })
+    planQueries.getMonthlyGoalsForWeek({ profileId, dateInWeek: currentWeekStartDate }),
+    settingsQueries.getUserCategories({ profileId }),
+    settingsQueries.getUserDefaultCodePreferences({ profileId })
   ]);
 
   const weeklyTasks: WeeklyTaskUI[] = (dbWeeklyTasks || []).map((task: DbWeeklyTask): WeeklyTaskUI => ({
@@ -143,6 +165,61 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<WeeklyPag
         : goal.weekly_breakdown || {},
   }));
 
+  const processedCategories: UICategory[] = [];
+  const defaultCategoryPreferences = new Map(
+    (userDefaultCodePreferencesData || []).map(pref => [pref.default_category_code, pref.is_active])
+  );
+
+  for (const catCodeKey in CATEGORIES) {
+    if (Object.prototype.hasOwnProperty.call(CATEGORIES, catCodeKey)) {
+      const baseCategory = CATEGORIES[catCodeKey as CategoryCode];
+      const isActivePreference = defaultCategoryPreferences.get(baseCategory.code);
+      const isActive = isActivePreference === undefined ? true : isActivePreference;
+
+      processedCategories.push({
+        code: baseCategory.code,
+        label: baseCategory.label,
+        icon: baseCategory.icon,
+        isCustom: false,
+        isActive: isActive,
+        hasDuration: baseCategory.hasDuration,
+        sort_order: baseCategory.sort_order !== undefined ? baseCategory.sort_order : 999,
+      });
+    }
+  }
+
+  (userCategoriesData || []).forEach(userCat => {
+    const existingIndex = processedCategories.findIndex(c => c.code === userCat.code && !c.isCustom);
+    if (existingIndex !== -1) {
+        if(userCat.is_active) {
+            processedCategories.splice(existingIndex, 1);
+        } else {
+            return;
+        }
+    }
+    
+    if (!processedCategories.find(c => c.code === userCat.code && c.isCustom)) {
+        processedCategories.push({
+            code: userCat.code,
+            label: userCat.label,
+            icon: userCat.icon || '📝', 
+            color: userCat.color || undefined,
+            isCustom: true,
+            isActive: userCat.is_active,
+            hasDuration: true, 
+            sort_order: userCat.sort_order !== null && userCat.sort_order !== undefined ? userCat.sort_order : 1000,
+        });
+    }
+  });
+  
+  processedCategories.sort((a, b) => {
+    if (a.isActive && !b.isActive) return -1;
+    if (!a.isActive && b.isActive) return 1;
+    if (a.isCustom && !b.isCustom) return -1;
+    if (!a.isCustom && b.isCustom) return 1;
+    return (a.sort_order ?? 999) - (b.sort_order ?? 999);
+  });
+
   return {
     profileId,
     currentWeekStartDate,
@@ -150,6 +227,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<WeeklyPag
     weeklyNote,
     monthlyGoalsForWeek,
     currentWeekNumberInMonth,
+    categories: processedCategories,
   };
 };
 
@@ -174,13 +252,54 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const intent = formData.get("intent") as string;
   const currentWeekStartDate = getCurrentWeekStartDateISO();
 
+  const activeCategoriesForAction = await (async () => {
+    const [userCategoriesDb, defaultPreferencesDb] = await Promise.all([
+        settingsQueries.getUserCategories({ profileId }),
+        settingsQueries.getUserDefaultCodePreferences({ profileId })
+    ]);
+    const categoriesToValidate: UICategory[] = [];
+    const defaultPrefsMap = new Map((defaultPreferencesDb || []).map(p => [p.default_category_code, p.is_active]));
+    for (const key in CATEGORIES) {
+        const base = CATEGORIES[key as CategoryCode];
+        const isActivePref = defaultPrefsMap.get(base.code);
+        if (isActivePref === undefined || isActivePref) {
+            categoriesToValidate.push({ 
+                code: base.code,
+                label: base.label,
+                icon: base.icon,
+                isCustom: false, 
+                isActive: true, 
+                hasDuration: base.hasDuration,
+                sort_order: base.sort_order 
+            });
+        }
+    }
+    (userCategoriesDb || []).forEach(uc => {
+        if (uc.is_active) { 
+            if (!categoriesToValidate.find(c => c.code === uc.code && !c.isCustom && c.isActive)) {
+                 categoriesToValidate.push({
+                    code: uc.code,
+                    label: uc.label,
+                    icon: uc.icon || '📝',
+                    color: uc.color || undefined,
+                    isCustom: true,
+                    isActive: true,
+                    hasDuration: true, 
+                    sort_order: uc.sort_order !== null && uc.sort_order !== undefined ? uc.sort_order : 1000,
+                });
+            }
+        }
+    });
+    return categoriesToValidate.filter(c => c.isActive);
+  })();
+
   try {
     switch (intent) {
       case "addWeeklyTask": {
         const categoryCodeStr = formData.get("category_code") as string | null;
         const subcode = formData.get("subcode") as string | null;
         const comment = formData.get("comment") as string | null;
-        if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr)) return { ok: false, error: "Invalid or missing category code.", intent };
+        if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr, activeCategoriesForAction)) return { ok: false, error: "Invalid or missing active category code.", intent };
         if (!comment || comment.trim() === "") return { ok: false, error: "Task comment is required.", intent };
 
         const initialDays: Record<string, boolean> = {};
@@ -207,7 +326,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const isLocked = formData.get("is_locked") === "true";
         const daysStr = formData.get("days") as string | null; 
         if (!taskId) return { ok: false, error: "Task ID is required.", intent };
-        if (categoryCodeStr && !isValidCategoryCode(categoryCodeStr)) return { ok: false, error: "Invalid category code for update.", intent};
+        if (categoryCodeStr && !isValidCategoryCode(categoryCodeStr, activeCategoriesForAction)) return { ok: false, error: "Invalid active category code for update.", intent};
         let daysUpdate: Record<string, boolean> | undefined = undefined;
         if (daysStr) {
             try { daysUpdate = JSON.parse(daysStr); } 
@@ -235,7 +354,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const categoryCodeStr = formData.get("category_code") as string | null;
         const commentFromBreakdown = formData.get("comment") as string | null;
         if (!monthlyGoalId) return { ok: false, error: "Monthly Goal ID is required.", intent};
-        if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr)) return { ok: false, error: "Invalid category code.", intent };
+        if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr, activeCategoriesForAction)) return { ok: false, error: "Invalid active category code.", intent };
         if (!commentFromBreakdown) return { ok: false, error: "Breakdown comment is required.", intent};
 
         const initialDays: Record<string, boolean> = {};
@@ -303,8 +422,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         DAYS_OF_WEEK.forEach(day => initialDays[day] = false);
 
         for (const taskInfo of monthlyTasksInfo) {
-          if (!taskInfo.category_code || !isValidCategoryCode(taskInfo.category_code)) {
-            errors.push(`Invalid category for task from monthly goal: ${taskInfo.comment}`);
+          if (!taskInfo.category_code || !isValidCategoryCode(taskInfo.category_code, activeCategoriesForAction)) {
+            errors.push(`Invalid active category for task from monthly goal: ${taskInfo.comment}`);
             continue;
           }
           if (!taskInfo.comment || taskInfo.comment.trim() === "") {
@@ -378,7 +497,8 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
     weeklyTasks: initialWeeklyTasks, 
     weeklyNote: initialWeeklyNote,
     monthlyGoalsForWeek,
-    currentWeekNumberInMonth
+    currentWeekNumberInMonth,
+    categories
   } = loaderData;
 
   const fetcher = useFetcher<typeof action>();
@@ -476,12 +596,22 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetcher.data, fetcher.state]);
 
-  function handleNewTaskCategorySelect(code: CategoryCode) {
-    setNewTaskCategory(code);
+  function handleNewTaskCategorySelect(code: string) {
+    const selectedCat = categories.find(c => c.code === code);
+    if (selectedCat && selectedCat.isActive) {
+      setNewTaskCategory(code as CategoryCode);
+    } else {
+      console.warn("Attempted to select an invalid or inactive category for new task:", code);
+    }
   }
   
-  function handleEditTaskCategorySelect(code: CategoryCode) {
-    if(editTaskData) setEditTaskData(prev => ({...(prev || {} as Partial<WeeklyTaskUI>), category_code: code}));
+  function handleEditTaskCategorySelect(code: string) {
+    const selectedCat = categories.find(c => c.code === code);
+    if(editTaskData && selectedCat && selectedCat.isActive) {
+       setEditTaskData(prev => ({...(prev || {} as Partial<WeeklyTaskUI>), category_code: code}));
+    } else {
+      console.warn("Attempted to select an invalid or inactive category for editing task:", code);
+    }
   }
 
   function handleStartEdit(task: WeeklyTaskUI) {
@@ -591,7 +721,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                     <>
                         <CardContent className="space-y-3">
                         {monthlyGoalsForWeek.map(goal => {
-                            const categoryInfo = isValidCategoryCode(goal.category_code) ? CATEGORIES[goal.category_code] : null;
+                            const dynamicGoalCategoryInfo = categories.find(c => c.code === goal.category_code);
                             const breakdownKey = `week${currentWeekNumberInMonth}` as keyof typeof goal.weekly_breakdown;
                             const weeklyBreakdown = goal.weekly_breakdown as Record<string, string> | undefined;
                             const taskDescription = weeklyBreakdown?.[breakdownKey] || "N/A for this week";
@@ -599,7 +729,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                             return (
                             <div key={goal.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
                     <div className="flex items-center gap-3">
-                                <span className={`text-2xl ${categoryInfo ? getCategoryColor(goal.category_code) : 'text-gray-500'}`}>{categoryInfo?.icon || '❓'}</span>
+                                <span className={`text-2xl ${dynamicGoalCategoryInfo ? getCategoryColor(dynamicGoalCategoryInfo, goal.category_code) : getCategoryColor(undefined, goal.category_code)}`}>{dynamicGoalCategoryInfo?.icon || '❓'}</span>
                       <div>
                         <div className="font-medium">{goal.title}</div>
                                     <div className="text-sm text-muted-foreground">{taskDescription}</div>
@@ -665,26 +795,17 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
             <input type="hidden" name="intent" value={editingTaskId ? "" : "addWeeklyTask"} /> 
             {editingTaskId && <input type="hidden" name="taskId" value={editingTaskId} />}
             
-            <div className="flex gap-2 overflow-x-auto no-scrollbar mb-3 pb-2">
-                  {Object.entries(CATEGORIES).map(([code, cat]) => (
-                    <Button
-                      key={code}
-                      type="button"
-                    variant={(editingTaskId && editTaskData?.category_code ? editTaskData.category_code : newTaskCategory) === code ? "default" : "outline"}
-                    className={`w-16 h-16 flex flex-col items-center justify-center rounded-lg border ${(editingTaskId && editTaskData?.category_code ? editTaskData.category_code : newTaskCategory) === code ? 'ring-2 ring-primary' : ''}`}
-                    onClick={() => editingTaskId && editTaskData ? handleEditTaskCategorySelect(code as CategoryCode) : handleNewTaskCategorySelect(code as CategoryCode)}
-                      style={{ minWidth: 64, minHeight: 64 }}
-                    disabled={fetcher.state !== 'idle'}
-                    >
-                      <span className="text-2xl mb-1">{cat.icon}</span>
-                      <span className="text-xs font-medium text-center leading-tight">{cat.label}</span>
-                    </Button>
-                  ))}
-                </div>
+            <CategorySelector 
+              categories={categories.filter(c => c.isActive)} 
+              selectedCategoryCode={editingTaskId && editTaskData?.category_code ? editTaskData.category_code : newTaskCategory}
+              onSelectCategory={editingTaskId ? handleEditTaskCategorySelect : handleNewTaskCategorySelect}
+              disabled={fetcher.state !== 'idle'}
+              instanceId="weekly-page-selector"
+            />
             
             {!editingTaskId && <input type="hidden" name="category_code" value={newTaskCategory} />}
 
-            <div className="flex flex-col sm:flex-row gap-2 mb-3">
+            <div className="flex flex-col sm:flex-row gap-2 mb-3 mt-2">
                 <Input
                 name="subcode"
                 placeholder="Subcode (optional)"
@@ -736,13 +857,13 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                 </thead>
                 <tbody>
                 {weeklyTasks.map((task) => {
-                  const categoryInfo = isValidCategoryCode(task.category_code) ? CATEGORIES[task.category_code] : null;
+                  const dynamicCategoryInfo = categories.find(c => c.code === task.category_code);
                   const isEditingThis = editingTaskId === task.id;
                   return (
                     <tr key={task.id} className={`border-b ${isEditingThis ? 'bg-amber-50 dark:bg-amber-900/30' : ''}`}>
                       <td className="py-2 px-1">
                         <div className="flex items-center gap-2">
-                            <span className={`text-xl ${categoryInfo ? getCategoryColor(task.category_code) : 'text-gray-500'}`}>{categoryInfo?.icon || '❓'}</span>
+                            <span className={`text-xl ${dynamicCategoryInfo ? getCategoryColor(dynamicCategoryInfo, task.category_code) : getCategoryColor(undefined, task.category_code)}`}>{dynamicCategoryInfo?.icon || '❓'}</span>
                             <div>
                                 <span className="font-medium">{task.comment}</span>
                                 {task.subcode && <span className="text-xs text-muted-foreground block"> ({task.subcode})</span>}

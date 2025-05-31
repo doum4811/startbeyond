@@ -5,17 +5,19 @@ import { cn } from "~/lib/utils";
 import { DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "./ui/dropdown-menu";
 import { Button } from "./ui/button";
 import { DropdownMenu } from "./ui/dropdown-menu";
-import { BarChart3Icon, BellIcon, LogOutIcon, MessageCircleIcon, SettingsIcon, UserIcon } from "lucide-react";
+import { BarChart3Icon, BellIcon, LogOutIcon, MessageCircleIcon, SettingsIcon, UserIcon, HomeIcon, CalendarDaysIcon, LineChartIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 const menus = [
     {
         name: "Daily",
         to: "/daily",
+        icon: HomeIcon,
     },
     {
         name: "Plan",
         to: "/plan",
+        icon: CalendarDaysIcon,
         items: [
             {
                 name: "Tomorrow",
@@ -52,10 +54,12 @@ const menus = [
     {
         name: "Stats",
         to: "/stats",
+        icon: LineChartIcon,
     },
     {
         name: "Settings",
         to: "/settings",
+        icon: SettingsIcon,
     },
 ]
 export default function Navigation({    
@@ -75,7 +79,10 @@ export default function Navigation({
                         focus:bg-accent hover:bg-accent">
                             {menu.items ? <>
                                 <Link to={menu.to}>
-                                    <NavigationMenuTrigger>{menu.name}</NavigationMenuTrigger>
+                                    <NavigationMenuTrigger className="flex items-center">
+                                        {menu.icon && <menu.icon className="mr-2 h-4 w-4" />}
+                                        {menu.name}
+                                    </NavigationMenuTrigger>
                                 </Link>
                                 <NavigationMenuContent>
                                     <ul className="grid w-[500px] font-light gap-3 p-4 grid-cols-2">
@@ -99,7 +106,10 @@ export default function Navigation({
                                         ))}
                                     </ul>
                                 </NavigationMenuContent>
-                            </> : <Link className={navigationMenuTriggerStyle()} to={menu.to}>{menu.name}</Link>}
+                            </> : <Link className={navigationMenuTriggerStyle() + " flex items-center"} to={menu.to}>
+                                {menu.icon && <menu.icon className="mr-2 h-4 w-4" />}
+                                {menu.name}
+                            </Link>}
                         </NavigationMenuItem>
                     ))}
                 </NavigationMenuList>

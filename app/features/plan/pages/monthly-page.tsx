@@ -4,7 +4,8 @@ import { Button } from "~/common/components/ui/button";
 import { Input } from "~/common/components/ui/input";
 import { Textarea } from "~/common/components/ui/textarea";
 import { Label } from "~/common/components/ui/label";
-import { CATEGORIES, type CategoryCode } from "~/common/types/daily";
+import { CATEGORIES } from "~/common/types/daily";
+import type { CategoryCode, UICategory } from "~/common/types/daily";
 import { Link, Form, useFetcher } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { Calendar as CalendarIcon, PlusCircle, Trash2, Edit, Save, CheckSquare, XSquare } from "lucide-react";
@@ -12,6 +13,7 @@ import { DateTime } from "luxon";
 import { Calendar } from "~/common/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "~/common/components/ui/popover";
 import { Switch } from "~/common/components/ui/switch";
+import { CategorySelector } from "~/common/components/ui/CategorySelector";
 
 import * as planQueries from "~/features/plan/queries";
 import type { 
@@ -21,6 +23,8 @@ import type {
     MonthlyReflection as DbMonthlyReflection,
     MonthlyReflectionInsert
 } from "~/features/plan/queries";
+import * as settingsQueries from "~/features/settings/queries";
+import type { UserCategory as DbUserCategory, UserDefaultCodePreference as DbUserDefaultCodePreference } from "~/features/settings/queries";
 
 // Generic JSON type if specific one isn't available from supabase-helpers
 export type Json = | string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
@@ -100,17 +104,28 @@ function getWeeksInMonth(monthIsoDate: string): WeekInfo[] {
   return weeks;
 }
 
-const isValidCategoryCode = (code: string): code is CategoryCode => {
-    return code in CATEGORIES;
+const isValidCategoryCode = (code: string, activeCategories: UICategory[]): code is CategoryCode => {
+    // Ensure it's a valid CategoryCode and is active
+    return activeCategories.some(c => c.code === code && c.isActive) && Object.keys(CATEGORIES).includes(code);
 };
 
-function getCategoryColor(code: CategoryCode): string {
-  const category = CATEGORIES[code];
-  if (!category) return "text-gray-500";
-  const map: Record<CategoryCode, string> = {
-    EX: "text-orange-500", BK: "text-green-600", ML: "text-orange-600", EM: "text-purple-500", ST: "text-yellow-500", WK: "text-teal-700", HB: "text-pink-500", SL: "text-cyan-600", RT: "text-blue-500"
-  };
-  return map[code] || "text-gray-500";
+function getCategoryColor(category: UICategory | undefined, code?: string): string {
+  if (category) {
+    if (category.isCustom && category.color) {
+      return category.color;
+    }
+    const map: Record<string, string> = {
+      EX: "text-orange-500", BK: "text-green-600", ML: "text-orange-600", EM: "text-purple-500", ST: "text-yellow-500", WK: "text-teal-700", HB: "text-pink-500", SL: "text-cyan-600", RT: "text-blue-500"
+    };
+    return map[category.code] || "text-gray-500";
+  }
+  if (code) {
+     const map: Record<string, string> = {
+      EX: "text-orange-500", BK: "text-green-600", ML: "text-orange-600", EM: "text-purple-500", ST: "text-yellow-500", WK: "text-teal-700", HB: "text-pink-500", SL: "text-cyan-600", RT: "text-blue-500"
+    };
+    return map[code] || "text-gray-500";
+  }
+  return "text-gray-500";
 }
 
 function dbGoalToUIGoal(dbGoal: DbMonthlyGoal): MonthlyGoalUI {
@@ -183,6 +198,7 @@ export interface MonthlyPageLoaderData {
   monthlyGoals: MonthlyGoalUI[];
   monthlyReflection: MonthlyReflectionUI | null;
   weeksInSelectedMonth: WeekInfo[];
+  categories: UICategory[];
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<MonthlyPageLoaderData> => {
@@ -192,13 +208,76 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<MonthlyPa
   const selectedMonth = getCurrentMonthStartDateISO(monthParam);
   const weeksInSelectedMonth = getWeeksInMonth(selectedMonth);
 
-  const [dbGoals, dbReflection] = await Promise.all([
+  const [
+    dbGoals, 
+    dbReflection,
+    userCategoriesData,
+    userDefaultCodePreferencesData
+  ] = await Promise.all([
     planQueries.getMonthlyGoalsByMonth({ profileId, monthDate: selectedMonth }),
-    planQueries.getMonthlyReflectionByMonth({ profileId, monthDate: selectedMonth })
+    planQueries.getMonthlyReflectionByMonth({ profileId, monthDate: selectedMonth }),
+    settingsQueries.getUserCategories({ profileId }),
+    settingsQueries.getUserDefaultCodePreferences({ profileId })
   ]);
 
   const monthlyGoals: MonthlyGoalUI[] = (dbGoals || []).map(dbGoalToUIGoal);
   const monthlyReflection: MonthlyReflectionUI | null = dbReflection ? dbReflectionToUIReflection(dbReflection) : null;
+
+  // Process categories (Copied and adapted from tomorrow-page.tsx / weekly-page.tsx)
+  const processedCategories: UICategory[] = [];
+  const defaultCategoryPreferences = new Map(
+    (userDefaultCodePreferencesData || []).map(pref => [pref.default_category_code, pref.is_active])
+  );
+
+  for (const catCodeKey in CATEGORIES) {
+    if (Object.prototype.hasOwnProperty.call(CATEGORIES, catCodeKey)) {
+      const baseCategory = CATEGORIES[catCodeKey as CategoryCode];
+      const isActivePreference = defaultCategoryPreferences.get(baseCategory.code);
+      const isActive = isActivePreference === undefined ? true : isActivePreference;
+
+      processedCategories.push({
+        code: baseCategory.code,
+        label: baseCategory.label,
+        icon: baseCategory.icon,
+        isCustom: false,
+        isActive: isActive,
+        hasDuration: baseCategory.hasDuration,
+        sort_order: baseCategory.sort_order !== undefined ? baseCategory.sort_order : 999,
+      });
+    }
+  }
+
+  (userCategoriesData || []).forEach(userCat => {
+    const existingIndex = processedCategories.findIndex(c => c.code === userCat.code && !c.isCustom);
+    if (existingIndex !== -1) {
+        if(userCat.is_active) {
+            processedCategories.splice(existingIndex, 1);
+        } else {
+            return;
+        }
+    }
+    
+    if (!processedCategories.find(c => c.code === userCat.code && c.isCustom)) {
+        processedCategories.push({
+            code: userCat.code,
+            label: userCat.label,
+            icon: userCat.icon || '📝', 
+            color: userCat.color || undefined,
+            isCustom: true,
+            isActive: userCat.is_active,
+            hasDuration: true, 
+            sort_order: userCat.sort_order !== null && userCat.sort_order !== undefined ? userCat.sort_order : 1000,
+        });
+    }
+  });
+  
+  processedCategories.sort((a, b) => {
+    if (a.isActive && !b.isActive) return -1;
+    if (!a.isActive && b.isActive) return 1;
+    if (a.isCustom && !b.isCustom) return -1;
+    if (!a.isCustom && b.isCustom) return 1;
+    return (a.sort_order ?? 999) - (b.sort_order ?? 999);
+  });
 
   return {
     profileId,
@@ -206,6 +285,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<MonthlyPa
     monthlyGoals,
     monthlyReflection,
     weeksInSelectedMonth,
+    categories: processedCategories,
   };
 };
 
@@ -217,6 +297,48 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const selectedMonth = formData.get("month_date") as string || getCurrentMonthStartDateISO(); // Ensure month_date is passed
   const weeksInMonthForAction = getWeeksInMonth(selectedMonth); // Get weeks for action context
 
+  // Fetch active categories for action validation (Copied from other pages)
+  const activeCategoriesForAction = await (async () => {
+    const [userCategoriesDb, defaultPreferencesDb] = await Promise.all([
+        settingsQueries.getUserCategories({ profileId }),
+        settingsQueries.getUserDefaultCodePreferences({ profileId })
+    ]);
+    const categoriesToValidate: UICategory[] = [];
+    const defaultPrefsMap = new Map((defaultPreferencesDb || []).map(p => [p.default_category_code, p.is_active]));
+    for (const key in CATEGORIES) {
+        const base = CATEGORIES[key as CategoryCode];
+        const isActivePref = defaultPrefsMap.get(base.code);
+        if (isActivePref === undefined || isActivePref) {
+            categoriesToValidate.push({ 
+                code: base.code,
+                label: base.label,
+                icon: base.icon,
+                isCustom: false, 
+                isActive: true, 
+                hasDuration: base.hasDuration,
+                sort_order: base.sort_order 
+            });
+        }
+    }
+    (userCategoriesDb || []).forEach(uc => {
+        if (uc.is_active) { 
+            if (!categoriesToValidate.find(c => c.code === uc.code && !c.isCustom && c.isActive)) {
+                 categoriesToValidate.push({
+                    code: uc.code,
+                    label: uc.label,
+                    icon: uc.icon || '📝',
+                    color: uc.color || undefined,
+                    isCustom: true,
+                    isActive: true,
+                    hasDuration: true, 
+                    sort_order: uc.sort_order !== null && uc.sort_order !== undefined ? uc.sort_order : 1000,
+                });
+            }
+        }
+    });
+    return categoriesToValidate.filter(c => c.isActive);
+  })();
+
   try {
     switch (intent) {
       case "addMonthlyGoal":
@@ -224,7 +346,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const title = formData.get("title") as string | null;
         const categoryCodeStr = formData.get("category_code") as string | null;
         if (!title || title.trim() === "") return { ok: false, error: "Goal title is required.", intent };
-        if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr)) return { ok: false, error: "Valid category is required.", intent };
+        if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr, activeCategoriesForAction)) return { ok: false, error: "Valid active category is required.", intent };
         
         const description = formData.get("description") as string | null;
         const successCriteriaStr = formData.get("success_criteria") as string | null;
@@ -391,7 +513,8 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
     selectedMonth: initialSelectedMonth, 
     monthlyGoals: initialMonthlyGoals, 
     monthlyReflection: initialMonthlyReflection, 
-    weeksInSelectedMonth
+    weeksInSelectedMonth,
+    categories
   } = loaderData;
 
   const fetcher = useFetcher<typeof action>();
@@ -559,24 +682,16 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
 
                     <div>
                         <Label htmlFor="goal-category">Category</Label>
-                        <div className="flex gap-2 overflow-x-auto no-scrollbar pt-1 pb-2">
-                {Object.entries(CATEGORIES).map(([code, cat]) => (
-                  <Button
-                    key={code}
-                    type="button"
-                            variant={goalForm.category_code === code ? "default" : "outline"}
-                            className={`w-14 h-14 flex flex-col items-center justify-center rounded-md border text-xs ${(goalForm.category_code === code) ? 'ring-2 ring-primary' : ''}`}
-                            onClick={() => handleGoalFormChange('category_code', code as CategoryCode)}
-                            style={{ minWidth: 56, minHeight: 56 }}
-                  >
-                            <span className="text-xl mb-0.5">{cat.icon}</span>
-                            <span className="font-medium leading-tight">{cat.label}</span>
-                  </Button>
-                ))}
-              </div>
+                        <CategorySelector
+                          categories={categories.filter(c => c.isActive)}
+                          selectedCategoryCode={goalForm.category_code}
+                          onSelectCategory={(code) => handleGoalFormChange('category_code', code as CategoryCode)}
+                          disabled={fetcher.state !== 'idle'}
+                          instanceId="monthly-page-selector"
+                        />
                         <input type="hidden" name="category_code" value={goalForm.category_code} />
-                  </div>
-                  <div>
+                    </div>
+                    <div>
                         <Label htmlFor="goal-title">Title</Label>
                         <Input id="goal-title" name="title" value={goalForm.title} onChange={e => handleGoalFormChange('title', e.target.value)} required />
                     </div>
@@ -640,7 +755,7 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
                             <CardHeader className="pb-3 pt-4 px-4">
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-center gap-3">
-                                        <span className={`text-3xl ${isValidCategoryCode(goal.category_code) ? getCategoryColor(goal.category_code) : 'text-gray-500'}`}>{CATEGORIES[goal.category_code]?.icon || '🎯'}</span>
+                                        <span className={`text-3xl ${isValidCategoryCode(goal.category_code, categories) ? getCategoryColor(categories.find(c=>c.code === goal.category_code), goal.category_code) : 'text-gray-500'}`}>{categories.find(c=>c.code === goal.category_code)?.icon || '🎯'}</span>
                                         <h3 className="text-lg font-semibold">{goal.title}</h3>
                                         {goal.is_completed && <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">COMPLETED</span>}
                                     </div>

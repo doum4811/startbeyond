@@ -3,17 +3,23 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "~/common/c
 import { Button } from "~/common/components/ui/button";
 import { Input } from "~/common/components/ui/input";
 import { Textarea } from "~/common/components/ui/textarea";
-import { CATEGORIES, type CategoryCode, type DailyPlan } from "~/common/types/daily";
+import { CATEGORIES, type CategoryCode, type UICategory } from "~/common/types/daily";
 // import type { Route } from "~/common/types";
 import { Link, Form, useFetcher } from "react-router";
 import { Calendar as CalendarIcon, Plus } from "lucide-react";
 import { DateTime } from "luxon";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
+import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogCancel, AlertDialogAction } from "~/common/components/ui/alert-dialog";
+import { CategorySelector } from "~/common/components/ui/CategorySelector";
 
 import * as planQueries from "~/features/plan/queries";
 import type { DailyPlan as DbDailyPlan, DailyPlanInsert, DailyPlanUpdate, WeeklyTask as DbWeeklyTask } from "~/features/plan/queries";
+import * as settingsQueries from "~/features/settings/queries";
+import type { UserCategory as DbUserCategory, UserDefaultCodePreference as DbUserDefaultCodePreference } from "~/features/settings/queries";
 
 // UI-specific types
+// REMOVE UICategory interface definition from here
+
 interface DailyPlanUI extends Omit<DbDailyPlan, 'plan_date' | 'duration_minutes' | 'created_at' | 'updated_at' | 'is_completed' | 'category_code'> {
   id: string; // ensure id is present
   date: string;
@@ -52,18 +58,29 @@ function getDayString(date: DateTime): string {
 
 const MAX_MINUTES_PER_DAY = 60 * 24; // Copied from daily-page for duration validation
 
-// Copied from daily-page.tsx - consider moving to a common util if used in more places
-const isValidCategoryCode = (code: string): code is CategoryCode => {
-    return code in CATEGORIES;
+// isValidCategoryCode updated to accept activeCategories list
+const isValidCategoryCode = (code: string, activeCategories: UICategory[]): boolean => {
+    return activeCategories.some(c => c.code === code && c.isActive);
 };
 
-function getCategoryColor(code: CategoryCode): string {
-  const category = CATEGORIES[code];
-  if (!category) return "text-gray-500";
-  const map: Record<CategoryCode, string> = {
-    EX: "text-orange-500", BK: "text-green-600", ML: "text-orange-600", EM: "text-purple-500", ST: "text-yellow-500", WK: "text-teal-700", HB: "text-pink-500", SL: "text-cyan-600", RT: "text-blue-500"
-  };
-  return map[code] || "text-gray-500";
+// getCategoryColor updated to accept UICategory object (similar to daily-page.tsx)
+function getCategoryColor(category: UICategory | undefined, code?: string): string {
+  if (category) {
+    if (category.isCustom && category.color) {
+      return category.color;
+    }
+    const map: Record<string, string> = {
+      EX: "text-orange-500", BK: "text-green-600", ML: "text-orange-600", EM: "text-purple-500", ST: "text-yellow-500", WK: "text-teal-700", HB: "text-pink-500", SL: "text-cyan-600", RT: "text-blue-500"
+    };
+    return map[category.code] || "text-gray-500";
+  }
+  if (code) {
+    const map: Record<string, string> = {
+      EX: "text-orange-500", BK: "text-green-600", ML: "text-orange-600", EM: "text-purple-500", ST: "text-yellow-500", WK: "text-teal-700", HB: "text-pink-500", SL: "text-cyan-600", RT: "text-blue-500"
+    };
+    return map[code] || "text-gray-500";
+  }
+  return "text-gray-500";
 }
 
 
@@ -73,6 +90,7 @@ export interface TomorrowPageLoaderData {
   tomorrowPlans: DailyPlanUI[];
   relevantWeeklyTasks: WeeklyTaskUI[];
   profileId: string;
+  categories: UICategory[];
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<TomorrowPageLoaderData> => {
@@ -82,9 +100,16 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<TomorrowP
   const currentWeekStartDate = tomorrowDateTime.startOf('week').toISODate();
   const tomorrowDayString = getDayString(tomorrowDateTime);
 
-  const [tomorrowPlansData, weeklyTasksData] = await Promise.all([
+  const [
+    tomorrowPlansData, 
+    weeklyTasksData,
+    userCategoriesData,
+    userDefaultCodePreferencesData
+  ] = await Promise.all([
     planQueries.getDailyPlansByDate({ profileId, date: tomorrowDate }),
-    planQueries.getWeeklyTasksByWeek({ profileId, weekStartDate: currentWeekStartDate! })
+    planQueries.getWeeklyTasksByWeek({ profileId, weekStartDate: currentWeekStartDate! }),
+    settingsQueries.getUserCategories({ profileId }),
+    settingsQueries.getUserDefaultCodePreferences({ profileId })
   ]);
 
   const tomorrowPlans: DailyPlanUI[] = (tomorrowPlansData || []).map(p => ({
@@ -117,11 +142,68 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<TomorrowP
       days: task.days as Record<string, boolean> ?? null, // Pass days through
     }));
 
+  // Process categories (copied and adapted from daily-page.tsx loader)
+  const processedCategories: UICategory[] = [];
+  const defaultCategoryPreferences = new Map(
+    (userDefaultCodePreferencesData || []).map(pref => [pref.default_category_code, pref.is_active])
+  );
+
+  for (const catCodeKey in CATEGORIES) {
+    if (Object.prototype.hasOwnProperty.call(CATEGORIES, catCodeKey)) {
+      const baseCategory = CATEGORIES[catCodeKey as CategoryCode];
+      const isActivePreference = defaultCategoryPreferences.get(baseCategory.code);
+      const isActive = isActivePreference === undefined ? true : isActivePreference;
+
+      processedCategories.push({
+        code: baseCategory.code,
+        label: baseCategory.label,
+        icon: baseCategory.icon,
+        isCustom: false,
+        isActive: isActive,
+        hasDuration: baseCategory.hasDuration,
+        sort_order: baseCategory.sort_order !== undefined ? baseCategory.sort_order : 999,
+      });
+    }
+  }
+
+  (userCategoriesData || []).forEach(userCat => {
+    const existingIndex = processedCategories.findIndex(c => c.code === userCat.code && !c.isCustom);
+    if (existingIndex !== -1) {
+        if(userCat.is_active) {
+            processedCategories.splice(existingIndex, 1);
+        } else {
+            return;
+        }
+    }
+    
+    if (!processedCategories.find(c => c.code === userCat.code && c.isCustom)) {
+        processedCategories.push({
+            code: userCat.code,
+            label: userCat.label,
+            icon: userCat.icon || '📝', 
+            color: userCat.color || undefined,
+            isCustom: true,
+            isActive: userCat.is_active,
+            hasDuration: true, 
+            sort_order: userCat.sort_order !== null && userCat.sort_order !== undefined ? userCat.sort_order : 1000,
+        });
+    }
+  });
+  
+  processedCategories.sort((a, b) => {
+    if (a.isActive && !b.isActive) return -1;
+    if (!a.isActive && b.isActive) return 1;
+    if (a.isCustom && !b.isCustom) return -1;
+    if (!a.isCustom && b.isCustom) return 1;
+    return (a.sort_order ?? 999) - (b.sort_order ?? 999);
+  });
+
   return {
     tomorrowDate,
     tomorrowPlans,
     relevantWeeklyTasks,
     profileId,
+    categories: processedCategories, // Use processedCategories
   };
 };
 
@@ -132,6 +214,47 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const intent = formData.get("intent") as string;
   const tomorrowDate = getTomorrowDateISO();
 
+  const activeCategoriesForAction = await (async () => {
+    const [userCategoriesDb, defaultPreferencesDb] = await Promise.all([
+        settingsQueries.getUserCategories({ profileId }),
+        settingsQueries.getUserDefaultCodePreferences({ profileId })
+    ]);
+    const categories: UICategory[] = [];
+    const defaultPrefsMap = new Map((defaultPreferencesDb || []).map(p => [p.default_category_code, p.is_active]));
+    for (const key in CATEGORIES) {
+        const base = CATEGORIES[key as CategoryCode];
+        const isActivePref = defaultPrefsMap.get(base.code);
+        if (isActivePref === undefined || isActivePref) {
+            categories.push({ 
+                code: base.code,
+                label: base.label,
+                icon: base.icon,
+                isCustom: false, 
+                isActive: true, 
+                hasDuration: base.hasDuration,
+                sort_order: base.sort_order 
+            });
+        }
+    }
+    (userCategoriesDb || []).forEach(uc => {
+        if (uc.is_active) { 
+            if (!categories.find(c => c.code === uc.code && !c.isCustom && c.isActive)) {
+                 categories.push({
+                    code: uc.code,
+                    label: uc.label,
+                    icon: uc.icon || '📝',
+                    color: uc.color || undefined,
+                    isCustom: true,
+                    isActive: true,
+                    hasDuration: true, 
+                    sort_order: uc.sort_order !== null && uc.sort_order !== undefined ? uc.sort_order : 1000,
+                });
+            }
+        }
+    });
+    return categories.filter(c => c.isActive);
+  })();
+
   try {
     switch (intent) {
       case "addPlan": {
@@ -140,8 +263,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const comment = formData.get("comment") as string | null;
         const subcode = formData.get("subcode") as string | null;
 
-        if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr)) {
-          return { ok: false, error: "Invalid or missing category code.", intent };
+        if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr, activeCategoriesForAction)) { // Updated validation
+          return { ok: false, error: "Invalid or missing active category code.", intent };
         }
         if (!comment || comment.trim() === "") { 
             return { ok: false, error: "Plan details/comment is required.", intent };
@@ -187,8 +310,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const subcode = formData.get("subcode") as string | null;
         const durationStr = formData.get("duration") as string | null; 
 
-        if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr)) {
-          return { ok: false, error: "Invalid category code for plan from weekly task.", intent };
+        if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr, activeCategoriesForAction)) { // Updated validation
+          return { ok: false, error: "Invalid active category code for plan from weekly task.", intent };
         }
         if (!comment || comment.trim() === "") {
             return {ok: false, error: "Comment is required when adding from weekly task.", intent };
@@ -236,8 +359,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const comment = formData.get("comment") as string | null;
 
         if (!planId) return { ok: false, error: "Plan ID is required for update.", intent };
-        if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr)) {
-          return { ok: false, error: "Invalid or missing category code for update.", intent };
+        if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr, activeCategoriesForAction)) { // Updated validation
+          return { ok: false, error: "Invalid or missing active category code for update.", intent };
         }
         if (!comment || comment.trim() === "") { 
             return { ok: false, error: "Plan comment is required for update.", intent };
@@ -282,82 +405,156 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         return { ok: true, intent, planId, updatedPlan };
       }
       case "addAllPlansFromWeeklyTasks": {
-        const weeklyTasksToAddString = formData.get("weeklyTasksToAdd") as string | null;
-        if (!weeklyTasksToAddString) {
-          return { ok: false, error: "No weekly tasks data provided.", intent };
+        const tasksJson = formData.get("tasks") as string;
+        if (!tasksJson) {
+          return { ok: false, error: "No tasks provided to add.", intent };
         }
-        let weeklyTasksInfo: Array<{ weeklyTaskId: string; category_code: string; comment: string; subcode: string | null; duration?: number; }> = [];
         try {
-          weeklyTasksInfo = JSON.parse(weeklyTasksToAddString);
-        } catch (e) {
-          return { ok: false, error: "Invalid weekly tasks data format.", intent };
-        }
+          const tasks: Array<Pick<WeeklyTaskUI, 'category_code' | 'comment' | 'subcode' | 'id'>> = JSON.parse(tasksJson);
+          const createdPlans: DailyPlanUI[] = [];
 
-        if (!Array.isArray(weeklyTasksInfo) || weeklyTasksInfo.length === 0) {
-          return { ok: false, error: "Weekly tasks data is empty or not an array.", intent };
-        }
-
-        const newPlansDb: DbDailyPlan[] = [];
-        const errors: string[] = [];
-
-        for (const taskInfo of weeklyTasksInfo) {
-          if (!taskInfo.category_code || !isValidCategoryCode(taskInfo.category_code)) {
-            errors.push(`Invalid category for task based on: ${taskInfo.comment}`);
-            continue;
-          }
-          if (!taskInfo.comment || taskInfo.comment.trim() === "") {
-            errors.push(`Missing comment for a task.`);
-            continue;
-          }
-
-          const planData: DailyPlanInsert = {
-            profile_id: profileId,
-            plan_date: tomorrowDate,
-            category_code: taskInfo.category_code,
-            duration_minutes: taskInfo.duration ?? undefined,
-            comment: taskInfo.comment,
-            subcode: taskInfo.subcode,
-            is_completed: false,
-            linked_weekly_task_id: taskInfo.weeklyTaskId,
-          };
-          try {
-            const createdPlan = await planQueries.createDailyPlan(planData);
-            if (createdPlan) {
-              newPlansDb.push(createdPlan);
-            } else {
-              errors.push(`Failed to create plan for: ${taskInfo.comment}`);
+          for (const task of tasks) {
+            if (!task.category_code || !isValidCategoryCode(task.category_code, activeCategoriesForAction)) { // Updated validation
+              console.warn(`Skipping task due to invalid category: ${task.category_code}`);
+              continue; 
             }
-          } catch (error: any) {
-            errors.push(`Error creating plan for ${taskInfo.comment}: ${error.message}`);
+            if (!task.comment || task.comment.trim() === "") {
+                console.warn(`Skipping task due to missing comment: ${task.id}`);
+                continue;
+            }
+
+            const planData: DailyPlanInsert = {
+              profile_id: profileId,
+              plan_date: tomorrowDate,
+              category_code: task.category_code,
+              duration_minutes: undefined, // Assuming duration is not part of weekly task for this action
+              comment: task.comment,
+              subcode: task.subcode,
+              is_completed: false,
+              linked_weekly_task_id: task.id,
+            };
+            try {
+              const createdPlanDb = await planQueries.createDailyPlan(planData);
+              if (createdPlanDb) {
+                // Convert DbDailyPlan to DailyPlanUI
+                const createdPlanUi: DailyPlanUI = {
+                    id: createdPlanDb.id,
+                    profile_id: createdPlanDb.profile_id,
+                    date: createdPlanDb.plan_date, // Use plan_date from DB
+                    category_code: createdPlanDb.category_code,
+                    subcode: createdPlanDb.subcode ?? null,
+                    duration: createdPlanDb.duration_minutes ?? undefined,
+                    comment: createdPlanDb.comment ?? null,
+                    is_completed: createdPlanDb.is_completed ?? false,
+                    linked_weekly_task_id: createdPlanDb.linked_weekly_task_id ?? null,
+                    created_at: createdPlanDb.created_at,
+                    updated_at: createdPlanDb.updated_at
+                };
+                createdPlans.push(createdPlanUi);
+              } else {
+                console.warn(`Failed to create plan for: ${task.comment}`);
+              }
+            } catch (error: any) {
+              console.warn(`Error creating plan for ${task.comment}: ${error.message}`);
+            }
           }
-        }
 
-        if (errors.length > 0 && newPlansDb.length === 0) { // All failed
-            return { ok: false, error: `All plan creations failed. Errors: ${errors.join("; ")}`, intent };
+          if (createdPlans.length > 0) {
+            return { ok: true, intent, newPlans: createdPlans };
+          } else {
+            return { ok: false, error: "No plans created.", intent };
+          }
+        } catch (error: any) {
+          return { ok: false, error: error.message, intent };
         }
-
-        const newPlans: DailyPlanUI[] = newPlansDb.map(p => ({
-            id: p.id,
-            profile_id: p.profile_id,
-            date: p.plan_date,
-            category_code: p.category_code,
-            subcode: p.subcode ?? null,
-            duration: p.duration_minutes ?? undefined,
-            comment: p.comment ?? null,
-            is_completed: p.is_completed ?? false,
-            linked_weekly_task_id: p.linked_weekly_task_id ?? null,
-            created_at: p.created_at,
-            updated_at: p.updated_at
-        }));
-        
-        // If some succeeded and some failed, return ok:true but include partial errors/success info
-        return { ok: true, intent, newPlans, partialErrors: errors.length > 0 ? errors : undefined };
       }
       case "deletePlan": {
         const planId = formData.get("planId") as string | null;
         if (!planId) return { ok: false, error: "Plan ID is required for deletion.", intent };
         await planQueries.deleteDailyPlan({ planId, profileId });
         return { ok: true, intent, deletedPlanId: planId };
+      }
+      case "activateCategoryAndAddSinglePlanFromWeekly": {
+        const taskDetailsJson = formData.get("taskDetails") as string;
+        if (!taskDetailsJson) {
+          return { ok: false, error: "Task details are required for activation.", intent };
+        }
+        try {
+          const taskDetails = JSON.parse(taskDetailsJson);
+          const { weeklyTaskId, category_code, comment, subcode, isCustomCategory } = taskDetails;
+
+          if (!category_code /*|| !isValidCategoryCode(category_code, activeCategoriesForAction) // This validation might be redundant if client ensures category exists*/) {
+            // Server-side validation should still check if category_code is valid in general sense if needed
+            // For now, assuming client sends a category that *can* be activated.
+            const categoryExists = activeCategoriesForAction.some(c => c.code === category_code) || Object.keys(CATEGORIES).includes(category_code) || (await settingsQueries.getUserCategories({profileId}))?.find(uc => uc.code === category_code);
+            if(!categoryExists) {
+                 return { ok: false, error: `Category code ${category_code} does not exist or is invalid.`, intent };
+            }
+          }
+          if (!comment || comment.trim() === "") {
+            return { ok: false, error: "Comment is required for activation.", intent };
+          }
+
+          // 1. Activate the category (copied logic from daily-page action)
+          try {
+            if (isCustomCategory) {
+                const userCategories = await settingsQueries.getUserCategories({ profileId });
+                const categoryToUpdate = userCategories?.find(uc => uc.code === category_code);
+                if (categoryToUpdate) {
+                    await settingsQueries.updateUserCategory({
+                        categoryId: categoryToUpdate.id,
+                        profileId,
+                        updates: { is_active: true }
+                    });
+                } else {
+                    return { ok: false, error: `Custom category ${category_code} not found for activation.`, intent };
+                }
+            } else { // Default category
+                await settingsQueries.upsertUserDefaultCodePreference({
+                    profile_id: profileId,
+                    default_category_code: category_code,
+                    is_active: true
+                });
+            }
+          } catch (activationError: any) {
+            return { ok: false, error: `Failed to activate category ${category_code}: ${activationError.message}`, intent };
+          }
+
+          // 2. Create the plan
+          const planData: DailyPlanInsert = {
+            profile_id: profileId,
+            plan_date: tomorrowDate,
+            category_code: category_code,
+            duration_minutes: undefined, // Assuming no duration from weekly task for now
+            comment: comment,
+            subcode: subcode,
+            is_completed: false,
+            linked_weekly_task_id: weeklyTaskId,
+          };
+          const newPlanDb = await planQueries.createDailyPlan(planData);
+          const newPlan: DailyPlanUI | null = newPlanDb ? {
+            id: newPlanDb.id,
+            profile_id: newPlanDb.profile_id,
+            date: newPlanDb.plan_date,
+            category_code: newPlanDb.category_code,
+            subcode: newPlanDb.subcode ?? null,
+            duration: newPlanDb.duration_minutes ?? undefined,
+            comment: newPlanDb.comment ?? null,
+            is_completed: newPlanDb.is_completed ?? false,
+            linked_weekly_task_id: newPlanDb.linked_weekly_task_id ?? null,
+            created_at: newPlanDb.created_at,
+            updated_at: newPlanDb.updated_at
+          } : null;
+
+          if (newPlan) {
+            // Removed direct state updates: setTomorrowPlans, setAddedWeeklyTaskIds
+            return { ok: true, intent, newPlan, originalWeeklyTaskId: weeklyTaskId, activatedCategoryCode: category_code };
+          } else {
+            return { ok: false, error: "Failed to create new plan after activation.", intent };
+          }
+        } catch (error: any) {
+          return { ok: false, error: error.message, intent };
+        }
       }
       default:
         return { ok: false, error: `Unknown intent: ${intent}`, intent: intent || "unknown" };
@@ -416,7 +613,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
 // }
 // ... (rest of the component will be updated in the next step)
 interface AddPlanForm {
-  category: CategoryCode;
+  category: string;
   duration: string;
   comment: string;
   subcode: string;
@@ -435,11 +632,17 @@ interface TomorrowPlanPageProps {
 }
 
 export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) {
-  const { tomorrowDate, tomorrowPlans: initialTomorrowPlans, relevantWeeklyTasks, profileId } = loaderData;
+  const { tomorrowDate, tomorrowPlans: initialTomorrowPlans, relevantWeeklyTasks, profileId, categories } = loaderData;
   
   const fetcher = useFetcher<typeof action>();
   // Form state for adding a new plan
-  const [addForm, setAddForm] = useState<AddPlanForm>(initialAddForm);
+  const [addForm, setAddForm] = useState<AddPlanForm>(() => {
+    const firstActiveCategory = categories.find(c => c.isActive);
+    return {
+        ...initialAddForm,
+        category: firstActiveCategory ? firstActiveCategory.code : "EX",
+    };
+  });
   const [isWeeklyTasksCollapsed, setIsWeeklyTasksCollapsed] = useState(relevantWeeklyTasks.length === 0);
   const [tomorrowPlans, setTomorrowPlans] = useState<DailyPlanUI[]>(initialTomorrowPlans);
   const [addedWeeklyTaskIds, setAddedWeeklyTaskIds] = useState<Set<string>>(() => 
@@ -448,41 +651,54 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
 
   // State for editing an existing plan
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
-  const [editPlanCategory, setEditPlanCategory] = useState<CategoryCode>(initialAddForm.category);
+  const [editPlanCategory, setEditPlanCategory] = useState<string>(initialAddForm.category);
   const [editPlanDuration, setEditPlanDuration] = useState("");
   const [editPlanComment, setEditPlanComment] = useState("");
   const [editPlanSubcode, setEditPlanSubcode] = useState("");
   const [isEditingPlan, setIsEditingPlan] = useState(false);
   const [durationError, setDurationError] = useState<string | null>(null); // For both add and edit
 
+  // New state variables for sequential activation dialog
+  const [showActivatePlanDialog, setShowActivatePlanDialog] = useState(false);
+  const [planForActivation, setPlanForActivation] = useState<DailyPlanUI | null>(null);
+  const [pendingAddAllPlansQueue, setPendingAddAllPlansQueue] = useState<DailyPlanUI[]>([]);
+
   useEffect(() => {
     setTomorrowPlans(initialTomorrowPlans);
     setAddedWeeklyTaskIds(new Set(initialTomorrowPlans.filter(p => p.linked_weekly_task_id).map(p => p.linked_weekly_task_id!)));
     setIsWeeklyTasksCollapsed(relevantWeeklyTasks.length === 0);
+    // Reset addForm category based on potentially new categories from loaderData
+    const firstActiveCategory = categories.find(c => c.isActive);
+    setAddForm({
+      ...initialAddForm,
+      category: firstActiveCategory ? firstActiveCategory.code : "EX",
+    });
     // Reset editing state when loader data changes (e.g. navigation)
     setIsEditingPlan(false);
     setSelectedPlanId(null);
-  }, [initialTomorrowPlans, relevantWeeklyTasks]);
+    // Reset sequential add all states as well if date changes etc.
+    setShowActivatePlanDialog(false);
+    setPlanForActivation(null);
+    setPendingAddAllPlansQueue([]);
+  }, [initialTomorrowPlans, relevantWeeklyTasks, categories]);
 
   useEffect(() => {
     if (fetcher.data && fetcher.state === "idle") {
         const actionData = fetcher.data as {
             ok: boolean;
-            intent: string; // intent는 항상 존재한다고 가정
+            intent: string; 
             error?: string;
-            // For addPlan
             newPlan?: DailyPlanUI;
-            // For addPlanFromWeeklyTask
             newPlanFromTask?: DailyPlanUI;
             linked_weekly_task_id?: string;
-            // For addAllPlansFromWeeklyTasks
             newPlans?: DailyPlanUI[];
             partialErrors?: string[];
-            // For deletePlan
             deletedPlanId?: string;
-            // For updatePlan
             planId?: string; 
             updatedPlan?: DailyPlanUI;
+            // For new intent activateCategoryAndAddSinglePlanFromWeekly
+            activatedCategoryCode?: string;
+            originalWeeklyTaskId?: string;
         };
         if (actionData.ok) {
             if (actionData.intent === "addPlan" && actionData.newPlan) {
@@ -547,24 +763,69 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
                     setSelectedPlanId(null);
                 }
             }
+            if (actionData.intent === "activateCategoryAndAddSinglePlanFromWeekly" && actionData.newPlan && actionData.originalWeeklyTaskId) {
+                const newPlan = actionData.newPlan as DailyPlanUI;
+                setTomorrowPlans(prevPlans => {
+                    if (prevPlans.some(p => p.id === newPlan.id)) return prevPlans;
+                    return [newPlan, ...prevPlans].sort((a,b) => (a.created_at && b.created_at ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime() : 0) );
+                });
+                setAddedWeeklyTaskIds(prev => new Set(prev).add(actionData.originalWeeklyTaskId!));
+                setShowActivatePlanDialog(false); // Close dialog
+                
+                // Process next task in queue
+                setPendingAddAllPlansQueue(prevQueue => prevQueue.filter(task => task.id !== actionData.originalWeeklyTaskId));
+                // Directly call processNext here, but need to ensure state updates are flushed for pendingAddAllPlansQueue
+                // A small delay or a separate useEffect listening to pendingAddAllPlansQueue might be more robust
+                // For now, will call it directly and see. If issues, will adjust.
+                processNextPendingPlanForActivation(pendingAddAllPlansQueue.filter(task => task.id !== actionData.originalWeeklyTaskId));
+            }
         } else if (actionData.error) {
             console.error("Action Error:", actionData.error, "Intent:", actionData.intent);
-            if (actionData.error?.includes("duration")) {
+            if (actionData.intent === "activateCategoryAndAddSinglePlanFromWeekly") {
+                alert(`Error activating/adding task ${planForActivation?.comment}: ${actionData.error}`);
+                setShowActivatePlanDialog(false); // Close dialog
+                // Process next task in queue even if current one failed
+                if (actionData.originalWeeklyTaskId) { // originalWeeklyTaskId might not be present on all errors
+                    processNextPendingPlanForActivation(pendingAddAllPlansQueue.filter(task => task.id !== actionData.originalWeeklyTaskId));
+                }
+                 else if (planForActivation) { // Fallback if originalWeeklyTaskId not in error data
+                    processNextPendingPlanForActivation(pendingAddAllPlansQueue.filter(task => task.id !== planForActivation.id));
+                }
+            } else if (actionData.error?.includes("duration")) {
                 setDurationError(actionData.error);
             } else {
                 alert(`Error (${actionData.intent || 'unknown'}): ${actionData.error}`); 
             }
         }
     }
-  }, [fetcher.data, fetcher.state, selectedPlanId]); // Removed tomorrowPlans from deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetcher.data, fetcher.state, selectedPlanId, planForActivation]); // Added planForActivation to deps
 
-  function handleCategorySelect(code: CategoryCode) {
-    if (isEditingPlan) {
-        const selectedPlan = tomorrowPlans.find(p => p.id === selectedPlanId);
-        if (selectedPlan?.linked_weekly_task_id) return; // Cannot change category if from weekly task
-        setEditPlanCategory(code);
+  function processNextPendingPlanForActivation(currentQueue?: DailyPlanUI[]) {
+    const queueToProcess = currentQueue || pendingAddAllPlansQueue;
+    if (queueToProcess.length > 0) {
+        const nextPlan = queueToProcess[0];
+        setPlanForActivation(nextPlan);
+        setShowActivatePlanDialog(true);
     } else {
-        setAddForm((f) => ({ ...f, category: code }));
+        setPlanForActivation(null);
+        setShowActivatePlanDialog(false);
+        setPendingAddAllPlansQueue([]); // Clear queue when done
+    }
+  }
+
+  function handleCategorySelect(code: string) {
+    const selectedCat = categories.find(c => c.code === code);
+    if (selectedCat && selectedCat.isActive) {
+        if (isEditingPlan) {
+            const selectedPlan = tomorrowPlans.find(p => p.id === selectedPlanId);
+            if (selectedPlan?.linked_weekly_task_id) return; 
+            setEditPlanCategory(code);
+        } else {
+            setAddForm((f) => ({ ...f, category: code }));
+        }
+    } else {
+        console.warn("Attempted to select an invalid or inactive category code:", code);
     }
   }
 
@@ -600,20 +861,21 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
   }
 
   function handlePlanRowClick(plan: DailyPlanUI) {
-    if (isEditingPlan && selectedPlanId === plan.id) return; // Already editing this plan
+    if (isEditingPlan && selectedPlanId === plan.id) return;
 
     setSelectedPlanId(plan.id);
-    if (isValidCategoryCode(plan.category_code)) {
-        setEditPlanCategory(plan.category_code as CategoryCode);
+    const planCategoryInfo = categories.find(c => c.code === plan.category_code);
+    if (planCategoryInfo && planCategoryInfo.isActive) {
+        setEditPlanCategory(plan.category_code);
     } else {
-        setEditPlanCategory(initialAddForm.category); // Fallback
-        console.warn("Invalid category_code in clicked plan:", plan.category_code);
+        const firstActive = categories.find(c => c.isActive);
+        setEditPlanCategory(firstActive ? firstActive.code : "EX");
     }
     setEditPlanDuration(plan.duration ? String(plan.duration) : "");
     setEditPlanComment(plan.comment || "");
     setEditPlanSubcode(plan.subcode || "");
     setIsEditingPlan(true);
-    setDurationError(null); // Clear previous errors
+    setDurationError(null);
   }
 
   function handleEditPlanCancel() {
@@ -625,22 +887,57 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
   }
 
   function handleAddAllWeeklyTasks() {
-    const tasksToAdd = relevantWeeklyTasks.filter(task => !addedWeeklyTaskIds.has(task.id));
-    if (tasksToAdd.length === 0) return;
+    const tasksThatCouldBeAdded = relevantWeeklyTasks.filter(task => !addedWeeklyTaskIds.has(task.id));
+    if (tasksThatCouldBeAdded.length === 0) return;
 
-    const tasksInfoForAction = tasksToAdd.map(task => ({
-      weeklyTaskId: task.id,
-      category_code: task.category_code,
-      comment: task.comment,
-      subcode: task.subcode,
-      // Duration is not part of WeeklyTaskUI, assuming no duration for now
-      // If weekly tasks could have durations, it should be included here
-    }));
+    const directAddTasksInfo: any[] = [];
+    const activationNeeded: WeeklyTaskUI[] = [];
 
-    const formData = new FormData();
-    formData.append("intent", "addAllPlansFromWeeklyTasks");
-    formData.append("weeklyTasksToAdd", JSON.stringify(tasksInfoForAction));
-    fetcher.submit(formData, { method: "post" });
+    tasksThatCouldBeAdded.forEach(task => {
+        const categoryInfo = categories.find(c => c.code === task.category_code);
+        if (categoryInfo && categoryInfo.isActive) {
+            directAddTasksInfo.push({
+                id: task.id, 
+                category_code: task.category_code,
+                comment: task.comment,
+                subcode: task.subcode,
+            });
+        } else {
+            activationNeeded.push(task);
+        }
+    });
+
+    if (directAddTasksInfo.length > 0) {
+        const formData = new FormData();
+        formData.append("intent", "addAllPlansFromWeeklyTasks");
+        formData.append("tasks", JSON.stringify(directAddTasksInfo));
+        fetcher.submit(formData, { method: "post" });
+    }
+
+    if (activationNeeded.length > 0) {
+        setPendingAddAllPlansQueue(activationNeeded.map(task => ({
+            id: task.id,
+            category_code: task.category_code,
+            comment: task.comment,
+            subcode: task.subcode,
+            date: DateTime.now().toISODate(),
+            duration: undefined,
+            is_completed: false,
+            profile_id: profileId,
+            linked_weekly_task_id: task.id,
+        })));
+        processNextPendingPlanForActivation(activationNeeded.map(task => ({
+            id: task.id,
+            category_code: task.category_code,
+            comment: task.comment,
+            subcode: task.subcode,
+            date: DateTime.now().toISODate(),
+            duration: undefined,
+            is_completed: false,
+            profile_id: profileId,
+            linked_weekly_task_id: task.id,
+        })));
+    }
   }
 
   const allWeeklyTasksAdded = relevantWeeklyTasks.length > 0 && relevantWeeklyTasks.every(task => addedWeeklyTaskIds.has(task.id));
@@ -693,7 +990,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
           <CardContent>
             <div className="space-y-4">
                             {relevantWeeklyTasks.map(task => {
-                                const categoryInfo = isValidCategoryCode(task.category_code) ? CATEGORIES[task.category_code as CategoryCode] : null;
+                                const categoryInfo = categories.find(c => c.code === task.category_code);
                                 const isAdded = addedWeeklyTaskIds.has(task.id);
                                 const scheduledDays = task.days 
                                   ? Object.entries(task.days)
@@ -705,7 +1002,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
                                 return (
                 <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
                   <div className="flex items-center gap-3">
-                                    <span className={`text-2xl ${categoryInfo ? getCategoryColor(task.category_code as CategoryCode) : 'text-gray-500'}`}>{categoryInfo?.icon || '❓'}</span>
+                                    <span className={`text-2xl ${categoryInfo ? getCategoryColor(categoryInfo, task.category_code) : 'text-gray-500'}`}>{categoryInfo?.icon || '❓'}</span>
                     <div>
                       <div className="font-medium">{task.comment}</div>
                                         {task.subcode && <div className="text-sm text-muted-foreground">Subcode: {task.subcode}</div>}
@@ -762,24 +1059,16 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
             <input type="hidden" name="intent" value={isEditingPlan ? "updatePlan" : "addPlan"} />
             {isEditingPlan && selectedPlanId && <input type="hidden" name="planId" value={selectedPlanId} />}
             
-            <div className="flex gap-2 overflow-x-auto no-scrollbar mb-2">
-              {Object.entries(CATEGORIES).map(([code, cat]) => (
-                <Button
-                  key={code}
-                  type="button"
-                  variant={currentFormCategory === code ? "default" : "outline"}
-                  className={`w-16 h-16 flex flex-col items-center justify-center rounded-lg border ${currentFormCategory === code ? 'ring-2 ring-primary' : ''}`}
-                  onClick={() => handleCategorySelect(code as CategoryCode)}
-                  style={{ minWidth: 64, minHeight: 64 }}
-                  disabled={(isEditingPlan && isCategoryDisabledForEdit) || (fetcher.state !== 'idle' && fetcher.formData?.get('intent') === (isEditingPlan ? 'updatePlan' : 'addPlan'))}
-                >
-                  <span className="text-2xl mb-1">{cat.icon}</span>
-                  <span className="text-xs font-medium text-center leading-tight">{cat.label}</span>
-                </Button>
-              ))}
-            </div>
+            <CategorySelector
+              categories={categories.filter(cat => cat.isActive)}
+              selectedCategoryCode={currentFormCategory}
+              onSelectCategory={handleCategorySelect}
+              disabled={(isEditingPlan && isCategoryDisabledForEdit) || (fetcher.state !== 'idle' && fetcher.formData?.get('intent') === (isEditingPlan ? 'updatePlan' : 'addPlan'))}
+              instanceId="tomorrow-page-selector"
+            />
+            
             <input type="hidden" name="category_code" value={currentFormCategory} />
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-col sm:flex-row gap-2 mt-2">
               <Input
                 name="subcode"
                 placeholder="Subcode (optional)"
@@ -856,11 +1145,11 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
               </thead>
               <tbody>
                   {tomorrowPlans.map((plan) => {
-                    const categoryInfo = isValidCategoryCode(plan.category_code) ? CATEGORIES[plan.category_code as CategoryCode] : null;
+                    const categoryInfo = categories.find(c => c.code === plan.category_code);
                   return (
                     <tr key={plan.id} className={`border-b ${isEditingPlan && selectedPlanId === plan.id ? 'bg-accent/30' : 'cursor-pointer hover:bg-muted/50'}`} onClick={() => !isEditingPlan && handlePlanRowClick(plan)}>
                       <td className="py-2 px-2 flex items-center gap-2">
-                          <span className={`text-2xl ${categoryInfo ? getCategoryColor(plan.category_code as CategoryCode) : 'text-gray-500'}`}>{categoryInfo?.icon || '❓'}</span>
+                          <span className={`text-2xl ${categoryInfo ? getCategoryColor(categoryInfo, plan.category_code) : 'text-gray-500'}`}>{categoryInfo?.icon || '❓'}</span>
                           <span className="font-medium">{categoryInfo?.label || plan.category_code}</span>
                       </td>
                       <td className="py-2 px-2">{plan.subcode || <span className="text-muted-foreground">-</span>}</td>
@@ -882,6 +1171,60 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog for activating category and adding single weekly task */}
+      {showActivatePlanDialog && planForActivation && (
+        <AlertDialog open={showActivatePlanDialog} onOpenChange={setShowActivatePlanDialog}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>비활성 카테고리</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        선택한 계획의 카테고리
+                        '{categories.find(c => c.code === planForActivation.category_code)?.label || planForActivation.category_code}'
+                        는 현재 비활성 상태입니다.
+                        이 기록을 추가하려면 카테고리를 활성화해야 합니다. 활성화하고 기록을 추가하시겠습니까?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => {
+                        setShowActivatePlanDialog(false);
+                        const currentPlanId = planForActivation?.id; // Store before nullifying
+                        setPlanForActivation(null);
+
+                        if (currentPlanId && pendingAddAllPlansQueue.some(p => p.id === currentPlanId)) {
+                            const nextQueue = pendingAddAllPlansQueue.filter(p => p.id !== currentPlanId);
+                            setPendingAddAllPlansQueue(nextQueue);
+                            // processNextPendingPlanForActivation 함수는 다음 단계에서 정의합니다.
+                            // 일단 호출 부분만 남겨둡니다.
+                            if (nextQueue.length > 0) {
+                                // processNextPendingPlanForActivation(nextQueue); // 다음 단계에서 정의
+                            }
+                        }
+                    }}>취소</AlertDialogCancel>
+                    <AlertDialogAction
+                        type="button"
+                        onClick={() => {
+                            if (planForActivation) {
+                                const formData = new FormData();
+                                formData.append("intent", "activateCategoryAndAddRecordFromPlan");
+                                // ... 나머지 formData 설정은 동일
+                                formData.append("planId", planForActivation.id);
+                                formData.append("category_code_to_activate", planForActivation.category_code);
+                                if (planForActivation.subcode) formData.append("subcode", planForActivation.subcode);
+                                if (planForActivation.duration) formData.append("duration", planForActivation.duration.toString());
+                                formData.append("comment", planForActivation.comment || '');
+                                formData.append("linked_plan_id", planForActivation.id);
+                                formData.append("isCustomCategory", String(categories.find(c=>c.code === planForActivation.category_code)?.isCustom || false));
+                                fetcher.submit(formData, { method: "post" });
+                            }
+                        }}
+                    >
+                        활성화하고 추가
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 } 

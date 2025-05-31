@@ -4,7 +4,7 @@ export default [
     index("common/pages/home-page.tsx"),
     route("daily", "features/daily/pages/daily-page.tsx"),
     ...prefix("plan", [
-        //index("features/plan/pages/plan-page.tsx"),
+        index("features/plan/pages/plan-page.tsx"),
         route("tomorrow", "features/plan/pages/tomorrow-page.tsx"),
         route("weekly", "features/plan/pages/weekly-page.tsx"),
         route("monthly", "features/plan/pages/monthly-page.tsx"),
