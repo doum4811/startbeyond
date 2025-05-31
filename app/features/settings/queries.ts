@@ -2,21 +2,21 @@ import client from "~/supa-client";
 import type { Database } from "database.types";
 
 // Types from database.types.ts
-type UserCategoryTable = Database['public']['Tables']['user_categories'];
-type UserCategory = UserCategoryTable['Row'];
-type UserCategoryInsert = UserCategoryTable['Insert'];
+export type UserCategoryTable = Database['public']['Tables']['user_categories'];
+export type UserCategory = UserCategoryTable['Row'];
+export type UserCategoryInsert = UserCategoryTable['Insert'];
 
-type UserSubcodeTable = Database['public']['Tables']['user_subcodes'];
-type UserSubcode = UserSubcodeTable['Row'];
-type UserSubcodeInsert = UserSubcodeTable['Insert'];
+export type UserSubcodeTable = Database['public']['Tables']['user_subcodes'];
+export type UserSubcode = UserSubcodeTable['Row'];
+export type UserSubcodeInsert = UserSubcodeTable['Insert'];
 
-type UserCodeSettingTable = Database['public']['Tables']['user_code_settings'];
-type UserCodeSetting = UserCodeSettingTable['Row'];
-type UserCodeSettingInsert = UserCodeSettingTable['Insert'];
+export type UserCodeSettingTable = Database['public']['Tables']['user_code_settings'];
+export type UserCodeSetting = UserCodeSettingTable['Row'];
+export type UserCodeSettingInsert = UserCodeSettingTable['Insert'];
 
-type UserDefaultCodePreferenceTable = Database['public']['Tables']['user_default_code_preferences'];
-type UserDefaultCodePreference = UserDefaultCodePreferenceTable['Row'];
-type UserDefaultCodePreferenceInsert = UserDefaultCodePreferenceTable['Insert'];
+export type UserDefaultCodePreferenceTable = Database['public']['Tables']['user_default_code_preferences'];
+export type UserDefaultCodePreference = UserDefaultCodePreferenceTable['Row'];
+export type UserDefaultCodePreferenceInsert = UserDefaultCodePreferenceTable['Insert'];
 
 // Column constants
 const USER_CATEGORY_COLUMNS = `

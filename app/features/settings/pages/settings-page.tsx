@@ -21,40 +21,198 @@ import {
 } from '~/common/components/ui/alert-dialog';
 import { PlusCircle, Edit, Trash2, Palette, Search, GripVertical, Check, X, Star } from 'lucide-react';
 import { type CategoryCode, CATEGORIES as DEFAULT_CATEGORIES } from '~/common/types/daily'; // 기본 카테고리 및 타입 임포트
+import { useFetcher, Form } from "react-router"; // Added Form, useFetcher
+import type { LoaderFunctionArgs, MetaFunction, ActionFunctionArgs } from "react-router"; // Added ActionFunctionArgs
 
-// 임시 데이터 타입 (스키마 기반으로 추후 수정)
-interface UserCategory {
-  id: string;
-  code: string; // 사용자 정의 코드 (varchar(10))
-  label: string;
-  icon: string; // 아이콘 식별자 또는 텍스트/이모지
-  color: string; // hex color
-  isActive: boolean;
-  sortOrder: number;
+import * as settingsQueries from "~/features/settings/queries";
+import type { 
+    UserCategory as DbUserCategory, 
+    UserSubcode as DbUserSubcode, 
+    UserDefaultCodePreference as DbUserDefaultCodePreference,
+    UserCodeSetting as DbUserCodeSetting,
+    UserCategoryInsert, 
+    UserSubcodeInsert,
+    UserDefaultCodePreferenceInsert,
+    UserCodeSettingInsert
+} from "~/features/settings/queries";
+
+// Helper to get profileId (replace with actual implementation if available)
+async function getProfileId(request: Request): Promise<string> {
+  // This is a mock. In a real app, you'd get this from session/auth state.
+  const loaderData = (request as any).loaderData as SettingsPageLoaderData | undefined;
+  if (loaderData?.profileId) return loaderData.profileId;
+  // Fallback for actions where loaderData might not be directly on request
+  // Consider a more robust way to get profileId in actions if needed
+  return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; 
 }
 
-interface UserSubcode {
-  id: string;
-  categoryCode: string; // 상위 카테고리 코드
-  subcode: string;
-  description: string;
-  isFavorite: boolean;
+export interface SettingsPageLoaderData {
+  userCategories: DbUserCategory[];
+  userSubcodes: DbUserSubcode[];
+  defaultCodePreferences: DbUserDefaultCodePreference[];
+  userCodeSettings: DbUserCodeSetting | null;
+  profileId: string;
 }
 
-const MOCK_USER_CATEGORIES: UserCategory[] = [
-  { id: 'cat1', code: 'STUDY', label: '공부하기', icon: '📚', color: '#3b82f6', isActive: true, sortOrder: 1 },
-  { id: 'cat2', code: 'WORKOUT', label: '운동하기', icon: '💪', color: '#16a34a', isActive: true, sortOrder: 2 },
-  { id: 'cat3', code: 'MEAL_P', label: '식사준비', icon: '🍳', color: '#f97316', isActive: false, sortOrder: 3 },
-];
+export const meta: MetaFunction = () => {
+  return [
+    { title: "Code Settings - StartBeyond" },
+    { name: "description", content: "Manage your custom categories, subcodes, and default code preferences." },
+  ];
+};
 
-let MOCK_USER_SUBCODES: UserSubcode[] = [
-  { id: 'sub1', categoryCode: 'STUDY', subcode: 'React', description: '리액트 심화 학습', isFavorite: true },
-  { id: 'sub2', categoryCode: 'STUDY', subcode: 'DB', description: '데이터베이스 설계', isFavorite: false },
-  { id: 'sub3', categoryCode: 'WORKOUT', subcode: 'Running', description: '저녁 조깅 30분', isFavorite: true },
-  { id: 'sub4', categoryCode: 'EX', subcode: 'Morning Jog', description: '아침 조깅 20분', isFavorite: false }, // 기본코드 EX에 대한 세부코드
-];
+export async function loader({ request }: LoaderFunctionArgs): Promise<SettingsPageLoaderData> {
+  const profileId = await getProfileId(request);
 
-// 기본 아이콘 풀 (예시)
+  const [userCategoriesData, userSubcodesData, defaultCodePreferencesData, userCodeSettingsData] = await Promise.all([
+    settingsQueries.getUserCategories({ profileId }),
+    settingsQueries.getAllUserSubcodes({ profileId }), // Fetches all subcodes for the user
+    settingsQueries.getUserDefaultCodePreferences({ profileId }),
+    settingsQueries.getUserCodeSettings({ profileId })
+  ]);
+
+  return {
+    profileId,
+    userCategories: userCategoriesData || [],
+    userSubcodes: userSubcodesData || [],
+    defaultCodePreferences: defaultCodePreferencesData || [],
+    userCodeSettings: userCodeSettingsData // Can be null if not found
+  };
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+    const profileId = await getProfileId(request);
+    const formData = await request.formData();
+    const intent = formData.get("intent") as string;
+    console.log(`[Settings Action] Intent: ${intent}, Profile ID: ${profileId}`);
+
+    try {
+        switch (intent) {
+            case "saveUserCategory": {
+                const id = formData.get("id") as string | null;
+                const code = formData.get("code") as string;
+                const label = formData.get("label") as string;
+                const icon = formData.get("icon") as string | null;
+                const color = formData.get("color") as string | null;
+                const isActiveForm = formData.get("is_active");
+                const is_active = isActiveForm === "true" || isActiveForm === "on";
+
+                console.log("[Settings Action saveUserCategory] Form Data:", { id, code, label, icon, color, is_active });
+
+                if (!code || !label) {
+                    console.error("[Settings Action saveUserCategory] Validation Error: Code and Label are required.");
+                    return { ok: false, error: "Code and Label are required.", intent };
+                }
+
+                let savedCategory;
+                if (id && id !== "undefined") {
+                    console.log(`[Settings Action saveUserCategory] Updating category ID: ${id}`);
+                    const updates: Partial<Omit<DbUserCategory, "id" | "profile_id" | "created_at" | "updated_at">> =
+                        { code, label, icon, color, is_active };
+                    savedCategory = await settingsQueries.updateUserCategory({ categoryId: id, profileId, updates });
+                } else {
+                    console.log("[Settings Action saveUserCategory] Creating new category.");
+                    const insertData: UserCategoryInsert = { profile_id: profileId, code, label, icon, color, is_active, sort_order: 0 };
+                    console.log("[Settings Action saveUserCategory] Insert data for query:", insertData);
+                    savedCategory = await settingsQueries.createUserCategory(insertData);
+                    console.log("[Settings Action saveUserCategory] Result from createUserCategory:", savedCategory);
+                }
+                
+                if (!savedCategory) {
+                    console.error("[Settings Action saveUserCategory] Failed to save category, query returned no data.");
+                    return { ok: false, error: "Failed to save category data to the database.", intent };
+                }
+
+                return { ok: true, intent, savedCategory };
+            }
+            case "deleteUserCategory": {
+                const categoryId = formData.get("categoryId") as string;
+                if (!categoryId) return { ok: false, error: "Category ID is required.", intent };
+                await settingsQueries.deleteUserCategory({ categoryId, profileId });
+                return { ok: true, intent, deletedCategoryId: categoryId };
+            }
+            case "saveUserSubcode": {
+                const id = formData.get("id") as string | null;
+                const parent_category_code = formData.get("parent_category_code") as string;
+                const subcode = formData.get("subcode") as string;
+                const description = formData.get("description") as string | null;
+                const isFavoriteForm = formData.get("is_favorite");
+                const is_favorite = isFavoriteForm === "true" || isFavoriteForm === "on";
+                
+                if (!parent_category_code || !subcode) return { ok: false, error: "Parent Code and Subcode are required.", intent};
+
+                const subcodeData: Partial<UserSubcodeInsert> = { profile_id: profileId, parent_category_code, subcode, description, is_favorite };
+
+                let savedSubcode;
+                if (id && id !== "undefined") {
+                     const updates: Partial<Omit<DbUserSubcode, "id" | "profile_id" | "created_at" | "updated_at">> = 
+                        { parent_category_code, subcode, description, is_favorite }; // parent_category_code usually not updatable after creation
+                    savedSubcode = await settingsQueries.updateUserSubcode({ subcodeId: id, profileId, updates });
+                } else {
+                    const insertData: UserSubcodeInsert = { profile_id: profileId, parent_category_code, subcode, description, is_favorite, frequency_score: 0 };
+                    savedSubcode = await settingsQueries.createUserSubcode(insertData);
+                }
+                return { ok: true, intent, savedSubcode };
+            }
+            case "deleteUserSubcode": {
+                const subcodeId = formData.get("subcodeId") as string;
+                if (!subcodeId) return { ok: false, error: "Subcode ID is required.", intent };
+                await settingsQueries.deleteUserSubcode({ subcodeId, profileId });
+                return { ok: true, intent, deletedSubcodeId: subcodeId };
+            }
+            case "toggleSubcodeFavorite": { // This might be better as a specific update action
+                const subcodeId = formData.get("subcodeId") as string;
+                const currentIsFavorite = formData.get("is_favorite") === "true"; // current state from form
+                if (!subcodeId) return { ok: false, error: "Subcode ID is required.", intent };
+                
+                const updatedSubcode = await settingsQueries.updateUserSubcode({
+                    subcodeId,
+                    profileId,
+                    updates: { is_favorite: !currentIsFavorite }
+                });
+                return { ok: true, intent, updatedSubcode };
+            }
+            case "upsertDefaultCodePreference": {
+                const default_category_code = formData.get("default_category_code") as CategoryCode;
+                const isActiveForm = formData.get("is_active");
+                const is_active = isActiveForm === "true" || isActiveForm === "on";
+
+                if (!default_category_code) return { ok: false, error: "Default Category Code is required.", intent };
+                
+                const preferenceData: UserDefaultCodePreferenceInsert = {
+                    profile_id: profileId,
+                    default_category_code,
+                    is_active
+                };
+                const upsertedPreference = await settingsQueries.upsertUserDefaultCodePreference(preferenceData);
+                return { ok: true, intent, upsertedPreference };
+            }
+            case "upsertUserCodeSettings": {
+                const enableAutocompleteForm = formData.get("enable_autocomplete");
+                const enable_autocomplete = enableAutocompleteForm === "true" || enableAutocompleteForm === "on";
+                const enableRecommendationForm = formData.get("enable_recommendation");
+                const enable_recommendation = enableRecommendationForm === "true" || enableRecommendationForm === "on";
+                const recommendation_source = formData.get("recommendation_source") as string || "frequency";
+
+                const settingsData: UserCodeSettingInsert = {
+                    profile_id: profileId,
+                    enable_autocomplete,
+                    enable_recommendation,
+                    recommendation_source
+                };
+                const upsertedSettings = await settingsQueries.upsertUserCodeSettings(settingsData);
+                return { ok: true, intent, upsertedSettings };
+            }
+            default:
+                return { ok: false, error: `Unknown intent: ${intent}`, intent };
+        }
+    } catch (error: any) {
+        console.error("Settings Action Error:", error.message, "Intent:", intent);
+        return { ok: false, error: error.message || "An unexpected error occurred.", intent };
+    }
+}
+
+
 const ICON_POOL = [
   { id: 'default_book', label: '책', icon: '📚' },
   { id: 'default_fitness', label: '운동', icon: '💪' },
@@ -62,30 +220,25 @@ const ICON_POOL = [
   { id: 'default_meeting', label: '회의', icon: '🤝' },
   { id: 'default_food', label: '음식', icon: '🍔' },
   { id: 'default_sleep', label: '수면', icon: '😴' },
-  // ... more icons
 ];
 
-// 기본 코드에 대한 UI 상태를 관리하기 위한 인터페이스 확장
-interface UIDefaultCategory {
-  code: CategoryCode;
-  label: string;
-  icon: string;
-  isActive: boolean; // 사용자가 토글할 수 있도록
-  // 기본 코드는 사용자가 색상이나 순서를 변경할 수 없음
+interface DefaultCodePreferenceUI {
+    id?: string; // Optional: not present for items not yet in DB
+    profile_id?: string; // Optional
+    default_category_code: CategoryCode;
+    is_active: boolean;
+    label: string; 
+    icon: string;
+    created_at?: string; // Optional
+    updated_at?: string; // Optional
 }
 
-// 기본 코드에 대한 UI 상태 (DB 연동 가정)
-interface DefaultCodePreference {
-  code: CategoryCode;
-  label: string;
-  icon: string;
-  isActive: boolean; // DB에 저장된 사용자별 활성화 상태
-}
 
-function UserCategoryForm({ category, onSave, onCancel }: {
-  category?: UserCategory | null;
-  onSave: (data: Partial<UserCategory>) => void;
+function UserCategoryForm({ category, onSave, onCancel, profileId }: {
+  category?: DbUserCategory | null;
+  onSave: (formData: FormData) => void; // Changed to accept FormData
   onCancel: () => void;
+  profileId: string; 
 }) {
   const [code, setCode] = useState(category?.code || '');
   const [label, setLabel] = useState(category?.label || '');
@@ -93,7 +246,7 @@ function UserCategoryForm({ category, onSave, onCancel }: {
   const [isTextIcon, setIsTextIcon] = useState(() => !ICON_POOL.find(i => i.icon === (category?.icon || ICON_POOL[0]?.icon || '📝')));
   const [customIconText, setCustomIconText] = useState(() => isTextIcon ? (category?.icon || '') : '');
   const [color, setColor] = useState(category?.color || '#cccccc');
-  const [isActive, setIsActive] = useState(category?.isActive ?? true);
+  const [isActive, setIsActive] = useState(category?.is_active ?? true);
   const [codeError, setCodeError] = useState('');
 
   useEffect(() => {
@@ -106,10 +259,9 @@ function UserCategoryForm({ category, onSave, onCancel }: {
       setIsTextIcon(textIcon);
       setCustomIconText(textIcon ? initialIcon : '');
       setColor(category.color || '#cccccc');
-      setIsActive(category.isActive ?? true);
+      setIsActive(category.is_active ?? true);
       setCodeError(''); 
     } else {
-        // Reset for new category form
         setCode('');
         setLabel('');
         const defaultIcon = ICON_POOL[0]?.icon || '📝';
@@ -128,30 +280,40 @@ function UserCategoryForm({ category, onSave, onCancel }: {
       return;
     }
     setCodeError('');
-    onSave({
-      id: category?.id,
-      code: code.toUpperCase(),
-      label,
-      icon: isTextIcon ? customIconText.slice(0,3) : icon,
-      color,
-      isActive
-    });
-    onCancel(); // Close dialog on successful save
+    
+    const formData = new FormData();
+    formData.append("intent", "saveUserCategory");
+    if (category?.id) formData.append("id", category.id);
+    formData.append("profile_id", profileId); // Ensure profileId is available
+    formData.append("code", code.toUpperCase());
+    formData.append("label", label);
+    formData.append("icon", isTextIcon ? customIconText.slice(0,3) : icon);
+    formData.append("color", color);
+    formData.append("is_active", isActive.toString());
+    // sort_order would be handled by action if necessary
+
+    onSave(formData);
+    onCancel(); 
   };
 
   return (
+    // Form structure remains largely the same, ensure names match FormData keys
     <div className="space-y-4 py-2">
       <div>
         <Label htmlFor="category-code">코드 (영문 대문자, 숫자, _, 최대 10자)</Label>
-        <Input id="category-code" value={code} onChange={(e) => { setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 10)); setCodeError(''); }} placeholder="예: MY_STUDY" />
+        <Input id="category-code" name="code" value={code} onChange={(e) => { setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 10)); setCodeError(''); }} placeholder="예: MY_STUDY" />
         {codeError && <p className="text-sm text-red-500 pt-1">{codeError}</p>}
       </div>
       <div>
         <Label htmlFor="category-label">레이블 (화면에 표시될 이름)</Label>
-        <Input id="category-label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="예: 영어 공부" />
+        <Input id="category-label" name="label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="예: 영어 공부" />
       </div>
       <div>
         <Label>아이콘</Label>
+        {/* Icon selection logic is complex for FormData, hidden input for icon might be needed or process in action */}
+        <input type="hidden" name="icon_type" value={isTextIcon ? "text" : "select"} />
+        <input type="hidden" name="icon_value" value={isTextIcon ? customIconText.slice(0,3) : icon} />
+
         <div className="flex items-center space-x-2 mb-2">
           <Switch id="text-icon-switch" checked={isTextIcon} onCheckedChange={(checked) => {
             setIsTextIcon(checked);
@@ -162,7 +324,7 @@ function UserCategoryForm({ category, onSave, onCancel }: {
         {isTextIcon ? (
           <Input value={customIconText} onChange={(e) => setCustomIconText(e.target.value)} placeholder="예: PJT, 💡" maxLength={5}/>
         ) : (
-          <Select value={icon} onValueChange={setIcon}>
+          <Select value={icon || undefined} onValueChange={setIcon}>
             <SelectTrigger><SelectValue placeholder="아이콘 선택" /></SelectTrigger>
             <SelectContent>
               {ICON_POOL.map(i => <SelectItem key={i.id} value={i.icon}>{i.icon} {i.label}</SelectItem>)}
@@ -173,12 +335,12 @@ function UserCategoryForm({ category, onSave, onCancel }: {
       <div>
         <Label htmlFor="category-color">색상</Label>
         <div className="flex items-center gap-2">
-          <Input id="category-color" type="color" value={color} onChange={(e) => setColor(e.target.value)} className="w-16 h-10 p-1" />
-          <span className="px-2 py-1 rounded text-sm text-white" style={{ backgroundColor: color }}>{color}</span>
+          <Input id="category-color" name="color" type="color" value={color || '#cccccc'} onChange={(e) => setColor(e.target.value)} className="w-16 h-10 p-1" />
+          <span className="px-2 py-1 rounded text-sm text-white" style={{ backgroundColor: color || '#cccccc' }}>{color || '#cccccc'}</span>
         </div>
       </div>
       <div className="flex items-center space-x-2 pt-2">
-        <Switch id="category-active" checked={isActive} onCheckedChange={setIsActive} />
+        <Switch name="is_active" id="category-active" checked={isActive} onCheckedChange={setIsActive} /> 
         <Label htmlFor="category-active">활성화 (앱 전체에서 사용)</Label>
       </div>
       <DialogFooter className="pt-6">
@@ -189,29 +351,30 @@ function UserCategoryForm({ category, onSave, onCancel }: {
   );
 }
 
-function UserSubcodeForm({ subcode, selectedCategoryCode, allCategories, onSave, onCancel }: {
-    subcode?: UserSubcode | null;
-    selectedCategoryCode: string; // Initially selected category for a new subcode
-    allCategories: Array<{ code: string; label: string }>; // For the category dropdown
-    onSave: (data: Partial<UserSubcode>) => void;
+function UserSubcodeForm({ subcode, selectedCategoryCode, allCategories, onSave, onCancel, profileId }: {
+    subcode?: DbUserSubcode | null;
+    selectedCategoryCode: string; 
+    allCategories: Array<{ code: string; label: string }>; 
+    onSave: (formData: FormData) => void; // Changed to accept FormData
     onCancel: () => void;
+    profileId: string;
 }) {
-    const [categoryCode, setCategoryCode] = useState(subcode?.categoryCode || selectedCategoryCode);
-    const [currentSubcode, setCurrentSubcode] = useState(subcode?.subcode || '');
+    const [parentCode, setParentCode] = useState(subcode?.parent_category_code || selectedCategoryCode);
+    const [currentSubcodeVal, setCurrentSubcodeVal] = useState(subcode?.subcode || '');
     const [description, setDescription] = useState(subcode?.description || '');
-    const [isFavorite, setIsFavorite] = useState(subcode?.isFavorite || false);
+    const [isFavorite, setIsFavorite] = useState(subcode?.is_favorite || false);
     const [subcodeError, setSubcodeError] = useState('');
 
     useEffect(() => {
         if (subcode) {
-            setCategoryCode(subcode.categoryCode);
-            setCurrentSubcode(subcode.subcode);
+            setParentCode(subcode.parent_category_code);
+            setCurrentSubcodeVal(subcode.subcode);
             setDescription(subcode.description || '');
-            setIsFavorite(subcode.isFavorite || false);
+            setIsFavorite(subcode.is_favorite || false);
             setSubcodeError('');
         } else {
-            setCategoryCode(selectedCategoryCode);
-            setCurrentSubcode('');
+            setParentCode(selectedCategoryCode); // Ensure this is set for new subcodes
+            setCurrentSubcodeVal('');
             setDescription('');
             setIsFavorite(false);
             setSubcodeError('');
@@ -219,26 +382,35 @@ function UserSubcodeForm({ subcode, selectedCategoryCode, allCategories, onSave,
     }, [subcode, selectedCategoryCode]);
 
     const handleSubmit = () => {
-        if (!currentSubcode.trim()) {
+        if (!currentSubcodeVal.trim()) {
             setSubcodeError('세부코드 명칭은 필수 항목입니다.');
             return;
         }
+        if (!parentCode) { // Should not happen if selectedCategoryCode is always valid
+            setSubcodeError('상위 코드를 선택해야 합니다.');
+            return;
+        }
         setSubcodeError('');
-        onSave({
-            id: subcode?.id,
-            categoryCode,
-            subcode: currentSubcode,
-            description,
-            isFavorite
-        });
-        onCancel(); // Close dialog on successful save
+        
+        const formData = new FormData();
+        formData.append("intent", "saveUserSubcode");
+        if (subcode?.id) formData.append("id", subcode.id);
+        formData.append("profile_id", profileId);
+        formData.append("parent_category_code", parentCode);
+        formData.append("subcode", currentSubcodeVal);
+        if(description) formData.append("description", description);
+        formData.append("is_favorite", isFavorite.toString());
+
+        onSave(formData);
+        onCancel();
     };
 
     return (
+        // Form structure remains largely the same, ensure names match FormData keys
         <div className="space-y-4 py-2">
             <div>
                 <Label htmlFor="subcode-category">상위 코드</Label>
-                <Select value={categoryCode} onValueChange={setCategoryCode} disabled={!!subcode}> {/*  Cannot change category when editing */}
+                <Select name="parent_category_code" value={parentCode} onValueChange={setParentCode} disabled={!!subcode}> 
                     <SelectTrigger id="subcode-category"><SelectValue placeholder="상위 코드 선택" /></SelectTrigger>
                     <SelectContent>
                         {allCategories.map(cat => <SelectItem key={cat.code} value={cat.code}>{cat.label} ({cat.code})</SelectItem>)}
@@ -247,15 +419,15 @@ function UserSubcodeForm({ subcode, selectedCategoryCode, allCategories, onSave,
             </div>
             <div>
                 <Label htmlFor="subcode-code">세부코드 명칭</Label>
-                <Input id="subcode-code" value={currentSubcode} onChange={(e) => {setCurrentSubcode(e.target.value); setSubcodeError('');}} placeholder="예: React 강의" />
+                <Input id="subcode-code" name="subcode" value={currentSubcodeVal} onChange={(e) => {setCurrentSubcodeVal(e.target.value); setSubcodeError('');}} placeholder="예: React 강의" />
                 {subcodeError && <p className="text-sm text-red-500 pt-1">{subcodeError}</p>}
         </div>
         <div>
                 <Label htmlFor="subcode-description">설명 (선택)</Label>
-                <Input id="subcode-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="예: Udemy 강의 시청" />
+                <Input id="subcode-description" name="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="예: Udemy 강의 시청" />
             </div>
             <div className="flex items-center space-x-2 pt-2">
-                <Switch id="subcode-favorite" checked={isFavorite} onCheckedChange={setIsFavorite} />
+                <Switch name="is_favorite" id="subcode-favorite" checked={isFavorite} onCheckedChange={setIsFavorite} />
                 <Label htmlFor="subcode-favorite">즐겨찾기 (입력 시 우선 추천)</Label>
             </div>
             <DialogFooter className="pt-6">
@@ -266,106 +438,256 @@ function UserSubcodeForm({ subcode, selectedCategoryCode, allCategories, onSave,
     );
 }
 
-export default function SettingsPage() {
-  const [userCategories, setUserCategories] = useState<UserCategory[]>(MOCK_USER_CATEGORIES);
-  const [userSubcodes, setUserSubcodes] = useState<UserSubcode[]>(MOCK_USER_SUBCODES);
-  const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<UserCategory | null>(null);
-  const [isSubcodeFormOpen, setIsSubcodeFormOpen] = useState(false);
-  const [editingSubcode, setEditingSubcode] = useState<UserSubcode | null>(null);
-  const [selectedCategoryForSubcode, setSelectedCategoryForSubcode] = useState<string>(
-    MOCK_USER_CATEGORIES[0]?.code || Object.keys(DEFAULT_CATEGORIES)[0] || ''
-  );
-  const [showDeactivationAlert, setShowDeactivationAlert] = useState(false);
-  const [codeToDeactivate, setCodeToDeactivate] = useState<DefaultCodePreference | null>(null);
+export default function SettingsPage({ loaderData }: { loaderData: SettingsPageLoaderData }) {
+  const fetcher = useFetcher<typeof action>();
+  const { 
+    userCategories: initialUserCategories, 
+    userSubcodes: initialUserSubcodes, 
+    defaultCodePreferences: initialDbDefaultPrefs,
+    userCodeSettings: initialUserCodeSettings,
+    profileId 
+  } = loaderData;
 
-  // 기본 코드 상태 관리 (DB 연동 가정)
-  const [defaultCodePreferences, setDefaultCodePreferences] = useState<DefaultCodePreference[]>(() =>
-    Object.entries(DEFAULT_CATEGORIES).map(([code, cat]) => ({
-      code: code as CategoryCode,
-      label: cat.label,
-      icon: cat.icon,
-      isActive: true, // 실제로는 DB에서 가져온 사용자별 활성화 상태여야 함
-    }))
-  );
+  const [userCategories, setUserCategories] = useState<DbUserCategory[]>(initialUserCategories);
+  const [userSubcodes, setUserSubcodes] = useState<DbUserSubcode[]>(initialUserSubcodes);
+  
+  const [defaultCodePreferences, setDefaultCodePreferences] = useState<DefaultCodePreferenceUI[]>(() => {
+    return Object.entries(DEFAULT_CATEGORIES).map(([code, catDetails]) => {
+      const dbPref = initialDbDefaultPrefs.find(p => p.default_category_code === code);
+      return {
+        id: dbPref?.id,
+        profile_id: dbPref?.profile_id,
+        default_category_code: code as CategoryCode,
+        is_active: dbPref ? dbPref.is_active : true, // Default to true if not in DB
+        label: catDetails.label,
+        icon: catDetails.icon,
+        created_at: dbPref?.created_at,
+        updated_at: dbPref?.updated_at,
+      };
+    });
+  });
+
+  const [isCategoryFormOpen, setIsCategoryFormOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<DbUserCategory | null>(null);
+  const [isSubcodeFormOpen, setIsSubcodeFormOpen] = useState(false);
+  const [editingSubcode, setEditingSubcode] = useState<DbUserSubcode | null>(null);
+  
+  const [selectedCategoryForSubcode, setSelectedCategoryForSubcode] = useState<string>(() => {
+    const activeDefault = defaultCodePreferences.find(dp => dp.is_active);
+    if (activeDefault) return activeDefault.default_category_code;
+    const activeUser = initialUserCategories.find(uc => uc.is_active);
+    if (activeUser) return activeUser.code;
+    return Object.keys(DEFAULT_CATEGORIES)[0] || '';
+  });
+
+  const [showDeactivationAlert, setShowDeactivationAlert] = useState(false);
+  const [codeToDeactivate, setCodeToDeactivate] = useState<DefaultCodePreferenceUI | null>(null);
   const [isDefaultCategoriesCollapsed, setIsDefaultCategoriesCollapsed] = useState(false);
 
-  // TODO: userCodeSettings state
-  const [enableAutocomplete, setEnableAutocomplete] = useState(true);
-  const [enableRecommendation, setEnableRecommendation] = useState(true);
-  const [recommendationSource, setRecommendationSource] = useState('frequency');
+  const [enableAutocomplete, setEnableAutocomplete] = useState(initialUserCodeSettings?.enable_autocomplete ?? true);
+  const [enableRecommendation, setEnableRecommendation] = useState(initialUserCodeSettings?.enable_recommendation ?? true);
+  const [recommendationSource, setRecommendationSource] = useState(initialUserCodeSettings?.recommendation_source ?? 'frequency');
 
-  // --- User Category (Custom Code) Handlers ---
-  const handleSaveCategory = (data: Partial<UserCategory>) => {
-    if (data.id) {
-      setUserCategories(prev => prev.map(cat => cat.id === data.id ? { ...cat, ...data } as UserCategory : cat));
-    } else {
-      const newId = Math.random().toString(36).slice(2);
-      setUserCategories(prev => [...prev, { ...data, id: newId, sortOrder: prev.length + 1 } as UserCategory]);
+  useEffect(() => {
+    setUserCategories(initialUserCategories);
+    setUserSubcodes(initialUserSubcodes);
+    setDefaultCodePreferences(
+        Object.entries(DEFAULT_CATEGORIES).map(([code, catDetails]) => {
+            const dbPref = initialDbDefaultPrefs.find(p => p.default_category_code === code);
+            return {
+                id: dbPref?.id,
+                profile_id: dbPref?.profile_id,
+                default_category_code: code as CategoryCode,
+                is_active: dbPref ? dbPref.is_active : true,
+                label: catDetails.label,
+                icon: catDetails.icon,
+                created_at: dbPref?.created_at,
+                updated_at: dbPref?.updated_at,
+            };
+        })
+    );
+    if (initialUserCodeSettings) {
+        setEnableAutocomplete(initialUserCodeSettings.enable_autocomplete);
+        setEnableRecommendation(initialUserCodeSettings.enable_recommendation);
+        setRecommendationSource(initialUserCodeSettings.recommendation_source);
     }
-    setIsCategoryFormOpen(false);
-    setEditingCategory(null);
+  }, [initialUserCategories, initialUserSubcodes, initialDbDefaultPrefs, initialUserCodeSettings]);
+
+
+  useEffect(() => {
+    if (fetcher.data && fetcher.state === 'idle') {
+        const data = fetcher.data as { 
+            ok: boolean; 
+            intent?: string; 
+            error?: string; 
+            savedCategory?: DbUserCategory;
+            deletedCategoryId?: string;
+            savedSubcode?: DbUserSubcode;
+            deletedSubcodeId?: string;
+            updatedSubcode?: DbUserSubcode; // For toggle favorite
+            upsertedPreference?: DbUserDefaultCodePreference;
+            upsertedSettings?: DbUserCodeSetting;
+        };
+
+        if (data.ok) {
+            switch (data.intent) {
+                case "saveUserCategory":
+                    if (data.savedCategory) {
+                        setUserCategories(prev => {
+                            const index = prev.findIndex(c => c.id === data.savedCategory!.id);
+                            if (index !== -1) {
+                                const newCategories = [...prev];
+                                newCategories[index] = data.savedCategory!;
+                                return newCategories;
+                            }
+                            return [...prev, data.savedCategory!].sort((a,b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+                        });
+                    }
+                    break;
+                case "deleteUserCategory":
+                    if (data.deletedCategoryId) {
+                        setUserCategories(prev => prev.filter(c => c.id !== data.deletedCategoryId));
+                        // Also remove related subcodes locally
+                        const categoryToDelete = userCategories.find(cat => cat.id === data.deletedCategoryId);
+                        if (categoryToDelete) {
+                            setUserSubcodes(prevSubs => prevSubs.filter(sub => sub.parent_category_code !== categoryToDelete.code));
+                        }
+                    }
+                    break;
+                case "saveUserSubcode":
+                    if (data.savedSubcode) {
+                        setUserSubcodes(prev => {
+                            const index = prev.findIndex(s => s.id === data.savedSubcode!.id);
+                            if (index !== -1) {
+                                const newSubcodes = [...prev];
+                                newSubcodes[index] = data.savedSubcode!;
+                                return newSubcodes;
+                            }
+                            return [...prev, data.savedSubcode!].sort((a,b) => a.subcode.localeCompare(b.subcode));
+                        });
+                    }
+                    break;
+                case "deleteUserSubcode":
+                    if (data.deletedSubcodeId) {
+                        setUserSubcodes(prev => prev.filter(s => s.id !== data.deletedSubcodeId));
+                    }
+                    break;
+                case "toggleSubcodeFavorite":
+                     if (data.updatedSubcode) {
+                        setUserSubcodes(prev => prev.map(sc => sc.id === data.updatedSubcode!.id ? data.updatedSubcode! : sc));
+                    }
+                    break;
+                case "upsertDefaultCodePreference":
+                    if (data.upsertedPreference) {
+                        const pref = data.upsertedPreference;
+                        setDefaultCodePreferences(prev => prev.map(p => 
+                            p.default_category_code === pref.default_category_code 
+                            ? { ...p, is_active: pref.is_active, id: pref.id, profile_id: pref.profile_id, created_at: pref.created_at, updated_at: pref.updated_at } 
+                            : p
+                        ));
+                    }
+                    break;
+                case "upsertUserCodeSettings":
+                    if (data.upsertedSettings) {
+                        setEnableAutocomplete(data.upsertedSettings.enable_autocomplete);
+                        setEnableRecommendation(data.upsertedSettings.enable_recommendation);
+                        setRecommendationSource(data.upsertedSettings.recommendation_source);
+                        // Optionally show a success message/toast
+                    }
+                    break;
+            }
+        } else if (data.error) {
+            console.error("Settings Action Error (from useEffect):", data.error, "Intent:", data.intent);
+            // Handle error display, e.g., toast notification
+            alert(`Error: ${data.error}`);
+        }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetcher.data, fetcher.state]);
+
+
+  const handleSaveCategory = (formData: FormData) => {
+    fetcher.submit(formData, { method: "post" });
   };
 
-  const handleDeleteCategory = (id: string) => {
-    const categoryToDelete = userCategories.find(cat => cat.id === id);
-    setUserCategories(prev => prev.filter(cat => cat.id !== id));
-    // 사용자 정의 코드 삭제 시, 관련된 세부코드도 삭제
-    if (categoryToDelete) {
-        setUserSubcodes(prevSubs => prevSubs.filter(sub => sub.categoryCode !== categoryToDelete.code));
+  const handleDeleteCategory = (categoryId: string) => {
+    if (confirm("이 사용자 정의 코드를 삭제하시겠습니까? 관련된 세부코드들도 함께 삭제될 수 있습니다.")) {
+        const formData = new FormData();
+        formData.append("intent", "deleteUserCategory");
+        formData.append("categoryId", categoryId);
+        fetcher.submit(formData, { method: "post" });
     }
   };
-
-  // --- Default Code Preference Handlers ---
-  const attemptToggleDefaultCategoryActive = (codePref: DefaultCodePreference) => {
-    const numSubcodes = userSubcodes.filter(sc => sc.categoryCode === codePref.code).length;
-    if (codePref.isActive && numSubcodes > 0) { // If attempting to deactivate and subcodes exist
+  
+  const attemptToggleDefaultCategoryActive = (codePref: DefaultCodePreferenceUI) => {
+    const numSubcodes = userSubcodes.filter(sc => sc.parent_category_code === codePref.default_category_code).length;
+    if (codePref.is_active && numSubcodes > 0) { 
         setCodeToDeactivate(codePref);
         setShowDeactivationAlert(true);
-    } else { // Activate or deactivate without subcodes
-        proceedToggleDefaultCategoryActive(codePref.code);
+    } else { 
+        const formData = new FormData();
+        formData.append("intent", "upsertDefaultCodePreference");
+        formData.append("default_category_code", codePref.default_category_code);
+        formData.append("is_active", (!codePref.is_active).toString());
+        fetcher.submit(formData, { method: "post"});
     }
   };
 
   const proceedToggleDefaultCategoryActive = (codeToToggle: CategoryCode) => {
-    setDefaultCodePreferences(prev =>
-        prev.map(cat =>
-            cat.code === codeToToggle ? { ...cat, isActive: !cat.isActive } : cat
-        )
-    );
+    const codePref = defaultCodePreferences.find(p => p.default_category_code === codeToToggle);
+    if (codePref) {
+        const formData = new FormData();
+        formData.append("intent", "upsertDefaultCodePreference");
+        formData.append("default_category_code", codeToToggle);
+        formData.append("is_active", (!codePref.is_active).toString());
+        fetcher.submit(formData, { method: "post"});
+    }
     setCodeToDeactivate(null); 
     setShowDeactivationAlert(false);
   };
 
-  // --- User Subcode Handlers ---
-  const handleSaveSubcode = (data: Partial<UserSubcode>) => {
-    if (data.id) { // Edit
-      setUserSubcodes(prev => prev.map(sc => sc.id === data.id ? { ...sc, ...data } as UserSubcode : sc));
-    } else { // Add
-      setUserSubcodes(prev => [...prev, { ...data, id: Math.random().toString(36).slice(2) } as UserSubcode]);
+  const handleSaveSubcode = (formData: FormData) => {
+    fetcher.submit(formData, { method: "post" });
+  };
+
+  const handleDeleteSubcode = (subcodeId: string) => {
+     if (confirm("이 세부코드를 삭제하시겠습니까?")) {
+        const formData = new FormData();
+        formData.append("intent", "deleteUserSubcode");
+        formData.append("subcodeId", subcodeId);
+        fetcher.submit(formData, { method: "post" });
     }
-    setIsSubcodeFormOpen(false);
-    setEditingSubcode(null);
   };
 
-  const handleDeleteSubcode = (id: string) => {
-    setUserSubcodes(prev => prev.filter(sc => sc.id !== id));
+  const toggleSubcodeFavorite = (subcodeId: string, currentIsFavorite: boolean) => {
+    const formData = new FormData();
+    formData.append("intent", "toggleSubcodeFavorite");
+    formData.append("subcodeId", subcodeId);
+    formData.append("is_favorite", currentIsFavorite.toString());
+    fetcher.submit(formData, { method: "post" });
+  };
+  
+  const handleSaveInputSettings = () => {
+    const formData = new FormData();
+    formData.append("intent", "upsertUserCodeSettings");
+    formData.append("enable_autocomplete", enableAutocomplete.toString());
+    formData.append("enable_recommendation", enableRecommendation.toString());
+    formData.append("recommendation_source", recommendationSource);
+    fetcher.submit(formData, { method: "post"});
+    // alert("입력 지원 설정이 저장되었습니다."); // Optimistic, or handle in useEffect
   };
 
-  const toggleSubcodeFavorite = (id: string) => {
-    setUserSubcodes(prev =>
-        prev.map(sc => sc.id === id ? { ...sc, isFavorite: !sc.isFavorite } : sc)
-    );
-  };
 
   const allManageableCategories = [
-    ...defaultCodePreferences.filter(dc => dc.isActive).map(dc => ({ code: dc.code, label: dc.label })),
-    ...userCategories.filter(uc => uc.isActive).map(uc => ({ code: uc.code, label: uc.label }))
+    ...defaultCodePreferences.filter(dc => dc.is_active).map(dc => ({ code: dc.default_category_code, label: dc.label })),
+    ...userCategories.filter(uc => uc.is_active).map(uc => ({ code: uc.code, label: uc.label }))
   ];
 
-  const filteredSubcodes = selectedCategoryForSubcode ? 
-    userSubcodes.filter(sc => sc.categoryCode === selectedCategoryForSubcode) :
-    userSubcodes; // 만약 선택된 카테고리 없으면 (이론상으론 항상 있어야 함) 모두 보여주거나, 아예 안보여줄 수도.
+  const filteredSubcodes = selectedCategoryForSubcode && !selectedCategoryForSubcode.startsWith('ALL_') ? 
+    userSubcodes.filter(sc => sc.parent_category_code === selectedCategoryForSubcode) :
+    (selectedCategoryForSubcode === 'ALL_USER_DEFINED' ? userSubcodes.filter(sc => userCategories.some(uc => uc.code === sc.parent_category_code && uc.is_active)) : 
+    (selectedCategoryForSubcode === 'ALL_DEFAULT' ? userSubcodes.filter(sc => defaultCodePreferences.some(dc => dc.default_category_code === sc.parent_category_code && dc.is_active)) : 
+    [])); // Default to empty if no specific category or "ALL" variant is chosen correctly.
 
   return (
     <div className="max-w-5xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
@@ -378,7 +700,6 @@ export default function SettingsPage() {
           <TabsTrigger value="input-support">입력 지원</TabsTrigger>
         </TabsList>
 
-        {/* 내 코드 관리 (기본 코드 + 사용자 정의 코드) */}
         <TabsContent value="my-codes">
           <Card className="mb-6">
             <CardHeader className="cursor-pointer" onClick={() => setIsDefaultCategoriesCollapsed(!isDefaultCategoriesCollapsed)}>
@@ -394,17 +715,17 @@ export default function SettingsPage() {
               <CardContent>
                 <div className="border rounded-md">
                   {defaultCodePreferences.map((cat, index) => (
-                    <div key={cat.code} className={`flex items-center justify-between p-3 ${index < defaultCodePreferences.length - 1 ? 'border-b' : ''} ${!cat.isActive ? 'opacity-50' : ''}`}>
+                    <div key={cat.default_category_code} className={`flex items-center justify-between p-3 ${index < defaultCodePreferences.length - 1 ? 'border-b' : ''} ${!cat.is_active ? 'opacity-50' : ''}`}>
                       <div className="flex items-center gap-3">
                         <span className="text-2xl w-8 h-8 flex items-center justify-center rounded bg-gray-200 text-gray-700">
                           {cat.icon}
                         </span>
                         <div>
-                          <div className="font-medium">{cat.label} <span className="text-sm text-muted-foreground">({cat.code})</span></div>
-                          {!cat.isActive && <span className="text-xs text-orange-500">현재 비활성 (표시되지 않음)</span>}
+                          <div className="font-medium">{cat.label} <span className="text-sm text-muted-foreground">({cat.default_category_code})</span></div>
+                          {!cat.is_active && <span className="text-xs text-orange-500">현재 비활성 (표시되지 않음)</span>}
                         </div>
                       </div>
-                      <Switch checked={cat.isActive} onCheckedChange={() => attemptToggleDefaultCategoryActive(cat)} />
+                      <Switch checked={cat.is_active} onCheckedChange={() => attemptToggleDefaultCategoryActive(cat)} />
                     </div>
                   ))}
                 </div>
@@ -435,19 +756,19 @@ export default function SettingsPage() {
                     category={editingCategory}
                     onSave={handleSaveCategory}
                     onCancel={() => { setIsCategoryFormOpen(false); setEditingCategory(null); }}
+                    profileId={profileId}
                   />
                 </DialogContent>
               </Dialog>
 
               <div className="border rounded-md">
-                {userCategories.sort((a,b) => a.sortOrder - b.sortOrder).map((cat, index) => (
-                  <div key={cat.id} className={`flex items-center justify-between p-3 ${index < userCategories.length - 1 ? 'border-b' : ''} ${!cat.isActive ? 'opacity-50' : ''}`}>
+                {userCategories.sort((a,b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)).map((cat, index) => (
+                  <div key={cat.id} className={`flex items-center justify-between p-3 ${index < userCategories.length - 1 ? 'border-b' : ''} ${!cat.is_active ? 'opacity-50' : ''}`}>
                     <div className="flex items-center gap-3">
-                      {/* <GripVertical className="cursor-grab opacity-50 mr-1" /> Icon for drag and drop */}
-                      <span className="text-2xl w-8 h-8 flex items-center justify-center rounded text-white" style={{ backgroundColor: cat.color }}>{cat.icon}</span>
+                      <span className="text-2xl w-8 h-8 flex items-center justify-center rounded text-white" style={{ backgroundColor: cat.color || '#cccccc' }}>{cat.icon}</span>
                       <div>
                         <div className="font-medium">{cat.label} <span className="text-sm text-muted-foreground">({cat.code})</span></div>
-                        {!cat.isActive && <span className="text-xs text-red-500">비활성 (앱 전체에 미표시)</span>}
+                        {!cat.is_active && <span className="text-xs text-red-500">비활성 (앱 전체에 미표시)</span>}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -468,7 +789,6 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* 내 세부코드 관리 */}
         <TabsContent value="my-subcodes">
           <Card>
             <CardHeader>
@@ -482,10 +802,10 @@ export default function SettingsPage() {
                             <SelectValue placeholder="세부코드를 관리할 코드 선택" />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="ALL_USER_DEFINED">-- 모든 내 코드 --</SelectItem>
+                            <SelectItem value="ALL_USER_DEFINED">-- 모든 내 사용자 코드 --</SelectItem>
                             <SelectItem value="ALL_DEFAULT">-- 모든 기본 코드 --</SelectItem>
-                            {defaultCodePreferences.filter(dc => dc.isActive).map(cat => <SelectItem key={cat.code} value={cat.code}>{cat.label} (기본)</SelectItem>)}
-                            {userCategories.filter(uc => uc.isActive).map(cat => <SelectItem key={cat.code} value={cat.code}>{cat.label} (사용자)</SelectItem>)}
+                            {defaultCodePreferences.filter(dc => dc.is_active).map(cat => <SelectItem key={cat.default_category_code} value={cat.default_category_code}>{cat.label} (기본)</SelectItem>)}
+                            {userCategories.filter(uc => uc.is_active).map(cat => <SelectItem key={cat.code} value={cat.code}>{cat.label} (사용자)</SelectItem>)}
                         </SelectContent>
                     </Select>
                     <Dialog open={isSubcodeFormOpen} onOpenChange={(isOpen) => {
@@ -493,7 +813,7 @@ export default function SettingsPage() {
                         if (!isOpen) setEditingSubcode(null);
                     }}>
                         <DialogTrigger asChild>
-                            <Button disabled={!selectedCategoryForSubcode || selectedCategoryForSubcode.startsWith('ALL')} onClick={() => { setEditingSubcode(null); setIsSubcodeFormOpen(true);}}>
+                            <Button disabled={!selectedCategoryForSubcode || selectedCategoryForSubcode.startsWith('ALL_')} onClick={() => { setEditingSubcode(null); setIsSubcodeFormOpen(true);}}>
                                 <PlusCircle className="mr-2 h-4 w-4" /> 새 세부코드 추가
                             </Button>
                         </DialogTrigger>
@@ -501,15 +821,16 @@ export default function SettingsPage() {
                         <DialogHeader>
                             <DialogTitle>{editingSubcode ? '세부코드 수정' : '새 세부코드 추가'}</DialogTitle>
                             <DialogDescription>
-                                {selectedCategoryForSubcode && allManageableCategories.find(c => c.code === selectedCategoryForSubcode)?.label} 코드에 대한 세부코드입니다.
+                                {selectedCategoryForSubcode && !selectedCategoryForSubcode.startsWith('ALL_') && allManageableCategories.find(c => c.code === selectedCategoryForSubcode)?.label} 코드에 대한 세부코드입니다.
                             </DialogDescription>
                         </DialogHeader>
                         <UserSubcodeForm
                             subcode={editingSubcode}
                             selectedCategoryCode={selectedCategoryForSubcode}
-                            allCategories={allManageableCategories.filter(c => !c.code.startsWith('ALL'))} // filter out placeholder values
+                            allCategories={allManageableCategories.filter(c => !c.code.startsWith('ALL_'))}
                             onSave={handleSaveSubcode}
                             onCancel={() => { setIsSubcodeFormOpen(false); setEditingSubcode(null); }}
+                            profileId={profileId}
                         />
                         </DialogContent>
                     </Dialog>
@@ -519,8 +840,8 @@ export default function SettingsPage() {
                 {filteredSubcodes.map((sc, index) => (
                   <div key={sc.id} className={`flex items-center justify-between p-3 ${index < filteredSubcodes.length - 1 ? 'border-b' : ''}`}>
                     <div className="flex items-center gap-3">
-                        <Button variant="ghost" size="sm" onClick={() => toggleSubcodeFavorite(sc.id)} className="mr-1 p-1 h-auto">
-                            <Star className={`h-4 w-4 ${sc.isFavorite ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
+                        <Button variant="ghost" size="sm" onClick={() => toggleSubcodeFavorite(sc.id, sc.is_favorite)} className="mr-1 p-1 h-auto">
+                            <Star className={`h-4 w-4 ${sc.is_favorite ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`} />
                         </Button>
                       <div>
                         <div className="font-medium">{sc.subcode}</div>
@@ -537,12 +858,12 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 ))}
-                {filteredSubcodes.length === 0 && selectedCategoryForSubcode && !selectedCategoryForSubcode.startsWith('ALL') && (
+                {filteredSubcodes.length === 0 && selectedCategoryForSubcode && !selectedCategoryForSubcode.startsWith('ALL_') && (
                   <p className="p-4 text-center text-muted-foreground">
                     '{allManageableCategories.find(c=>c.code === selectedCategoryForSubcode)?.label}' 코드에 등록된 세부코드가 없습니다.
                   </p>
                 )}
-                 {(!selectedCategoryForSubcode || selectedCategoryForSubcode.startsWith('ALL')) && (
+                 {(!selectedCategoryForSubcode || selectedCategoryForSubcode.startsWith('ALL_')) && (
                      <p className="p-4 text-center text-muted-foreground">세부코드를 보거나 추가하려면 먼저 상위 코드를 선택해주세요.</p>
                  )}
               </div>
@@ -550,7 +871,6 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* 입력 지원 설정 */}
         <TabsContent value="input-support">
           <Card>
             <CardHeader>
@@ -558,52 +878,54 @@ export default function SettingsPage() {
               <CardDescription>세부코드 입력 시 자동완성 및 추천 기능을 설정합니다.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center justify-between p-4 border rounded-md">
-                <Label htmlFor="enable-subcode-autocomplete" className="text-base">세부코드 자동완성 기능 사용</Label>
-                <Switch id="enable-subcode-autocomplete" checked={enableAutocomplete} onCheckedChange={setEnableAutocomplete} />
-              </div>
-              <div className="p-4 border rounded-md space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="enable-subcode-recommendation" className="text-base">입력 시 세부코드 추천 사용</Label>
-                  <Switch id="enable-subcode-recommendation" checked={enableRecommendation} onCheckedChange={setEnableRecommendation} />
-                </div>
-                {enableRecommendation && (
-                  <div>
-                    <Label htmlFor="recommendation-source">세부코드 추천 기준</Label>
-                    <Select value={recommendationSource} onValueChange={setRecommendationSource}>
-                      <SelectTrigger id="recommendation-source" className="w-[280px]">
-                        <SelectValue placeholder="추천 기준 선택" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="frequency">자주 사용한 순서</SelectItem>
-                        <SelectItem value="favorite">즐겨찾기 한 순서</SelectItem>
-                        <SelectItem value="recent">최근 사용 순서</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </div>
+                <Form method="post" onSubmit={(e) => { e.preventDefault(); handleSaveInputSettings();}}>
+                    <input type="hidden" name="intent" value="upsertUserCodeSettings" />
+                    <div className="flex items-center justify-between p-4 border rounded-md">
+                        <Label htmlFor="enable-subcode-autocomplete" className="text-base">세부코드 자동완성 기능 사용</Label>
+                        <Switch name="enable_autocomplete" id="enable-subcode-autocomplete" checked={enableAutocomplete} onCheckedChange={setEnableAutocomplete} />
+                    </div>
+                    <div className="p-4 border rounded-md space-y-4 mt-4">
+                        <div className="flex items-center justify-between">
+                        <Label htmlFor="enable-subcode-recommendation" className="text-base">입력 시 세부코드 추천 사용</Label>
+                        <Switch name="enable_recommendation" id="enable-subcode-recommendation" checked={enableRecommendation} onCheckedChange={setEnableRecommendation} />
+                        </div>
+                        {enableRecommendation && (
+                        <div>
+                            <Label htmlFor="recommendation-source">세부코드 추천 기준</Label>
+                            <Select name="recommendation_source" value={recommendationSource} onValueChange={setRecommendationSource}>
+                            <SelectTrigger id="recommendation-source" className="w-[280px]">
+                                <SelectValue placeholder="추천 기준 선택" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="frequency">자주 사용한 순서</SelectItem>
+                                <SelectItem value="favorite">즐겨찾기 한 순서</SelectItem>
+                                <SelectItem value="recent">최근 사용 순서</SelectItem>
+                            </SelectContent>
+                            </Select>
+                        </div>
+                        )}
+                    </div>
+                    <CardFooter className="mt-6">
+                        <Button type="submit">입력 지원 설정 저장</Button>
+                    </CardFooter>
+                </Form>
             </CardContent>
-             <CardFooter>
-                <Button onClick={() => console.log('Save input settings:', {enableAutocomplete, enableRecommendation, recommendationSource})}>설정 저장</Button>
-            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>
       
-      {/* Default Code Deactivation Alert */}
       <AlertDialog open={showDeactivationAlert} onOpenChange={setShowDeactivationAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>기본 코드 비활성화 경고</AlertDialogTitle>
             <AlertDialogDescription>
-              '{codeToDeactivate?.label}' ({codeToDeactivate?.code}) 코드를 비활성화하시겠습니까? 
+              '{codeToDeactivate?.label}' ({codeToDeactivate?.default_category_code}) 코드를 비활성화하시겠습니까? 
               이 코드에 연결된 사용자 정의 세부코드는 삭제되지 않지만, 이 기본 코드가 비활성화되어 있는 동안에는 숨겨지고 새 항목에 사용할 수 없게 됩니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => {setShowDeactivationAlert(false); setCodeToDeactivate(null);}}>취소</AlertDialogCancel>
-            <AlertDialogAction onClick={() => codeToDeactivate && proceedToggleDefaultCategoryActive(codeToDeactivate.code)}>
+            <AlertDialogAction onClick={() => codeToDeactivate && proceedToggleDefaultCategoryActive(codeToDeactivate.default_category_code)}>
               비활성화 진행
             </AlertDialogAction>
           </AlertDialogFooter>

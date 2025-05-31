@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, varchar, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, varchar, integer, boolean, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import { profiles } from '../users/schema';
 import { sql } from 'drizzle-orm';
 
@@ -8,7 +8,7 @@ export const userCategories = pgTable("user_categories", {
   code: varchar("code", { length: 10 }).notNull(),
   label: text("label").notNull(),
   icon: text("icon"),
-  color: varchar("color", {length: 7}),
+  color: varchar("color", { length: 7 }),
   sort_order: integer("sort_order").default(0).notNull(),
   is_active: boolean("is_active").default(true).notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -46,6 +46,19 @@ export const userDefaultCodePreferences = pgTable("user_default_code_preferences
   is_active: boolean("is_active").default(true).notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
-  // Add a composite unique key to ensure one preference per user per default code
-  // UniqueConstraint: unique(profile_id, default_category_code)
+}, (table) => {
+  return {
+    profileDefaultCodeUnique: uniqueIndex('user_default_pref_profile_code_idx').on(table.profile_id, table.default_category_code),
+  };
 });
+
+interface UICategory {
+  code: string; // CategoryCode 또는 사용자 정의 코드
+  label: string;
+  icon: string | null; // 사용자 정의는 null일 수 있음
+  color?: string | null; // 사용자 정의 코드의 색상
+  isCustom: boolean;
+  isActive: boolean; // settings-page와 연동
+  hasDuration?: boolean; // 기본 코드에서 가져옴
+  // 필요하다면 sort_order 등 추가
+}
