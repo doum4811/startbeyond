@@ -485,61 +485,22 @@ export async function getMonthlyReflectionByMonth(
 export async function upsertMonthlyReflection(
   reflectionData: MonthlyReflectionInsert
 ) {
-  // Check if a reflection already exists for this profile and month
-  const { data: existingReflection, error: fetchError } = await client
+  const upsertData: MonthlyReflectionInsert & { updated_at?: string } = {
+    ...reflectionData,
+    updated_at: new Date().toISOString(), // Explicitly set updated_at
+  };
+
+  const { data, error } = await client
     .from("monthly_reflections")
-    .select("id")
-    .eq("profile_id", reflectionData.profile_id)
-    .eq("month_date", reflectionData.month_date)
+    .upsert(upsertData, { onConflict: 'profile_id, month_date' })
+    .select(MONTHLY_REFLECTION_COLUMNS)
     .single();
 
-  if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means no rows found
-    console.error("Error fetching existing monthly reflection for upsert:", fetchError.message);
-    throw fetchError;
+  if (error) {
+    console.error("Error updating monthly reflection:", error.message);
+    throw error;
   }
-
-  if (existingReflection) {
-    // Update existing reflection
-    const updatePayload: Partial<MonthlyReflectionUpdate> = {};
-    if (reflectionData.monthly_reflection !== undefined) updatePayload.monthly_reflection = reflectionData.monthly_reflection;
-    if (reflectionData.monthly_notes !== undefined) updatePayload.monthly_notes = reflectionData.monthly_notes;
-    // Ensure we only update if there's something to update to avoid empty updates triggering 'now()'
-    if (Object.keys(updatePayload).length === 0) return existingReflection as MonthlyReflection; 
-
-    const { data, error } = await client
-      .from("monthly_reflections")
-      .update(updatePayload)
-      .eq("id", existingReflection.id)
-      .select(MONTHLY_REFLECTION_COLUMNS)
-      .single();
-    if (error) {
-      console.error("Error updating monthly reflection:", error.message);
-      throw error;
-    }
-    return data;
-  } else {
-    // Insert new reflection
-    // Ensure all required fields for insert are present, even if null
-    const insertPayload: MonthlyReflectionInsert = {
-        profile_id: reflectionData.profile_id,
-        month_date: reflectionData.month_date,
-        monthly_reflection: reflectionData.monthly_reflection ?? null,
-        monthly_notes: reflectionData.monthly_notes ?? null,
-        // id, created_at, updated_at will be handled by db defaults
-    };
-    if (reflectionData.id) insertPayload.id = reflectionData.id; // Allow specifying ID if provided for some reason
-
-    const { data, error } = await client
-      .from("monthly_reflections")
-      .insert(insertPayload)
-      .select(MONTHLY_REFLECTION_COLUMNS)
-      .single();
-    if (error) {
-      console.error("Error inserting monthly reflection:", error.message);
-      throw error;
-    }
-    return data;
-  }
+  return data;
 }
 
 // Note: Delete functions for weekly_notes and monthly_reflections might not be common

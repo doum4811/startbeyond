@@ -40,7 +40,8 @@ interface WeeklyTaskUI extends Pick<DbWeeklyTask, 'id' | 'category_code' | 'comm
 
 // Helper Functions
 async function getProfileId(_request?: Request): Promise<string> { // Optional request
-  return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c";
+  // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c";
+  return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
 }
 
 function getTomorrowDateISO(): string {

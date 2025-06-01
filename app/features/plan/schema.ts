@@ -1,4 +1,4 @@
-import { pgTable, uuid, date, text, integer, boolean, timestamp, varchar, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, date, text, integer, boolean, timestamp, varchar, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { profiles } from '../users/schema';
 import { sql } from 'drizzle-orm';
 
@@ -61,8 +61,12 @@ export const monthlyReflections = pgTable("monthly_reflections", {
   id: uuid("id").primaryKey().defaultRandom(),
   profile_id: uuid("profile_id").notNull().references(() => profiles.profile_id, { onDelete: 'cascade' }),
   month_date: date("month_date").notNull(),
-  monthly_notes: text("monthly_notes"),
   monthly_reflection: text("monthly_reflection"),
+  monthly_notes: text("monthly_notes"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
+}, (table) => {
+  return {
+    profileMonthUnique: uniqueIndex('monthly_reflections_profile_month_idx').on(table.profile_id, table.month_date),
+  };
 });

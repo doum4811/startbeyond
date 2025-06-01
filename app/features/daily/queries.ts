@@ -7,6 +7,7 @@ import { DateTime } from "luxon";
 
 import client from "~/supa-client";
 import type { Database } from "database.types"; // Ensure this path is correct
+import type { DailyNoteUI } from "./pages/daily-page";
 
 // Assuming your database.types.ts is at the root, if it's elsewhere adjust the import path.
 export type DailyRecordTable = Database['public']['Tables']['daily_records'];
@@ -195,91 +196,81 @@ export async function deleteDailyRecord(
 
 // == Daily Notes ==
 
-export async function getDailyNoteByDate(
+export async function getDailyNotesByDate(
   { profileId, date }: { profileId: string; date: string /* "YYYY-MM-DD" */ }
-) {
+): Promise<DailyNote[]> {
   const { data, error } = await client
     .from("daily_notes")
     .select(DAILY_NOTE_COLUMNS)
     .eq("profile_id", profileId)
     .eq("date", date)
-    .single(); // 하루에 노트는 하나라고 가정
+    .order("created_at", { ascending: true });
 
   if (error) {
-    if (error.code === 'PGRST116') return null; // 해당 날짜에 노트가 없음
-    console.error("Error fetching daily note by date:", error.message);
+    console.error("Error fetching daily notes by date:", error.message);
     throw new Error(error.message);
+  }
+  return data || [];
+}
+
+export async function createDailyNote(
+  noteData: DailyNoteInsert
+): Promise<DailyNote | null> {
+  const insertPayload: DailyNoteInsert = {
+      profile_id: noteData.profile_id,
+      date: noteData.date,
+      content: noteData.content,
+  };
+
+  const { data, error } = await client
+    .from("daily_notes")
+    .insert(insertPayload)
+    .select(DAILY_NOTE_COLUMNS)
+    .single();
+
+  if (error) {
+    console.error("Error inserting daily note:", error.message);
+    throw error;
   }
   return data;
 }
 
-export async function upsertDailyNote(
-  noteData: DailyNoteInsert // Expects profile_id, date, content. id might be part of DailyNoteInsert.
-) {
-  // Check if a note already exists for this profile and date
-  const { data: existingNote, error: fetchError } = await client
-    .from("daily_notes")
-    .select("id")
-    .eq("profile_id", noteData.profile_id)
-    .eq("date", noteData.date)
-    .single();
-
-  if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine for insert
-    console.error("Error fetching existing daily note for upsert:", fetchError.message);
-    throw fetchError;
-  }
-
-  if (existingNote) {
-    // Update existing note
-    // Only update content; profile_id and date define the record. id is used for eq.
-    const { data, error } = await client
-      .from("daily_notes")
-      .update({ content: noteData.content }) 
-      .eq("id", existingNote.id)
-      .select(DAILY_NOTE_COLUMNS)
-      .single();
-    if (error) {
-      console.error("Error updating daily note:", error.message);
-      throw error;
-    }
-    return data;
-  } else {
-    // Insert new note.
-    // Construct the insert payload carefully to avoid issues with potentially undefined 'id' from DailyNoteInsert
-    const insertPayload: { profile_id: string; date: string; content: string; } = {
-        profile_id: noteData.profile_id,
-        date: noteData.date,
-        content: noteData.content,
-    };
-    const { data, error } = await client
-      .from("daily_notes")
-      .insert(insertPayload)
-      .select(DAILY_NOTE_COLUMNS)
-      .single();
-    if (error) {
-      console.error("Error inserting daily note:", error.message);
-      throw error;
-    }
-    return data;
-  }
-}
-
-export async function deleteDailyNoteByDate(
-  { profileId, date }: { profileId: string; date: string }
-) {
+export async function deleteDailyNoteById(
+  { noteId, profileId }: { noteId: string; profileId: string }
+): Promise<boolean> {
   const { error } = await client
     .from("daily_notes")
     .delete()
-    .eq("profile_id", profileId)
-    .eq("date", date);
+    .eq("id", noteId)
+    .eq("profile_id", profileId);
 
   if (error) {
-    console.error("Error deleting daily note by date:", error.message);
+    console.error("Error deleting daily note by ID:", error.message);
     throw new Error(error.message);
   }
   return true;
 }
 
+export async function updateDailyNote(
+  { noteId, profileId, content }: { noteId: string; profileId: string; content: string }
+) {
+  if (!content || content.trim() === "") {
+    throw new Error("Note content cannot be empty.");
+  }
+  const { data, error } = await client
+    .from("daily_notes")
+    .update({ content, updated_at: new Date().toISOString() })
+    .eq("id", noteId)
+    .eq("profile_id", profileId)
+    .select(DAILY_NOTE_COLUMNS)
+    .single();
+
+  if (error) {
+    console.error("Error updating daily note:", error.message);
+    throw new Error(`Failed to update daily note: ${error.message}`);
+  }
+  return data;
+}
 
 // == Memos ==
 

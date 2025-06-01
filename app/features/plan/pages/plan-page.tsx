@@ -12,7 +12,8 @@ import * as dailyQueries from "~/features/daily/queries";
 
 // Placeholder for getProfileId - replace with your actual implementation
 async function getProfileId(_request?: Request): Promise<string> {
-  return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; // Mock profileId
+  // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; // Mock profileId
+  return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
 }
 
 export interface PlanOverviewLoaderData {
@@ -47,7 +48,7 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<PlanOverv
     planQueries.getDailyPlansByDate({ profileId, date: tomorrow! }),
     planQueries.getWeeklyTasksByWeek({ profileId, weekStartDate: currentWeekStartDate! }),
     planQueries.getMonthlyGoalsByMonth({ profileId, monthDate: currentMonthStartDate! }),
-    dailyQueries.getDailyNoteByDate({ profileId, date: today.toISODate()! }),
+    dailyQueries.getDailyNotesByDate({ profileId, date: today.toISODate()! }),
     planQueries.getWeeklyNoteByWeek({ profileId, weekStartDate: currentWeekStartDate! }),
     planQueries.getMonthlyReflectionByMonth({ profileId, monthDate: currentMonthStartDate! })
   ]);
@@ -55,13 +56,15 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<PlanOverv
   const tomorrowsPlans = tomorrowsPlansResult || [];
   const weeklyTasks = weeklyTasksResult || [];
   const monthlyGoals = monthlyGoalsResult || [];
-  const dailyNote = dailyNoteResult;
+  const dailyNotesArray = dailyNoteResult || [];
   const weeklyNote = weeklyNoteResult;
   const monthlyReflection = monthlyReflectionResult;
 
   const tomorrowsTopPlans = tomorrowsPlans.slice(0, 2).map(p => ({ id: p.id, comment: p.comment?.substring(0, 40) || 'Plan'}));
   const lockedWeeklyTaskSummaries = weeklyTasks.filter(t => t.is_locked).slice(0,3).map(t => t.comment?.substring(0,40) || 'Locked Task');
   const monthlyGoalTitles = monthlyGoals.slice(0,3).map(g => g.title?.substring(0,40) || 'Goal'); 
+
+  const latestDailyNote = dailyNotesArray.length > 0 ? dailyNotesArray[0] : null;
 
   return {
     profileId,
@@ -72,7 +75,7 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<PlanOverv
     lockedWeeklyTaskSummaries,
     currentMonthlyGoalsCount: monthlyGoals.length,
     monthlyGoalTitles,
-    latestDailyNoteSummary: dailyNote?.content ? dailyNote.content.substring(0, 70) + (dailyNote.content.length > 70 ? "..." : "") : "No note for today.",
+    latestDailyNoteSummary: latestDailyNote?.content ? latestDailyNote.content.substring(0, 70) + (latestDailyNote.content.length > 70 ? "..." : "") : "No note for today.",
     latestWeeklyNoteSummary: weeklyNote?.critical_success_factor ? weeklyNote.critical_success_factor.substring(0,70) + (weeklyNote.critical_success_factor.length > 70 ? "..." : "") : (weeklyNote?.weekly_goal_note ? weeklyNote.weekly_goal_note.substring(0,70) + (weeklyNote.weekly_goal_note.length > 70 ? "..." : "") : "No weekly notes."),
     latestMonthlyReflectionSummary: monthlyReflection?.monthly_reflection ? monthlyReflection.monthly_reflection.substring(0,70) + (monthlyReflection.monthly_reflection.length > 70 ? "..." : "") : "No reflection this month."
   };

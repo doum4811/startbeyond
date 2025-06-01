@@ -51,7 +51,8 @@ interface MonthlyGoalUI extends Pick<DbMonthlyGoal, 'id' | 'category_code' | 'ti
 
 // --- Helper Functions ---
 async function getProfileId(_request?: Request): Promise<string> {
-  return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; 
+  // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; 
+  return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
 }
 
 function getCurrentWeekStartDateISO(): string {
@@ -547,8 +548,8 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
 
           if (res.intent === "addWeeklyTask") {
             setNewTaskCategory(DEFAULT_TASK_CATEGORY);
-            setNewTaskSubcode("");
-            setNewTaskComment("");
+    setNewTaskSubcode("");
+    setNewTaskComment("");
           } else if (res.intent === "addWeeklyTaskFromMonthlyGoal" && res.linkedMonthlyGoalId) {
              setAddedMonthlyGoalTaskIds(prev => new Set(prev).add(res.linkedMonthlyGoalId!));
           }

@@ -61,7 +61,8 @@ interface MonthlyReflectionUI {
 
 // --- Helper Functions ---
 async function getProfileId(_request?: Request): Promise<string> {
-  return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; 
+  // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; 
+  return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
 }
 
 function getCurrentMonthStartDateISO(dateParam?: string | null): string {
@@ -333,7 +334,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                     hasDuration: true, 
                     sort_order: uc.sort_order !== null && uc.sort_order !== undefined ? uc.sort_order : 1000,
                 });
-            }
+  }
         }
     });
     return categoriesToValidate.filter(c => c.isActive);
@@ -547,11 +548,6 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
       const res = fetcher.data;
       if (res.ok) {
         if ((res.intent === "addMonthlyGoal" && res.newGoal)) {
-          setMonthlyGoals(prev => [res.newGoal as MonthlyGoalUI, ...prev].sort((a,b) => {
-            const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
-            const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
-            return timeB - timeA;
-          }));
           setIsGoalsInputSectionOpen(false);
           setIsEditingGoal(false);
           setGoalForm(initialGoalFormState(weeksInSelectedMonth));
@@ -680,7 +676,7 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
                         </React.Fragment>
                     ))}
 
-                    <div>
+                  <div>
                         <Label htmlFor="goal-category">Category</Label>
                         <CategorySelector
                           categories={categories.filter(c => c.isActive)}
@@ -688,10 +684,10 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
                           onSelectCategory={(code) => handleGoalFormChange('category_code', code as CategoryCode)}
                           disabled={fetcher.state !== 'idle'}
                           instanceId="monthly-page-selector"
-                        />
+                    />
                         <input type="hidden" name="category_code" value={goalForm.category_code} />
-                    </div>
-                    <div>
+                  </div>
+                  <div>
                         <Label htmlFor="goal-title">Title</Label>
                         <Input id="goal-title" name="title" value={goalForm.title} onChange={e => handleGoalFormChange('title', e.target.value)} required />
                     </div>
@@ -814,7 +810,7 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
                     </div>
                     <CardDescription>Reflect on your month and jot down any thoughts.</CardDescription>
           </CardHeader>
-                <fetcher.Form method="post">
+                <fetcher.Form method="post" key={monthlyReflection?.id || 'new-reflection-form'}>
                     <input type="hidden" name="intent" value="upsertMonthlyReflection" />
                     <input type="hidden" name="month_date" value={selectedMonth} />
                     {monthlyReflection?.id && <input type="hidden" name="reflectionId" value={monthlyReflection.id} />}
@@ -827,7 +823,14 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
                             className="min-h-[150px]"
                         />
           </CardContent>
-                    <CardFooter className="flex justify-end">
+                    <CardFooter className="flex justify-between items-center">
+                        <div>
+                          {monthlyReflection && (monthlyReflection.updated_at || monthlyReflection.created_at) && (
+                            <p className="text-xs text-muted-foreground">
+                              Last saved: {DateTime.fromISO(monthlyReflection.updated_at || monthlyReflection.created_at!).toLocaleString(DateTime.DATETIME_SHORT)}
+                            </p>
+                          )}
+                        </div>
                         <Button type="submit" disabled={fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'upsertMonthlyReflection'}>
                             {fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'upsertMonthlyReflection' ? "Saving..." : <><Save className="w-4 h-4 mr-1.5" /> Save Reflection</>}
                         </Button>
