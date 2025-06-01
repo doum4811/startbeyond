@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX "user_default_pref_profile_code_idx" ON "user_default_code_preferences" USING btree ("profile_id","default_category_code");

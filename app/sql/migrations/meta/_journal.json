@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1748361217314,
-      "tag": "0000_greedy_violations",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1748445920955,
-      "tag": "0001_last_spiral",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1748619393158,
-      "tag": "0002_safe_overlord",
+      "when": 1748773727172,
+      "tag": "0000_high_tenebrous",
       "breakpoints": true
     }
   ]

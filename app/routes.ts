@@ -10,6 +10,12 @@ export default [
         route("monthly", "features/plan/pages/monthly-page.tsx"),
     ]),
     route("stats", "features/stats/pages/stats-page.tsx"),
+    ...prefix("community", [
+        index("features/community/pages/community-page.tsx"),
+        route("new", "features/community/pages/community-new-post-page.tsx"),
+        route(":postId", "features/community/pages/community-post-detail-page.tsx"),
+        // route(":postId/edit", "features/community/pages/community-edit-post-page.tsx"), // Add later if edit page is created
+    ]),
     route("settings", "features/settings/pages/settings-page.tsx"),
     ...prefix("/auth", [
         layout("features/auth/layouts/auth-layout.tsx", [

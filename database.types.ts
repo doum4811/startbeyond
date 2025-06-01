@@ -9,6 +9,86 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      community_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          post_id: string
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          post_id: string
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          post_id?: string
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_comments_post_id_community_posts_id_fk"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "community_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_comments_profile_id_profiles_profile_id_fk"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
+      community_posts: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string
+          id: string
+          profile_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          profile_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          profile_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_posts_profile_id_profiles_profile_id_fk"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
       daily_notes: {
         Row: {
           content: string
@@ -102,7 +182,7 @@ export type Database = {
           date: string
           duration_minutes: number | null
           id: string
-          is_public: boolean | null
+          is_public: boolean
           linked_plan_id: string | null
           profile_id: string
           subcode: string | null
@@ -115,7 +195,7 @@ export type Database = {
           date: string
           duration_minutes?: number | null
           id?: string
-          is_public?: boolean | null
+          is_public?: boolean
           linked_plan_id?: string | null
           profile_id: string
           subcode?: string | null
@@ -128,7 +208,7 @@ export type Database = {
           date?: string
           duration_minutes?: number | null
           id?: string
-          is_public?: boolean | null
+          is_public?: boolean
           linked_plan_id?: string | null
           profile_id?: string
           subcode?: string | null

@@ -57,6 +57,11 @@ const menus = [
         icon: LineChartIcon,
     },
     {
+        name: "Community",
+        to: "/community",
+        icon: MessageCircleIcon,
+    },
+    {
         name: "Settings",
         to: "/settings",
         icon: SettingsIcon,
