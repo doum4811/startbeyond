@@ -16,9 +16,8 @@ export interface UICategory {
 
 export interface DailyRecordUI {
   id: string;
-  profile_id: string;
   date: string;
-  category_code: CategoryCode;
+  category_code: string;
   duration?: number;
   comment: string | null;
   subcode: string | null;
@@ -31,19 +30,17 @@ export interface DailyRecordUI {
 
 export interface DailyNoteUI {
   id: string;
-  profile_id: string;
   date: string;
+  content: string;
   created_at?: string;
   updated_at?: string;
-  content: string;
 }
 
 export interface MemoUI {
   id: string;
-  profile_id: string;
   record_id: string;
   title: string | null;
-  content: string | null;
+  content: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -82,4 +79,11 @@ export const initialAddFormState: AddFormState = {
   category_code: "",
   duration: "",
   comment: ""
-}; 
+};
+
+export interface MonthlyDayRecord {
+  date: string; // YYYY-MM-DD
+  records: DailyRecordUI[];
+  dailyNote: string | null;
+  memos: MemoUI[];
+} 

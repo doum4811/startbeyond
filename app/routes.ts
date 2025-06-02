@@ -9,7 +9,12 @@ export default [
         route("weekly", "features/plan/pages/weekly-page.tsx"),
         route("monthly", "features/plan/pages/monthly-page.tsx"),
     ]),
-    route("stats", "features/stats/pages/stats-page.tsx"),
+    route("stats-old", "features/stats/pages/stats-page-old.tsx"),
+    ...prefix("stats", [
+        route("summary", "features/stats/pages/summary-page.tsx"),
+        route("category", "features/stats/pages/category-page.tsx"),
+        route("advanced", "features/stats/pages/advanced-page.tsx"),
+    ]),
     ...prefix("community", [
         index("features/community/pages/community-page.tsx"),
         route("new", "features/community/pages/community-new-post-page.tsx"),

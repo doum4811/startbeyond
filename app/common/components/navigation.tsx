@@ -7,6 +7,8 @@ import { Button } from "./ui/button";
 import { DropdownMenu } from "./ui/dropdown-menu";
 import { BarChart3Icon, BellIcon, LogOutIcon, MessageCircleIcon, SettingsIcon, UserIcon, HomeIcon, CalendarDaysIcon, LineChartIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+// import { CategoryHeatmapGrid } from "./ui/category-heatmap-grid";
+// import { ActivityHeatmap } from "./ui/activity-heatmap";
 
 const menus = [
     {
@@ -52,9 +54,31 @@ const menus = [
         ]
     },
     {
-        name: "Stats",
-        to: "/stats",
+        name: "Stats-old",
+        to: "/stats-old",
         icon: LineChartIcon,
+    },
+    {
+        name: "Stats",
+        to: "/stats/summary",
+        icon: LineChartIcon,
+        items: [
+            {
+                name: "summary",
+                description: "월간 요약 통계",
+                to: "/stats/summary"
+            },
+            {
+                name: "category",
+                description: "카테고리별 상세 통계",
+                to: "/stats/category"
+            },
+            {
+                name: "advanced",
+                description: "히트맵, 시간대별 분석 등",
+                to: "/stats/advanced"
+            },
+        ]
     },
     {
         name: "Community",

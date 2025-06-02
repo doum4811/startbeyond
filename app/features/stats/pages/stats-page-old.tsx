@@ -1,18 +1,14 @@
-// ⚠️ 이 파일은 더 이상 직접 사용하지 않습니다. summary-page.tsx, category-page.tsx, advanced-page.tsx로 분리됨.
-// 기존 StatsPage 로직은 참고용으로만 남겨둡니다.
-// 실제 라우트 엔트리에서는 summary/category/advanced를 사용하세요.
-
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "~/common/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/common/components/ui/tabs";
 import { Button } from "~/common/components/ui/button";
 import { Input } from "~/common/components/ui/input";
-import { Calendar as CalendarIcon, Search, BarChart2, Calendar, List, FileText, Share2, Copy, Check, ChevronDown, ChevronUp, Filter, Grid, Download, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar as CalendarIcon, Search, BarChart2, Calendar, List, FileText, Share2, Copy, Check, ChevronDown, ChevronUp, Filter, Grid, Download } from "lucide-react";
 import { DateTime } from "luxon";
 import { CategoryDistributionChart } from "~/common/components/stats/category-distribution-chart";
 import { TimeAnalysisChart } from "~/common/components/stats/time-analysis-chart";
 import { ActivityHeatmap } from "~/common/components/stats/activity-heatmap";
-import type { CategoryCode, UICategory } from "~/common/types/daily";
+import type { CategoryCode } from "~/common/types/daily";
 import { CATEGORIES } from "~/common/types/daily";
 import { Switch } from "~/common/components/ui/switch";
 import { Label } from "~/common/components/ui/label";
@@ -22,164 +18,6 @@ import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "~/common/components/ui/popover";
 import { Badge } from "~/common/components/ui/badge";
 import { PDFDownloadLink, Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { useFetcher, Link, Form } from "react-router";
-import * as dailyQueries from "~/features/daily/queries";
-import type { DailyRecordUI, DailyNoteUI, MemoUI } from "~/features/daily/pages/daily-page";
-import * as settingsQueries from "~/features/settings/queries";
-import { MonthlyRecordsDisplayTab } from "~/features/stats/components/monthly-records-display-tab";
-
-// Helper to get profileId (consistent with other pages)
-async function getProfileId(_request?: Request): Promise<string> {
-  return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a"; // Replace with actual auth logic later
-}
-
-// Interface for data structure for one day in monthly records
-interface MonthlyDayRecord {
-  date: string; // YYYY-MM-DD
-  records: DailyRecordUI[];
-  dailyNote: string | null; // Assuming one aggregated note string per day for simplicity here
-  memos: MemoUI[]; // All memos from all records of that day
-}
-
-export interface StatsPageLoaderData {
-  profileId: string;
-  selectedMonthISO: string; // YYYY-MM (e.g., "2024-03")
-  monthlyRecordsForDisplay: MonthlyDayRecord[];
-  categories: UICategory[];
-  // Add other necessary data for summary later
-}
-
-export const loader = async ({ request }: LoaderFunctionArgs): Promise<StatsPageLoaderData> => {
-  const profileId = await getProfileId(request);
-  const url = new URL(request.url);
-  const monthParam = url.searchParams.get("month") || DateTime.now().toFormat("yyyy-MM");
-  const selectedMonthStart = DateTime.fromFormat(monthParam, "yyyy-MM").startOf("month");
-  const selectedMonthEnd = selectedMonthStart.endOf("month");
-
-  const [dbRecords, dbNotes, userCategoriesData, userDefaultCodePreferencesData] = await Promise.all([
-    dailyQueries.getDailyRecordsByPeriod({
-      profileId,
-      startDate: selectedMonthStart.toISODate()!,
-      endDate: selectedMonthEnd.toISODate()!,
-    }),
-    // Assuming getDailyNotesByPeriod exists or fetching notes for each day
-    // For now, let's fetch all notes in the period and then group them.
-    dailyQueries.getDailyNotesByPeriod({ // Placeholder - this function needs to be created
-      profileId,
-      startDate: selectedMonthStart.toISODate()!,
-      endDate: selectedMonthEnd.toISODate()!,
-    }),
-    settingsQueries.getUserCategories({ profileId }),
-    settingsQueries.getUserDefaultCodePreferences({ profileId })
-  ]);
-
-  const records: DailyRecordUI[] = (dbRecords || []).map((r: dailyQueries.DailyRecord): DailyRecordUI => ({
-    ...r,
-    id: r.id!,
-    date: r.date, 
-    duration: r.duration_minutes ?? undefined,
-    is_public: r.is_public ?? false,
-    comment: r.comment ?? null,
-    subcode: r.subcode ?? null,
-    linked_plan_id: r.linked_plan_id ?? null,
-    category_code: r.category_code,
-    memos: [], // Initialize memos, will be populated later if needed for this view
-  }));
-
-  const recordIds = records.map(r => r.id).filter((id): id is string => typeof id === 'string');
-  const dbMemos: dailyQueries.Memo[] = recordIds.length > 0 ? await dailyQueries.getMemosByRecordIds({ profileId, recordIds }) : [];
-  const memos: MemoUI[] = (dbMemos || []).map((m: dailyQueries.Memo): MemoUI => ({ 
-    ...m, 
-    id: m.id!, 
-    record_id: m.record_id // Ensure record_id is present
-  }));
-
-  // Group notes by date
-  const notesByDate = new Map<string, string[]>();
-  (dbNotes || []).forEach((note: dailyQueries.DailyNote) => {
-    const dateKey = note.date; // Assuming note.date is YYYY-MM-DD
-    if (!notesByDate.has(dateKey)) {
-      notesByDate.set(dateKey, []);
-    }
-    notesByDate.get(dateKey)!.push(note.content);
-  });
-
-  // Combine records, notes, and memos by day
-  const monthlyRecordsForDisplay: MonthlyDayRecord[] = [];
-  for (let day = selectedMonthStart; day <= selectedMonthEnd; day = day.plus({ days: 1 })) {
-    const dateStr = day.toISODate()!;
-    const dayRecords = records.filter(r => r.date === dateStr);
-    const dayNotesContent = notesByDate.get(dateStr)?.join("\n\n") || null;
-    const dayRecordIds = dayRecords.map(r => r.id);
-    const dayMemos = memos.filter(m => dayRecordIds.includes(m.record_id));
-
-    // Only add day if there are records or notes
-    if (dayRecords.length > 0 || dayNotesContent) {
-         monthlyRecordsForDisplay.push({
-            date: dateStr,
-            records: dayRecords,
-            dailyNote: dayNotesContent,
-            memos: dayMemos,
-        });
-    }
-  }
-  monthlyRecordsForDisplay.sort((a, b) => a.date.localeCompare(b.date)); // Sort by date
-
-  // Process categories (similar to other pages)
-  const processedCategories: UICategory[] = [];
-  const defaultCategoryPreferences = new Map(
-    (userDefaultCodePreferencesData || []).map((pref: settingsQueries.UserDefaultCodePreference): [string, boolean] => 
-      [pref.default_category_code, pref.is_active as boolean]
-    )
-  );
-  for (const catCodeKey in CATEGORIES) {
-    if (Object.prototype.hasOwnProperty.call(CATEGORIES, catCodeKey)) {
-      const baseCategory = CATEGORIES[catCodeKey as CategoryCode];
-      const isActivePreference = defaultCategoryPreferences.get(baseCategory.code);
-      // Ensure isActive is explicitly boolean. Default to true if undefined.
-      const isActive = typeof isActivePreference === 'boolean' ? isActivePreference : true;
-      processedCategories.push({ ...baseCategory, isCustom: false, isActive: isActive, sort_order: baseCategory.sort_order || 999 });
-    }
-  }
-  (userCategoriesData || []).forEach((userCat: settingsQueries.UserCategory) => {
-    const existingIndex = processedCategories.findIndex(c => c.code === userCat.code && !c.isCustom);
-    if (existingIndex !== -1) {
-        if(userCat.is_active) processedCategories.splice(existingIndex, 1);
-        else return;
-    }
-    if (!processedCategories.find(c => c.code === userCat.code && c.isCustom)) {
-        processedCategories.push({
-            code: userCat.code, label: userCat.label, icon: userCat.icon || '📝',
-            color: userCat.color || undefined, isCustom: true, isActive: userCat.is_active,
-            hasDuration: true, sort_order: userCat.sort_order !== null && userCat.sort_order !== undefined ? userCat.sort_order : 1000,
-        });
-    }
-  });
-  processedCategories.sort((a, b) => {
-    if (a.isActive && !b.isActive) return -1;
-    if (!a.isActive && b.isActive) return 1;
-    if (a.isCustom && !b.isCustom) return -1;
-    if (!a.isCustom && b.isCustom) return 1;
-    return (a.sort_order ?? 999) - (b.sort_order ?? 999);
-  });
-
-  return {
-    profileId,
-    selectedMonthISO: monthParam,
-    monthlyRecordsForDisplay,
-    categories: processedCategories,
-  };
-};
-
-export const meta: MetaFunction<typeof loader> = ({ data }) => {
-  const pageData = data as StatsPageLoaderData | undefined;
-  const monthName = pageData?.selectedMonthISO ? DateTime.fromFormat(pageData.selectedMonthISO, "yyyy-MM").toFormat("MMMM yyyy") : "Stats";
-  return [
-    { title: `${monthName} Statistics - StartBeyond` },
-    { name: "description", content: `View your activity statistics for ${monthName}.` },
-  ];
-};
 
 // Mock data
 const mockCategoryData = [
@@ -372,7 +210,7 @@ const initialShareSettings: ShareSettings = {
 };
 
 // PDF Document Component
-const MonthlyReportPDF = ({ data, categories }: { data: MonthlyDayRecord[], categories: UICategory[] }) => (
+const MonthlyReportPDF = ({ data }: { data: typeof mockMonthlyRecords }) => (
   <Document>
     <Page size="A4" style={styles.page}>
       <View style={styles.header}>
@@ -391,12 +229,10 @@ const MonthlyReportPDF = ({ data, categories }: { data: MonthlyDayRecord[], cate
       {data.map((day) => (
         <View key={day.date} style={styles.daySection}>
           <Text style={styles.dayTitle}>{day.date}</Text>
-          {day.records.map((record) => {
-            const categoryInfo = categories.find(c => c.code === record.category_code);
-            return (
+          {day.records.map((record) => (
             <View key={record.id} style={styles.record}>
               <Text style={styles.recordTitle}>
-                {categoryInfo?.label || record.category_code}
+                {CATEGORIES[record.category_code].label}
                 {record.subcode && ` - ${record.subcode}`}
               </Text>
               <Text style={styles.recordDetail}>
@@ -404,8 +240,7 @@ const MonthlyReportPDF = ({ data, categories }: { data: MonthlyDayRecord[], cate
                 {record.comment}
               </Text>
             </View>
-            );
-          })}
+          ))}
           {day.dailyNote && (
             <View style={styles.note}>
               <Text style={styles.noteTitle}>일일 메모</Text>
@@ -478,39 +313,26 @@ const styles = StyleSheet.create({
   },
 });
 
-interface StatsPageProps {
-  loaderData: StatsPageLoaderData;
-}
-
-export default function StatsPage({ loaderData }: StatsPageProps) {
-  const { selectedMonthISO, monthlyRecordsForDisplay, categories, profileId } = loaderData;
-
-  const [dateRange, setDateRange] = useState(() => {
-    const monthStart = DateTime.fromFormat(selectedMonthISO, "yyyy-MM").startOf("month");
-    return {
-      start: monthStart,
-      end: monthStart.endOf("month"),
-    };
+export default function StatsPage() {
+  const [dateRange, setDateRange] = useState({
+    start: DateTime.now().minus({ months: 1 }),
+    end: DateTime.now(),
   });
-  const [heatmapMode, setHeatmapMode] = useState<"monthly" | "yearly">("monthly");
-
   const [shareSettings, setShareSettings] = useState<ShareSettings>(initialShareSettings);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-
-  useEffect(() => {
-    const monthStart = DateTime.fromFormat(selectedMonthISO, "yyyy-MM").startOf("month");
-    setDateRange({
-      start: monthStart,
-      end: monthStart.endOf("month"),
-    });
-  }, [selectedMonthISO]);
+  const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+  const [selectedCategories, setSelectedCategories] = useState<Set<CategoryCode>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"list" | "grid">("grid");
+  const [heatmapMode, setHeatmapMode] = useState<"monthly" | "yearly">("monthly");
 
   function handleShareSettingsChange(key: keyof ShareSettings, value: boolean) {
     setShareSettings(prev => ({ ...prev, [key]: value }));
   }
 
   function handleCopyLink() {
+    // 실제 구현에서는 서버에서 공유 링크를 생성하고 반환해야 합니다
     const mockShareLink = "https://startbeyond.com/share/monthly/abc123";
     navigator.clipboard.writeText(mockShareLink);
     setIsCopied(true);
@@ -518,30 +340,72 @@ export default function StatsPage({ loaderData }: StatsPageProps) {
     setTimeout(() => setIsCopied(false), 2000);
   }
 
-  const currentMonth = DateTime.fromFormat(selectedMonthISO, "yyyy-MM");
-  const prevMonthISO = currentMonth.minus({ months: 1 }).toFormat("yyyy-MM");
-  const nextMonthISO = currentMonth.plus({ months: 1 }).toFormat("yyyy-MM");
+  function toggleDate(date: string) {
+    setExpandedDates(prev => {
+      const next = new Set(prev);
+      if (next.has(date)) {
+        next.delete(date);
+      } else {
+        next.add(date);
+      }
+      return next;
+    });
+  }
 
-  const pdfDocument = <MonthlyReportPDF data={monthlyRecordsForDisplay} categories={categories} />;
+  function toggleCategory(category: CategoryCode) {
+    setSelectedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      return next;
+    });
+  }
+
+  function clearFilters() {
+    setSelectedCategories(new Set());
+    setSearchQuery("");
+  }
+
+  function filterRecords(records: typeof mockMonthlyRecords) {
+    return records.filter(day => {
+      // 카테고리 필터링
+      if (selectedCategories.size > 0) {
+        const hasSelectedCategory = day.records.some(record => 
+          selectedCategories.has(record.category_code)
+        );
+        if (!hasSelectedCategory) return false;
+      }
+
+      // 검색어 필터링
+      if (searchQuery) {
+        const searchLower = searchQuery.toLowerCase();
+        const matchesSearch = 
+          day.records.some(record => 
+            record.comment?.toLowerCase().includes(searchLower) ||
+            record.subcode?.toLowerCase().includes(searchLower)
+          ) ||
+          day.dailyNote?.toLowerCase().includes(searchLower) ||
+          day.memos.some(memo => 
+            memo.title.toLowerCase().includes(searchLower) ||
+            memo.content.toLowerCase().includes(searchLower)
+          );
+        if (!matchesSearch) return false;
+      }
+
+      return true;
+    });
+  }
+
+  const filteredRecords = filterRecords(mockMonthlyRecords);
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">통계</h1>
         <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="icon">
-            <Link to={`?month=${prevMonthISO}`} preventScrollReset>
-              <ChevronLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <span className="text-lg font-medium">
-            {currentMonth.toFormat("yyyy년 MMMM")}
-          </span>
-          <Button asChild variant="outline" size="icon">
-            <Link to={`?month=${nextMonthISO}`} preventScrollReset>
-              <ChevronRight className="h-4 w-4" />
-            </Link>
-          </Button>
           <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
@@ -623,9 +487,13 @@ export default function StatsPage({ loaderData }: StatsPageProps) {
               </div>
             </DialogContent>
           </Dialog>
+          <Button variant="outline" size="sm">
+            <CalendarIcon className="w-4 h-4 mr-2" />
+            기간 선택
+          </Button>
           <PDFDownloadLink
-            document={pdfDocument}
-            fileName={`monthly-report-${selectedMonthISO}.pdf`}
+            document={<MonthlyReportPDF data={mockMonthlyRecords} />}
+            fileName={`monthly-report-${DateTime.now().toFormat("yyyy-MM")}.pdf`}
           >
             {({ loading }) => (
               <Button variant="outline" size="sm" disabled={loading}>
@@ -804,10 +672,167 @@ export default function StatsPage({ loaderData }: StatsPageProps) {
         </TabsContent>
 
         <TabsContent value="monthly-records" className="space-y-4">
-          <MonthlyRecordsDisplayTab 
-            monthlyRecordsForDisplay={monthlyRecordsForDisplay}
-            categories={categories}
-          />
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>월간 기록</CardTitle>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant={viewMode === "grid" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setViewMode("grid")}
+                  >
+                    <Grid className="w-4 h-4 mr-2" />
+                    그리드
+                  </Button>
+                  <Button
+                    variant={viewMode === "list" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setViewMode("list")}
+                  >
+                    <List className="w-4 h-4 mr-2" />
+                    리스트
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <Input
+                      placeholder="검색어를 입력하세요..."
+                      value={searchQuery}
+                      onChange={e => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Filter className="w-4 h-4 mr-2" />
+                        필터
+                        {selectedCategories.size > 0 && (
+                          <Badge variant="secondary" className="ml-2">
+                            {selectedCategories.size}
+                          </Badge>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-80">
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium">카테고리 필터</h4>
+                          {selectedCategories.size > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={clearFilters}
+                            >
+                              초기화
+                            </Button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          {Object.entries(CATEGORIES).map(([code, cat]) => (
+                            <Button
+                              key={code}
+                              variant={selectedCategories.has(code as CategoryCode) ? "default" : "outline"}
+                              size="sm"
+                              className="justify-start"
+                              onClick={() => toggleCategory(code as CategoryCode)}
+                            >
+                              <span className="mr-2">{cat.icon}</span>
+                              {cat.label}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+                <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 gap-4" : "space-y-4"}>
+                  {filteredRecords.map((day) => (
+                    <Card key={day.date}>
+                      <CardHeader className="cursor-pointer" onClick={() => toggleDate(day.date)}>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center gap-2">
+                            <span>{day.date}</span>
+                            <span className="text-sm font-normal text-muted-foreground">
+                              {day.records.length}개의 기록
+                            </span>
+                          </CardTitle>
+                          {expandedDates.has(day.date) ? (
+                            <ChevronUp className="w-4 h-4" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4" />
+                          )}
+                        </div>
+                      </CardHeader>
+                      {expandedDates.has(day.date) && (
+                        <CardContent>
+                          <div className="space-y-4">
+                            {/* Records */}
+                            <div className="space-y-2">
+                              {day.records.map((record) => (
+                                <div key={record.id} className="flex items-center gap-4 p-3 border rounded-lg">
+                                  <span className="text-2xl">{CATEGORIES[record.category_code].icon}</span>
+                                  <div className="flex-1">
+                                    <div className="font-medium">{CATEGORIES[record.category_code].label}</div>
+                                    <div className="text-sm text-muted-foreground">
+                                      {record.subcode && <span>{record.subcode} • </span>}
+                                      {record.duration && <span>{record.duration}분 • </span>}
+                                      {record.comment}
+                                    </div>
+                                  </div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {new Date(record.created_at).toLocaleTimeString()}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Daily Note */}
+                            {day.dailyNote && (
+                              <div className="p-3 border rounded-lg">
+                                <div className="text-sm font-medium mb-1">일일 메모</div>
+                                <div className="text-sm text-muted-foreground whitespace-pre-line">
+                                  {day.dailyNote}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Memos */}
+                            {day.memos.length > 0 && (
+                              <div className="space-y-2">
+                                <div className="text-sm font-medium">상세 메모</div>
+                                {day.memos.map((memo) => (
+                                  <div key={memo.id} className="p-3 border rounded-lg">
+                                    <div className="font-medium mb-1">{memo.title}</div>
+                                    <div className="text-sm text-muted-foreground whitespace-pre-line">
+                                      {memo.content}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground mt-2">
+                                      {new Date(memo.created_at).toLocaleString()}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      )}
+                    </Card>
+                  ))}
+                  {filteredRecords.length === 0 && (
+                    <div className="col-span-full text-center text-muted-foreground py-8">
+                      검색 결과가 없습니다
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
