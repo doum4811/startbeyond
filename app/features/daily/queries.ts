@@ -213,6 +213,25 @@ export async function getDailyNotesByDate(
   return data || [];
 }
 
+export async function getDailyNotesByPeriod(
+  { profileId, startDate, endDate }: { profileId: string; startDate: string; endDate: string }
+): Promise<DailyNote[]> {
+  const { data, error } = await client
+    .from("daily_notes")
+    .select(DAILY_NOTE_COLUMNS)
+    .eq("profile_id", profileId)
+    .gte("date", startDate)
+    .lte("date", endDate)
+    .order("date", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching daily notes by period:", error.message);
+    throw new Error(error.message);
+  }
+  return data || [];
+}
+
 export async function createDailyNote(
   noteData: DailyNoteInsert
 ): Promise<DailyNote | null> {

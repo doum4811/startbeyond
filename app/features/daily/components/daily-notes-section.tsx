@@ -1,25 +1,16 @@
-import React, { useState } from 'react';
-import type { FetcherWithComponents } from 'react-router';
-import { Card, CardContent, CardHeader, CardTitle } from '~/common/components/ui/card';
-import { Button } from '~/common/components/ui/button';
-import { Textarea } from '~/common/components/ui/textarea';
-import { Trash2, Pencil } from 'lucide-react';
-import type { DailyNoteUI } from '~/features/daily/pages/daily-page'; // Adjust if DailyNoteUI is defined elsewhere or move it
-// If action type is available and more specific, use it. For now, using any for fetcher.data.
-// import type { action as dailyPageAction } from '~/features/daily/pages/daily-page';
+import { useFetcher } from "react-router";
+import { Card, CardContent, CardHeader, CardTitle } from "~/common/components/ui/card";
+import { Button } from "~/common/components/ui/button";
+import { Textarea } from "~/common/components/ui/textarea";
+import { Trash2, Edit3 } from "lucide-react";
+import type { DailyNoteUI } from "../types";
 
 interface DailyNotesSectionProps {
   currentDailyNotes: DailyNoteUI[];
   newNoteContent: string;
   setNewNoteContent: (content: string) => void;
-  fetcher: FetcherWithComponents<any>; // Replace 'any' with the actual type of the action function if possible
+  fetcher: ReturnType<typeof useFetcher>;
   today: string;
-  // Potentially add:
-  // editingNoteId: string | null;
-  // setEditingNoteId: (id: string | null) => void;
-  // editedNoteContent: string;
-  // setEditedNoteContent: (content: string) => void;
-  // handleUpdateNote: (noteId: string) => void; 
 }
 
 export function DailyNotesSection({
@@ -27,114 +18,98 @@ export function DailyNotesSection({
   newNoteContent,
   setNewNoteContent,
   fetcher,
-  today,
+  today
 }: DailyNotesSectionProps) {
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editedNoteContent, setEditedNoteContent] = useState<string>("");
+  const handleSaveNote = () => {
+    if (!newNoteContent.trim()) return;
+    const formData = new FormData();
+    formData.append("intent", "saveDailyNote");
+    formData.append("content", newNoteContent);
+    formData.append("date", today);
+    fetcher.submit(formData, { method: "post" });
+  };
 
-  function handleEditClick(note: DailyNoteUI) {
-    setEditingNoteId(note.id);
-    setEditedNoteContent(note.content);
-  }
+  const handleUpdateNote = (noteId: string, content: string) => {
+    if (!content.trim()) return;
+    const formData = new FormData();
+    formData.append("intent", "updateDailyNote");
+    formData.append("noteId", noteId);
+    formData.append("content", content);
+    formData.append("date", today);
+    fetcher.submit(formData, { method: "post" });
+  };
 
-  function handleCancelEdit() {
-    setEditingNoteId(null);
-    setEditedNoteContent("");
-  }
-
-  // Effect to reset editing state if the note being edited is deleted via fetcher
-  // This might be needed if DailyPage's useEffect doesn't implicitly cause a re-render
-  // that resets this component cleanly after a delete action from another part of the page.
-  // For now, we rely on the parent component re-rendering with updated currentDailyNotes.
+  const handleDeleteNote = (noteId: string) => {
+    if (confirm("이 메모를 삭제하시겠습니까?")) {
+      const formData = new FormData();
+      formData.append("intent", "deleteDailyNote");
+      formData.append("noteId", noteId);
+      formData.append("date", today);
+      fetcher.submit(formData, { method: "post" });
+    }
+  };
 
   return (
-    <Card className="mt-8">
+    <Card className="mb-8">
       <CardHeader>
-        <CardTitle>오늘의 노트</CardTitle>
+        <CardTitle>일일 메모</CardTitle>
       </CardHeader>
       <CardContent>
-        {currentDailyNotes.length > 0 && (
-          <ul className="space-y-3 mb-4">
-            {currentDailyNotes.map(note => (
-              <li key={note.id} className="p-3 border rounded-md bg-muted/30 flex flex-col">
-                {editingNoteId === note.id ? (
-                  <fetcher.Form method="post" onSubmit={() => { handleCancelEdit(); /* Optimistically clear edit state */ }} className="w-full">
-                    <input type="hidden" name="intent" value="updateDailyNote" />
-                    <input type="hidden" name="noteId" value={note.id} />
-                    <input type="hidden" name="date" value={today} /> {/* Include date for consistency if action needs it */}
-                    <Textarea
-                      name="editedNoteContent"
-                      value={editedNoteContent}
-                      onChange={(e) => setEditedNoteContent(e.target.value)}
-                      className="min-h-[80px] mb-2"
-                      required
-                    />
-                    <div className="flex justify-end gap-2">
-                      <Button 
-                        type="submit" 
-                        size="sm"
-                        disabled={fetcher.state !== 'idle' || !editedNoteContent.trim()}
-                      >
-                        {fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'updateDailyNote' && fetcher.formData?.get('noteId') === note.id ? "저장중..." : "저장"}
-                      </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={handleCancelEdit}>취소</Button>
+        <div className="space-y-4">
+          <div>
+            <fetcher.Form method="post" onSubmit={() => setNewNoteContent("")}>
+              <input type="hidden" name="intent" value="saveDailyNote" />
+              <input type="hidden" name="date" value={today} />
+              <Textarea
+                name="newNoteContent"
+                value={newNoteContent}
+                onChange={e => setNewNoteContent(e.target.value)}
+                placeholder="메모 내용을 입력하세요..."
+                rows={4}
+              />
+              <Button
+                type="submit"
+                disabled={!newNoteContent.trim() || fetcher.state !== 'idle'}
+                className="w-full"
+              >
+                {fetcher.state !== 'idle' ? "저장 중..." : "메모 추가"}
+              </Button>
+            </fetcher.Form>
+          </div>
+
+          {currentDailyNotes.length > 0 && (
+            <div className="space-y-4">
+              {currentDailyNotes.map((note) => (
+                <div key={note.id} className="p-4 border rounded-lg dark:border-gray-700">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="text-sm text-gray-500 dark:text-gray-400">
+                      {note.created_at ? new Date(note.created_at).toLocaleTimeString() : 'N/A'}
                     </div>
-                  </fetcher.Form>
-                ) : (
-                  <div className="flex justify-between items-start w-full">
-                    <p className="whitespace-pre-wrap text-sm flex-1 mr-2 py-1">{note.content}</p>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleEditClick(note)} className="h-7 w-7">
-                        <Pencil className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleUpdateNote(note.id, note.content)}
+                        disabled={fetcher.state !== 'idle'}
+                      >
+                        <Edit3 className="w-4 h-4" />
                       </Button>
-                      <fetcher.Form method="post" style={{ display: 'inline-block' }} onSubmit={(e) => {
-                        if (!confirm('이 노트를 삭제하시겠습니까?')) e.preventDefault();
-                      }}>
-                        <input type="hidden" name="intent" value="deleteDailyNote" />
-                        <input type="hidden" name="noteId" value={note.id} />
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          type="submit" 
-                          className="h-7 w-7" 
-                          disabled={fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'deleteDailyNote' && fetcher.formData?.get('noteId') === note.id}
-                        >
-                          <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                        </Button>
-                      </fetcher.Form>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteNote(note.id)}
+                        disabled={fetcher.state !== 'idle'}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </Button>
                     </div>
                   </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        {currentDailyNotes.length === 0 && !editingNoteId && (
-          <p className="text-muted-foreground text-sm mb-4">작성된 노트가 없습니다.</p>
-        )}
-
-        {!editingNoteId && (
-            <fetcher.Form method="post" onSubmit={() => {/* setNewNoteContent(''); Optimistically clear after submit? */}}>
-                <input type="hidden" name="intent" value="saveDailyNote" />
-                <input type="hidden" name="date" value={today} />
-                <Textarea
-                    name="newNoteContent"
-                    value={newNoteContent}
-                    onChange={e => setNewNoteContent(e.target.value)}
-                    placeholder="새 노트를 입력하세요..."
-                    className="min-h-[80px]"
-                />
-                <div className="flex justify-end mt-2">
-                    <Button 
-                    type="submit" 
-                    size="sm" 
-                    disabled={(fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'saveDailyNote') || !newNoteContent.trim()}
-                    >
-                        {(fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'saveDailyNote') ? "저장중..." : "노트 추가"} 
-                    </Button>
+                  <p className="whitespace-pre-wrap">{note.content}</p>
                 </div>
-            </fetcher.Form>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

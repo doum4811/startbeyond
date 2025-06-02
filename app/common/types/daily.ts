@@ -55,4 +55,5 @@ export interface UICategory {
   isActive: boolean; // Reflects user preference from settings
   hasDuration?: boolean; // Inherited from base Category if not custom, or set for custom
   sort_order?: number; // For ordering in UI, considering both default and custom
+  subcodes?: Array<{ code: string; name: string; }>;
 } 

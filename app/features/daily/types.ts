@@ -1,0 +1,85 @@
+import type { CategoryCode } from "~/common/types/daily";
+import type { DailyRecord as DbDailyRecord, DailyNote as DbDailyNote, Memo as DbMemo } from "~/features/daily/queries";
+import type { DailyPlan as DbDailyPlan } from "~/features/plan/queries";
+
+export interface UICategory {
+  code: string;
+  label: string;
+  icon: string;
+  color?: string;
+  isCustom: boolean;
+  isActive: boolean;
+  hasDuration: boolean;
+  sort_order?: number;
+  subcodes?: Array<{ code: string; name: string; }>;
+}
+
+export interface DailyRecordUI {
+  id: string;
+  profile_id: string;
+  date: string;
+  category_code: CategoryCode;
+  duration?: number;
+  comment: string | null;
+  subcode: string | null;
+  is_public: boolean;
+  linked_plan_id: string | null;
+  memos?: MemoUI[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DailyNoteUI {
+  id: string;
+  profile_id: string;
+  date: string;
+  created_at?: string;
+  updated_at?: string;
+  content: string;
+}
+
+export interface MemoUI {
+  id: string;
+  profile_id: string;
+  record_id: string;
+  title: string | null;
+  content: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface DailyPlanUI {
+  id: string;
+  profile_id: string;
+  plan_date: string;
+  duration?: number;
+  comment: string | null;
+  subcode: string | null;
+  category_code: string;
+  is_completed: boolean;
+  created_at?: string;
+  updated_at?: string;
+  linked_weekly_task_id: string | null;
+}
+
+export interface DailyPageLoaderData {
+  today: string;
+  records: DailyRecordUI[];
+  dailyNotes: DailyNoteUI[];
+  plansForBanner: DailyPlanUI[];
+  markedDates: string[];
+  profileId: string;
+  categories: UICategory[];
+}
+
+export interface AddFormState {
+  category_code: string;
+  duration: string;
+  comment: string;
+}
+
+export const initialAddFormState: AddFormState = {
+  category_code: "",
+  duration: "",
+  comment: ""
+}; 
