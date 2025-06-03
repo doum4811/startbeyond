@@ -24,6 +24,7 @@ import type { CategoryCode, UICategory } from "~/common/types/daily";
 import { CategorySelector } from "~/common/components/ui/CategorySelector";
 import * as settingsQueries from "~/features/settings/queries";
 import type { UserCategory as DbUserCategory, UserDefaultCodePreference as DbUserDefaultCodePreference } from "~/features/settings/queries";
+import { makeSSRClient } from "~/supa-client";
 
 // --- UI Specific Types ---
 interface WeeklyTaskUI {
@@ -50,9 +51,19 @@ interface MonthlyGoalUI extends Pick<DbMonthlyGoal, 'id' | 'category_code' | 'ti
 }
 
 // --- Helper Functions ---
-async function getProfileId(_request?: Request): Promise<string> {
-  // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; 
-  return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// async function getProfileId(_request?: Request): Promise<string> {
+//   // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; 
+//   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// }
+async function getProfileId(request: Request): Promise<string> {
+  const { client } = makeSSRClient(request);
+  const { data: { user } } = await client.auth.getUser();
+  
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+  
+  return user.id;
 }
 
 function getCurrentWeekStartDateISO(): string {
@@ -119,6 +130,7 @@ export interface WeeklyPageLoaderData {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<WeeklyPageLoaderData> => {
+  const { client } = makeSSRClient(request);
   const profileId = await getProfileId(request);
   const currentWeekStartDate = getCurrentWeekStartDateISO();
   const currentWeekNumberInMonth = planQueries.getWeekOfMonth(currentWeekStartDate);
@@ -130,11 +142,11 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<WeeklyPag
     userCategoriesData,
     userDefaultCodePreferencesData
   ] = await Promise.all([
-    planQueries.getWeeklyTasksByWeek({ profileId, weekStartDate: currentWeekStartDate }),
-    planQueries.getWeeklyNoteByWeek({ profileId, weekStartDate: currentWeekStartDate }),
-    planQueries.getMonthlyGoalsForWeek({ profileId, dateInWeek: currentWeekStartDate }),
-    settingsQueries.getUserCategories({ profileId }),
-    settingsQueries.getUserDefaultCodePreferences({ profileId })
+    planQueries.getWeeklyTasksByWeek(client, { profileId, weekStartDate: currentWeekStartDate }),
+    planQueries.getWeeklyNoteByWeek(client, { profileId, weekStartDate: currentWeekStartDate }),
+    planQueries.getMonthlyGoalsForWeek(client, { profileId, dateInWeek: currentWeekStartDate }),
+    settingsQueries.getUserCategories(client, { profileId }),
+    settingsQueries.getUserDefaultCodePreferences(client, { profileId })
   ]);
 
   const weeklyTasks: WeeklyTaskUI[] = (dbWeeklyTasks || []).map((task: DbWeeklyTask): WeeklyTaskUI => ({
@@ -248,6 +260,7 @@ function dbTaskToUiTask(dbTask: DbWeeklyTask): WeeklyTaskUI {
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {
+  const { client } = makeSSRClient(request);
   const profileId = await getProfileId(request);
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
@@ -255,8 +268,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   const activeCategoriesForAction = await (async () => {
     const [userCategoriesDb, defaultPreferencesDb] = await Promise.all([
-        settingsQueries.getUserCategories({ profileId }),
-        settingsQueries.getUserDefaultCodePreferences({ profileId })
+        settingsQueries.getUserCategories(client, { profileId }),
+        settingsQueries.getUserDefaultCodePreferences(client, { profileId })
     ]);
     const categoriesToValidate: UICategory[] = [];
     const defaultPrefsMap = new Map((defaultPreferencesDb || []).map(p => [p.default_category_code, p.is_active]));
@@ -315,7 +328,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           days: initialDays, 
           is_locked: false,
         };
-        const newTaskDb = await planQueries.createWeeklyTask(taskData);
+        const newTaskDb = await planQueries.createWeeklyTask(client, taskData);
         const newTask: WeeklyTaskUI | null = newTaskDb ? dbTaskToUiTask(newTaskDb) : null;
         return { ok: true, intent, newTask };
       }
@@ -340,14 +353,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         updates.is_locked = isLocked;
         if (daysUpdate) updates.days = daysUpdate;
 
-        const updatedTaskDb = await planQueries.updateWeeklyTask({ taskId, profileId, updates });
+        const updatedTaskDb = await planQueries.updateWeeklyTask(client, { taskId, profileId, updates });
         const updatedTask: WeeklyTaskUI | null = updatedTaskDb ? dbTaskToUiTask(updatedTaskDb) : null;
         return { ok: true, intent, updatedTask, taskId };
       }
       case "deleteWeeklyTask": {
         const taskId = formData.get("taskId") as string | null;
         if (!taskId) return { ok: false, error: "Task ID is required.", intent };
-        await planQueries.deleteWeeklyTask({ taskId, profileId });
+        await planQueries.deleteWeeklyTask(client, { taskId, profileId });
         return { ok: true, intent, deletedTaskId: taskId };
       }
       case "addWeeklyTaskFromMonthlyGoal": {
@@ -370,7 +383,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           is_locked: false,
           from_monthly_goal_id: monthlyGoalId, 
         };
-        const newTaskDb = await planQueries.createWeeklyTask(taskData);
+        const newTaskDb = await planQueries.createWeeklyTask(client, taskData);
         const newTask: WeeklyTaskUI | null = newTaskDb ? dbTaskToUiTask(newTaskDb) : null;
         return { ok: true, intent, newTask, linkedMonthlyGoalId: monthlyGoalId };
       }
@@ -391,7 +404,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         };
         if (existingGoalId && existingGoalId !== "null" && existingGoalId.trim() !== "") noteData.id = existingGoalId;
 
-        const upsertedNoteDb = await planQueries.upsertWeeklyNote(noteData);
+        const upsertedNoteDb = await planQueries.upsertWeeklyNote(client, noteData);
         const upsertedNote: WeeklyNoteUI | null = upsertedNoteDb ? { 
             id: upsertedNoteDb.id,
             critical_success_factor: upsertedNoteDb.critical_success_factor ?? "",
@@ -443,7 +456,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             from_monthly_goal_id: taskInfo.monthlyGoalId,
           };
           try {
-            const createdTask = await planQueries.createWeeklyTask(taskData);
+            const createdTask = await planQueries.createWeeklyTask(client,  taskData);
             if (createdTask) {
               newTasksDb.push(createdTask);
             } else {

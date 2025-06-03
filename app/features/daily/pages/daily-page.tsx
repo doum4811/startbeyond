@@ -32,6 +32,7 @@ import {
 } from "~/common/components/ui/alert-dialog";
 import { CategorySelector } from "~/common/components/ui/CategorySelector";
 import { DailyNotesSection } from "~/features/daily/components/daily-notes-section";
+import { makeSSRClient } from "~/supa-client";
 
 interface DailyRecordUI extends Omit<DbDailyRecord, 'date' | 'duration_minutes' | 'created_at' | 'updated_at' | 'category_id'> {
   date: string;
@@ -122,12 +123,23 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
   ];
 };
 
-async function getProfileId(_request: Request): Promise<string> {
-  // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c";
-  return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// async function getProfileId(_request: Request): Promise<string> {
+//   // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c";
+//   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// }
+async function getProfileId(request: Request): Promise<string> {
+  const { client } = makeSSRClient(request);
+  const { data: { user } } = await client.auth.getUser();
+  
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+  
+  return user.id;
 }
 
 export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPageLoaderData> {
+  const { client } = makeSSRClient(request);
   const profileId = await getProfileId(request);
   const url = new URL(request.url);
   const selectedDate = url.searchParams.get("date") || getToday();
@@ -140,12 +152,12 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPage
     userCategoriesData,
     userDefaultCodePreferencesData
   ] = await Promise.all([
-    dailyQueries.getDailyRecordsByDate({ profileId, date: selectedDate }),
-    dailyQueries.getDailyNotesByDate({ profileId, date: selectedDate }),
-    planQueries.getDailyPlansByDate({ profileId, date: selectedDate }),
-    dailyQueries.getDatesWithRecords({ profileId, year: DateTime.fromISO(selectedDate).year, month: DateTime.fromISO(selectedDate).month }),
-    settingsQueries.getUserCategories({ profileId }),
-    settingsQueries.getUserDefaultCodePreferences({ profileId })
+    dailyQueries.getDailyRecordsByDate(client, { profileId, date: selectedDate }),
+    dailyQueries.getDailyNotesByDate(client, { profileId, date: selectedDate }),
+    planQueries.getDailyPlansByDate(client, { profileId, date: selectedDate }),
+    dailyQueries.getDatesWithRecords(client, { profileId, year: DateTime.fromISO(selectedDate).year, month: DateTime.fromISO(selectedDate).month }),
+    settingsQueries.getUserCategories(client, { profileId }),
+    settingsQueries.getUserDefaultCodePreferences(client, { profileId })
   ]);
 
   const records: DailyRecordUI[] = (recordsData || []).map((r: DbDailyRecord) => ({
@@ -183,7 +195,7 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPage
     } as DailyPlanUI));
 
   const recordIds = records.map((r: DailyRecordUI) => r.id).filter((id): id is string => typeof id === 'string');
-  const memosData = recordIds.length > 0 ? await dailyQueries.getMemosByRecordIds({ profileId, recordIds }) : [];
+  const memosData = recordIds.length > 0 ? await dailyQueries.getMemosByRecordIds(client, { profileId, recordIds }) : [];
   const memos: MemoUI[] = (memosData || []).map((m: DbMemo) => ({...m, id: m.id!})) as MemoUI[];
 
   const recordsWithMemos: DailyRecordUI[] = records.map((r: DailyRecordUI) => ({
@@ -258,6 +270,7 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPage
 }
 
 export async function action({ request }: ActionFunctionArgs) {
+  const { client } = makeSSRClient(request);
   const profileId = await getProfileId(request);
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
@@ -265,8 +278,8 @@ export async function action({ request }: ActionFunctionArgs) {
   
   const activeCategoriesForAction = await (async () => {
     const [userCategoriesDb, defaultPreferencesDb] = await Promise.all([
-        settingsQueries.getUserCategories({ profileId }),
-        settingsQueries.getUserDefaultCodePreferences({ profileId })
+        settingsQueries.getUserCategories(client, { profileId }),
+        settingsQueries.getUserDefaultCodePreferences(client, { profileId })
     ]);
     const categories: UICategory[] = [];
     const defaultPrefsMap = new Map((defaultPreferencesDb || []).map(p => [p.default_category_code, p.is_active as boolean]));
@@ -342,7 +355,7 @@ export async function action({ request }: ActionFunctionArgs) {
           is_public: isPublic,
           linked_plan_id: linkedPlanId,
         };
-        const createdRecord = await dailyQueries.createDailyRecord(recordData);
+        const createdRecord = await dailyQueries.createDailyRecord(client, recordData);
         const addedFromPlanIdResponse = intent === "addRecordFromPlan" ? linkedPlanId : undefined;
         return { ok: true, intent, createdRecordId: createdRecord?.id, addedFromPlanId: addedFromPlanIdResponse };
       }
@@ -377,10 +390,11 @@ export async function action({ request }: ActionFunctionArgs) {
         }
         updates.is_public = isPublic;
 
-        const updatedRecordDb = await dailyQueries.updateDailyRecord({
+        const updatedRecordDb = await dailyQueries.updateDailyRecord(client, {
             recordId,
             updates,
-            profileId
+            profileId,
+            // client
         });
 
         if (!updatedRecordDb) {
@@ -403,7 +417,7 @@ export async function action({ request }: ActionFunctionArgs) {
       case "deleteRecord": {
         const recordId = formData.get("recordId") as string;
         if (!recordId) return { ok: false, error: "Record ID is required." };
-        await dailyQueries.deleteDailyRecord({ recordId, profileId });
+        await dailyQueries.deleteDailyRecord(client, { recordId, profileId });
         return { ok: true, intent, recordId };
       }
       case "saveDailyNote": {
@@ -418,7 +432,7 @@ export async function action({ request }: ActionFunctionArgs) {
             date: date,
             content: content,
         };
-        const createdNoteDb = await dailyQueries.createDailyNote(noteData);
+        const createdNoteDb = await dailyQueries.createDailyNote(client, noteData);
 
         if (!createdNoteDb) {
             return { ok: false, error: "Failed to save daily note.", intent };
@@ -436,7 +450,7 @@ export async function action({ request }: ActionFunctionArgs) {
       case "deleteDailyNote": {
         const noteId = formData.get("noteId") as string;
         if (!noteId) return { ok: false, error: "Note ID is required." };
-        await dailyQueries.deleteDailyNoteById({ noteId, profileId });
+        await dailyQueries.deleteDailyNoteById(client, { noteId, profileId });
         return { ok: true, intent, deletedNoteId: noteId };
       }
       case "updateDailyNote": {
@@ -450,7 +464,7 @@ export async function action({ request }: ActionFunctionArgs) {
         }
         
         try {
-          const updatedNoteDb = await dailyQueries.updateDailyNote({ noteId, profileId, content });
+          const updatedNoteDb = await dailyQueries.updateDailyNote(client, { noteId, profileId, content });
           if (!updatedNoteDb) {
             return { ok: false, error: "Failed to update daily note or note not found.", intent, noteId };
           }
@@ -482,13 +496,13 @@ export async function action({ request }: ActionFunctionArgs) {
           title: title ?? "",
           content: content,
         };
-        await dailyQueries.createMemo(memoData);
+        await dailyQueries.createMemo(client, memoData);
         return { ok: true, intent, recordId };
       }
       case "deleteMemo": {
         const memoId = formData.get("memoId") as string;
         if (!memoId) return { ok: false, error: "Memo ID is required." };
-        await dailyQueries.deleteMemo({ memoId, profileId });
+        await dailyQueries.deleteMemo(client, { memoId, profileId });
         return { ok: true, intent, memoId };
       }
        case "updateSubcode": {
@@ -498,10 +512,11 @@ export async function action({ request }: ActionFunctionArgs) {
 
         const updates: Partial<DailyRecordUpdate> = { subcode };
 
-        const updatedRecordDb = await dailyQueries.updateDailyRecord({
+        const updatedRecordDb = await dailyQueries.updateDailyRecord(client, {
             recordId,
             updates,
-            profileId
+            profileId,
+            // client
         });
 
         if (!updatedRecordDb) {
@@ -544,11 +559,11 @@ export async function action({ request }: ActionFunctionArgs) {
         try {
             console.log(`[Action] Attempting to activate category: ${categoryCodeToActivate}`);
             if (isCustom) {
-                const userCategories = await settingsQueries.getUserCategories({ profileId });
+                const userCategories = await settingsQueries.getUserCategories(client, { profileId });
                 const categoryToUpdate = userCategories?.find(uc => uc.code === categoryCodeToActivate);
                 if (categoryToUpdate) {
                     console.log(`[Action] Found custom category ${categoryToUpdate.id}, setting is_active to true.`);
-                    await settingsQueries.updateUserCategory({
+                    await settingsQueries.updateUserCategory(client, {
                         categoryId: categoryToUpdate.id,
                         profileId,
                         updates: { is_active: true }
@@ -560,7 +575,7 @@ export async function action({ request }: ActionFunctionArgs) {
                 }
             } else {
                 console.log(`[Action] Upserting default category preference for ${categoryCodeToActivate} to active.`);
-                await settingsQueries.upsertUserDefaultCodePreference({
+                await settingsQueries.upsertUserDefaultCodePreference(client, {
                     profile_id: profileId,
                     default_category_code: categoryCodeToActivate,
                     is_active: true
@@ -594,7 +609,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
         try {
             console.log("[Action] Attempting to create daily record:", recordData);
-            const createdRecord = await dailyQueries.createDailyRecord(recordData);
+            const createdRecord = await dailyQueries.createDailyRecord(client, recordData);
             console.log("[Action] Daily record created successfully for planId:", planId, "linkedPlanId in record:", recordData.linked_plan_id);
             return { ok: true, intent, activatedCategoryCode: categoryCodeToActivate, addedFromPlanId: planId, createdRecordId: createdRecord?.id };
         } catch (recordCreationError: any) {
@@ -645,7 +660,7 @@ export async function action({ request }: ActionFunctionArgs) {
           };
           console.log(`[Action addAllRecordsFromMultiplePlans] Creating record for plan ${plan.plan_id}:`, recordData);
           try {
-            await dailyQueries.createDailyRecord(recordData);
+            await dailyQueries.createDailyRecord(client, recordData);
             addedRecordPlanIds.push(plan.plan_id);
             console.log(`[Action addAllRecordsFromMultiplePlans] Successfully created record for plan ${plan.plan_id}`);
           } catch (error: any) {

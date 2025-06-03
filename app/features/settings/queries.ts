@@ -1,5 +1,7 @@
-import client from "~/supa-client";
+
+import pkg from '@supabase/supabase-js';
 import type { Database } from "database.types";
+// import type { Database } from "-client";
 
 // Types from database.types.ts
 export type UserCategoryTable = Database['public']['Tables']['user_categories'];
@@ -65,9 +67,10 @@ const USER_DEFAULT_CODE_PREFERENCE_COLUMNS = `
 
 // == User Categories (Custom Codes) ==
 
-export async function getUserCategories(
+export const getUserCategories = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId }: { profileId: string }
-) {
+) => {
   const { data, error } = await client
     .from("user_categories")
     .select(USER_CATEGORY_COLUMNS)
@@ -81,9 +84,10 @@ export async function getUserCategories(
   return data;
 }
 
-export async function getUserCategoryById(
+export const getUserCategoryById = async (
+  client: pkg.SupabaseClient<Database>,
   { categoryId, profileId }: { categoryId: string; profileId: string }
-) {
+) => {
   const { data, error } = await client
     .from("user_categories")
     .select(USER_CATEGORY_COLUMNS)
@@ -99,9 +103,10 @@ export async function getUserCategoryById(
   return data;
 }
 
-export async function createUserCategory(
+export const createUserCategory = async (
+  client: pkg.SupabaseClient<Database>,
   categoryData: UserCategoryInsert
-) {
+) => {
   const { data, error } = await client
     .from("user_categories")
     .insert(categoryData)
@@ -115,9 +120,10 @@ export async function createUserCategory(
   return data;
 }
 
-export async function updateUserCategory(
+export const updateUserCategory = async (
+  client: pkg.SupabaseClient<Database>,
   { categoryId, profileId, updates }: { categoryId: string; profileId: string; updates: Partial<Omit<UserCategory, "id" | "profile_id" | "created_at" | "updated_at">> }
-) {
+) => {
   const { data, error } = await client
     .from("user_categories")
     .update(updates)
@@ -133,9 +139,10 @@ export async function updateUserCategory(
   return data;
 }
 
-export async function deleteUserCategory(
+export const deleteUserCategory = async (
+  client: pkg.SupabaseClient<Database>,
   { categoryId, profileId }: { categoryId: string; profileId: string }
-) {
+) => {
   // Consider deleting related user_subcodes or warning the user.
   const { error } = await client
     .from("user_categories")
@@ -152,9 +159,10 @@ export async function deleteUserCategory(
 
 // == User Subcodes ==
 
-export async function getUserSubcodesByParentCode(
+export const getUserSubcodesByParentCode = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, parentCategoryCode }: { profileId: string; parentCategoryCode: string }
-) {
+) => {
   const { data, error } = await client
     .from("user_subcodes")
     .select(USER_SUBCODE_COLUMNS)
@@ -169,9 +177,10 @@ export async function getUserSubcodesByParentCode(
   return data;
 }
 
-export async function getAllUserSubcodes(
+export const getAllUserSubcodes = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId }: { profileId: string }
-) {
+) => {
   const { data, error } = await client
     .from("user_subcodes")
     .select(USER_SUBCODE_COLUMNS)
@@ -186,9 +195,10 @@ export async function getAllUserSubcodes(
   return data;
 }
 
-export async function getUserSubcodeById(
+export const getUserSubcodeById = async (
+  client: pkg.SupabaseClient<Database>,
   { subcodeId, profileId }: { subcodeId: string; profileId: string }
-) {
+) => {
   const { data, error } = await client
     .from("user_subcodes")
     .select(USER_SUBCODE_COLUMNS)
@@ -204,9 +214,10 @@ export async function getUserSubcodeById(
   return data;
 }
 
-export async function createUserSubcode(
+export const createUserSubcode = async (
+  client: pkg.SupabaseClient<Database>,
   subcodeData: UserSubcodeInsert
-) {
+) => {
   const { data, error } = await client
     .from("user_subcodes")
     .insert(subcodeData)
@@ -220,9 +231,10 @@ export async function createUserSubcode(
   return data;
 }
 
-export async function updateUserSubcode(
+export const updateUserSubcode = async (
+  client: pkg.SupabaseClient<Database>,
   { subcodeId, profileId, updates }: { subcodeId: string; profileId: string; updates: Partial<Omit<UserSubcode, "id" | "profile_id" | "created_at" | "updated_at">> }
-) {
+) => {
   const { data, error } = await client
     .from("user_subcodes")
     .update(updates)
@@ -238,9 +250,10 @@ export async function updateUserSubcode(
   return data;
 }
 
-export async function deleteUserSubcode(
+export const deleteUserSubcode = async (
+  client: pkg.SupabaseClient<Database>,
   { subcodeId, profileId }: { subcodeId: string; profileId: string }
-) {
+) => {
   const { error } = await client
     .from("user_subcodes")
     .delete()
@@ -256,9 +269,10 @@ export async function deleteUserSubcode(
 
 // == User Code Settings ==
 
-export async function getUserCodeSettings(
+export const getUserCodeSettings = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId }: { profileId: string }
-) {
+) => {
   const { data, error } = await client
     .from("user_code_settings")
     .select(USER_CODE_SETTING_COLUMNS)
@@ -273,9 +287,10 @@ export async function getUserCodeSettings(
   return data;
 }
 
-export async function upsertUserCodeSettings(
+export const upsertUserCodeSettings = async (
+  client: pkg.SupabaseClient<Database>,
   settingsData: UserCodeSettingInsert
-) {
+) => {
   const { data, error } = await client
     .from("user_code_settings")
     .upsert(settingsData, { onConflict: 'profile_id' })
@@ -291,9 +306,10 @@ export async function upsertUserCodeSettings(
 
 // == User Default Code Preferences ==
 
-export async function getUserDefaultCodePreferences(
+export const getUserDefaultCodePreferences = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId }: { profileId: string }
-) {
+) => {
   const { data, error } = await client
     .from("user_default_code_preferences")
     .select(USER_DEFAULT_CODE_PREFERENCE_COLUMNS)
@@ -306,9 +322,10 @@ export async function getUserDefaultCodePreferences(
   return data;
 }
 
-export async function getUserDefaultCodePreference(
+export const getUserDefaultCodePreference = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, defaultCategoryCode }: { profileId: string; defaultCategoryCode: string }
-) {
+) => {
   const { data, error } = await client
     .from("user_default_code_preferences")
     .select(USER_DEFAULT_CODE_PREFERENCE_COLUMNS)
@@ -323,9 +340,10 @@ export async function getUserDefaultCodePreference(
   return data;
 }
 
-export async function upsertUserDefaultCodePreference(
+export const upsertUserDefaultCodePreference = async (
+  client: pkg.SupabaseClient<Database>,
   preferenceData: UserDefaultCodePreferenceInsert
-) {
+) => {
   const { data, error } = await client
     .from("user_default_code_preferences")
     .upsert(preferenceData, { onConflict: 'profile_id, default_category_code' })

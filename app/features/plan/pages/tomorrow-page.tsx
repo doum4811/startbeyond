@@ -16,6 +16,7 @@ import * as planQueries from "~/features/plan/queries";
 import type { DailyPlan as DbDailyPlan, DailyPlanInsert, DailyPlanUpdate, WeeklyTask as DbWeeklyTask } from "~/features/plan/queries";
 import * as settingsQueries from "~/features/settings/queries";
 import type { UserCategory as DbUserCategory, UserDefaultCodePreference as DbUserDefaultCodePreference } from "~/features/settings/queries";
+import { makeSSRClient } from "~/supa-client";
 
 // UI-specific types
 // REMOVE UICategory interface definition from here
@@ -39,11 +40,20 @@ interface WeeklyTaskUI extends Pick<DbWeeklyTask, 'id' | 'category_code' | 'comm
 }
 
 // Helper Functions
-async function getProfileId(_request?: Request): Promise<string> { // Optional request
-  // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c";
-  return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// async function getProfileId(_request?: Request): Promise<string> { // Optional request
+//   // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c";
+//   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// }
+async function getProfileId(request: Request): Promise<string> {
+  const { client } = makeSSRClient(request);
+  const { data: { user } } = await client.auth.getUser();
+  
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+  
+  return user.id;
 }
-
 function getTomorrowDateISO(): string {
   return DateTime.now().plus({ days: 1 }).toISODate();
 }
@@ -95,6 +105,7 @@ export interface TomorrowPageLoaderData {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<TomorrowPageLoaderData> => {
+  const { client } = makeSSRClient(request);
   const profileId = await getProfileId(request);
   const tomorrowDate = getTomorrowDateISO();
   const tomorrowDateTime = DateTime.fromISO(tomorrowDate);
@@ -107,10 +118,10 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<TomorrowP
     userCategoriesData,
     userDefaultCodePreferencesData
   ] = await Promise.all([
-    planQueries.getDailyPlansByDate({ profileId, date: tomorrowDate }),
-    planQueries.getWeeklyTasksByWeek({ profileId, weekStartDate: currentWeekStartDate! }),
-    settingsQueries.getUserCategories({ profileId }),
-    settingsQueries.getUserDefaultCodePreferences({ profileId })
+    planQueries.getDailyPlansByDate(client, { profileId, date: tomorrowDate }),
+    planQueries.getWeeklyTasksByWeek(client, { profileId, weekStartDate: currentWeekStartDate! }),
+    settingsQueries.getUserCategories(client, { profileId }),
+    settingsQueries.getUserDefaultCodePreferences(client, { profileId })
   ]);
 
   const tomorrowPlans: DailyPlanUI[] = (tomorrowPlansData || []).map(p => ({
@@ -210,6 +221,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<TomorrowP
 
 // Action
 export const action = async ({ request }: ActionFunctionArgs) => {
+  const { client } = makeSSRClient(request);
   const profileId = await getProfileId(request);
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
@@ -217,8 +229,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   const activeCategoriesForAction = await (async () => {
     const [userCategoriesDb, defaultPreferencesDb] = await Promise.all([
-        settingsQueries.getUserCategories({ profileId }),
-        settingsQueries.getUserDefaultCodePreferences({ profileId })
+        settingsQueries.getUserCategories(client, { profileId }),
+        settingsQueries.getUserDefaultCodePreferences(client, { profileId })
     ]);
     const categories: UICategory[] = [];
     const defaultPrefsMap = new Map((defaultPreferencesDb || []).map(p => [p.default_category_code, p.is_active]));
@@ -287,7 +299,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           subcode: subcode,
           is_completed: false, 
         };
-        const newPlanDb = await planQueries.createDailyPlan(planData);
+        const newPlanDb = await planQueries.createDailyPlan(client, planData);
         // Convert DbDailyPlan to DailyPlanUI before returning
         const newPlan: DailyPlanUI | null = newPlanDb ? {
             id: newPlanDb.id,
@@ -336,7 +348,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           is_completed: false,
           linked_weekly_task_id: weeklyTaskId, 
         };
-        const newPlanFromTaskDb = await planQueries.createDailyPlan(planData);
+        const newPlanFromTaskDb = await planQueries.createDailyPlan(client, planData);
         const newPlanFromTask: DailyPlanUI | null = newPlanFromTaskDb ? {
             id: newPlanFromTaskDb.id,
             profile_id: newPlanFromTaskDb.profile_id,
@@ -384,7 +396,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             duration_minutes: durationMinutes, // durationMinutes can be number or null
         };
 
-        const updatedPlanDb = await planQueries.updateDailyPlan({ planId, profileId, updates });
+        const updatedPlanDb = await planQueries.updateDailyPlan(client, { planId, profileId, updates });
         
         if (!updatedPlanDb) {
             return { ok: false, error: "Failed to update plan or plan not found.", intent, planId };
@@ -435,7 +447,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
               linked_weekly_task_id: task.id,
             };
             try {
-              const createdPlanDb = await planQueries.createDailyPlan(planData);
+              const createdPlanDb = await planQueries.createDailyPlan(client, planData);
               if (createdPlanDb) {
                 // Convert DbDailyPlan to DailyPlanUI
                 const createdPlanUi: DailyPlanUI = {
@@ -472,7 +484,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       case "deletePlan": {
         const planId = formData.get("planId") as string | null;
         if (!planId) return { ok: false, error: "Plan ID is required for deletion.", intent };
-        await planQueries.deleteDailyPlan({ planId, profileId });
+        await planQueries.deleteDailyPlan(client, { planId, profileId });
         return { ok: true, intent, deletedPlanId: planId };
       }
       case "activateCategoryAndAddSinglePlanFromWeekly": {
@@ -487,7 +499,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           if (!category_code /*|| !isValidCategoryCode(category_code, activeCategoriesForAction) // This validation might be redundant if client ensures category exists*/) {
             // Server-side validation should still check if category_code is valid in general sense if needed
             // For now, assuming client sends a category that *can* be activated.
-            const categoryExists = activeCategoriesForAction.some(c => c.code === category_code) || Object.keys(CATEGORIES).includes(category_code) || (await settingsQueries.getUserCategories({profileId}))?.find(uc => uc.code === category_code);
+            const categoryExists = activeCategoriesForAction.some(c => c.code === category_code) || Object.keys(CATEGORIES).includes(category_code) || (await settingsQueries.getUserCategories(client, {profileId}))?.find(uc => uc.code === category_code);
             if(!categoryExists) {
                  return { ok: false, error: `Category code ${category_code} does not exist or is invalid.`, intent };
             }
@@ -499,10 +511,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           // 1. Activate the category (copied logic from daily-page action)
           try {
             if (isCustomCategory) {
-                const userCategories = await settingsQueries.getUserCategories({ profileId });
+                const userCategories = await settingsQueries.getUserCategories(client, { profileId });
                 const categoryToUpdate = userCategories?.find(uc => uc.code === category_code);
                 if (categoryToUpdate) {
-                    await settingsQueries.updateUserCategory({
+                    await settingsQueries.updateUserCategory(client, {
                         categoryId: categoryToUpdate.id,
                         profileId,
                         updates: { is_active: true }
@@ -511,7 +523,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                     return { ok: false, error: `Custom category ${category_code} not found for activation.`, intent };
                 }
             } else { // Default category
-                await settingsQueries.upsertUserDefaultCodePreference({
+                await settingsQueries.upsertUserDefaultCodePreference(client, {
                     profile_id: profileId,
                     default_category_code: category_code,
                     is_active: true
@@ -532,7 +544,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             is_completed: false,
             linked_weekly_task_id: weeklyTaskId,
           };
-          const newPlanDb = await planQueries.createDailyPlan(planData);
+          const newPlanDb = await planQueries.createDailyPlan(client, planData);
           const newPlan: DailyPlanUI | null = newPlanDb ? {
             id: newPlanDb.id,
             profile_id: newPlanDb.profile_id,

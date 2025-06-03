@@ -6,12 +6,24 @@ import * as settingsQueries from "~/features/settings/queries";
 import { CATEGORIES, type CategoryCode, type Category } from "~/common/types/daily";
 import type { DailyPageLoaderData, DailyRecordUI, DailyNoteUI, DailyPlanUI, MemoUI, UICategory } from "./types";
 import { getToday } from "./utils";
+import { makeSSRClient } from "~/supa-client";
 
-async function getProfileId(_request?: Request): Promise<string> {
-  return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// async function getProfileId(_request?: Request): Promise<string> {
+//   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// }
+async function getProfileId(request: Request): Promise<string> {
+  const { client } = makeSSRClient(request);
+  const { data: { user } } = await client.auth.getUser();
+  
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+  
+  return user.id;
 }
 
 export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPageLoaderData> {
+  const { client } = makeSSRClient(request);
   const profileId = await getProfileId(request);
   const url = new URL(request.url);
   const selectedDate = url.searchParams.get("date") || getToday();
@@ -24,12 +36,12 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPage
     userCategoriesData,
     userDefaultCodePreferencesData
   ] = await Promise.all([
-    dailyQueries.getDailyRecordsByDate({ profileId, date: selectedDate }),
-    dailyQueries.getDailyNotesByDate({ profileId, date: selectedDate }),
-    planQueries.getDailyPlansByDate({ profileId, date: selectedDate }),
-    dailyQueries.getDatesWithRecords({ profileId, year: DateTime.fromISO(selectedDate).year, month: DateTime.fromISO(selectedDate).month }),
-    settingsQueries.getUserCategories({ profileId }),
-    settingsQueries.getUserDefaultCodePreferences({ profileId })
+    dailyQueries.getDailyRecordsByDate(client, { profileId, date: selectedDate }),
+    dailyQueries.getDailyNotesByDate(client, { profileId, date: selectedDate }),
+    planQueries.getDailyPlansByDate(client, { profileId, date: selectedDate }),
+    dailyQueries.getDatesWithRecords(client, { profileId, year: DateTime.fromISO(selectedDate).year, month: DateTime.fromISO(selectedDate).month }),
+    settingsQueries.getUserCategories(client, { profileId }),
+    settingsQueries.getUserDefaultCodePreferences(client, { profileId })
   ]);
 
   const records: DailyRecordUI[] = (recordsData || []).map((r: any) => ({
@@ -67,7 +79,7 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPage
   } as DailyPlanUI));
 
   const recordIds = records.map((r: DailyRecordUI) => r.id).filter((id): id is string => typeof id === 'string');
-  const memosData = recordIds.length > 0 ? await dailyQueries.getMemosByRecordIds({ profileId, recordIds }) : [];
+  const memosData = recordIds.length > 0 ? await dailyQueries.getMemosByRecordIds(client, { profileId, recordIds }) : [];
   const memos: MemoUI[] = (memosData || []).map((m: any) => ({...m, id: m.id!})) as MemoUI[];
 
   const recordsWithMemos: DailyRecordUI[] = records.map((r: DailyRecordUI) => ({

@@ -93,9 +93,18 @@ const menus = [
 ]
 export default function Navigation({    
     isLoggedIn,
-        hasNotifications,
-        hasMessages }: {   
-            isLoggedIn: boolean, hasNotifications: boolean, hasMessages: boolean } 
+    hasNotifications,
+    hasMessages,
+    username,
+    avatar,
+    name,
+}: {   
+            isLoggedIn: boolean, 
+            hasNotifications: boolean, hasMessages: boolean,    
+            username?: string;
+            avatar?: string | null;
+            name?: string;
+        } 
 ) {
     return <nav className="flex px-20 h-16 items-center justify-between backdrop-blur fixed top-0 left-0 right-0 z-50 bg-background/70">
         <div className="flex items-center gap-2">
@@ -163,16 +172,25 @@ export default function Navigation({
                     <DropdownMenu> 
             <DropdownMenuTrigger asChild>
                     <Avatar> 
-                        <AvatarImage src="https://github.com/doum4811.png" />
+                        {/* <AvatarImage src="https://github.com/doum4811.png" />
                         <AvatarFallback>
                             N
-                        </AvatarFallback>
+                        </AvatarFallback> */}
+                        {avatar ? (
+                            <AvatarImage src={avatar} />
+                            ) : (
+                            <AvatarFallback>{name?.[0]}</AvatarFallback>
+                         )}
                     </Avatar>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56">
                 <DropdownMenuLabel className="flex flex-col gap-1">
-                    <span className="font-medium">John Doe</span>
-                    <span className="text-xs text-muted-foreground">@username</span>
+                    {/* <span className="font-medium">John Doe</span>
+                    <span className="text-xs text-muted-foreground">@username</span> */}
+                    <span className="font-medium">{name}</span>
+                    <span className="text-xs text-muted-foreground">
+                        @{username}
+                    </span> 
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {/* <DropdownMenuItem asChild className="cursor-pointer">

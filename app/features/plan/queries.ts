@@ -1,4 +1,5 @@
-import client from "~/supa-client";
+
+import pkg from '@supabase/supabase-js';
 import type { Database } from "database.types";
 import { DateTime } from "luxon";
 
@@ -111,9 +112,10 @@ const MONTHLY_REFLECTION_COLUMNS = `
 
 // == Daily Plans ==
 
-export async function getDailyPlansByDate(
+export const getDailyPlansByDate = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, date }: { profileId: string; date: string /* YYYY-MM-DD */ }
-) {
+) => {
   const { data, error } = await client
     .from("daily_plans")
     .select(DAILY_PLAN_COLUMNS)
@@ -128,9 +130,10 @@ export async function getDailyPlansByDate(
   return data;
 }
 
-export async function getDailyPlanById(
+export const getDailyPlanById = async (
+  client: pkg.SupabaseClient<Database>,
   { planId, profileId }: { planId: string; profileId: string }
-) {
+) => {
   const { data, error } = await client
     .from("daily_plans")
     .select(DAILY_PLAN_COLUMNS)
@@ -146,9 +149,10 @@ export async function getDailyPlanById(
   return data;
 }
 
-export async function createDailyPlan(
+export const createDailyPlan = async (
+  client: pkg.SupabaseClient<Database>,
   planData: DailyPlanInsert
-) {
+) => {
   const { data, error } = await client
     .from("daily_plans")
     .insert(planData)
@@ -162,9 +166,10 @@ export async function createDailyPlan(
   return data;
 }
 
-export async function updateDailyPlan(
+export const updateDailyPlan = async (
+  client: pkg.SupabaseClient<Database>,
   { planId, profileId, updates }: { planId: string; profileId: string; updates: Partial<Omit<DailyPlan, "id" | "profile_id" | "created_at" | "updated_at">> }
-) {
+) => {
   const { data, error } = await client
     .from("daily_plans")
     .update(updates)
@@ -180,9 +185,10 @@ export async function updateDailyPlan(
   return data;
 }
 
-export async function deleteDailyPlan(
+export const deleteDailyPlan = async (
+  client: pkg.SupabaseClient<Database>,
   { planId, profileId }: { planId: string; profileId: string }
-) {
+) => {
   const { error } = await client
     .from("daily_plans")
     .delete()
@@ -198,9 +204,10 @@ export async function deleteDailyPlan(
 
 // == Weekly Tasks ==
 
-export async function getWeeklyTasksByWeek(
+export const getWeeklyTasksByWeek = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, weekStartDate }: { profileId: string; weekStartDate: string /* YYYY-MM-DD, typically a Monday */ }
-) {
+) => {
   const { data, error } = await client
     .from("weekly_tasks")
     .select(WEEKLY_TASK_COLUMNS)
@@ -216,9 +223,10 @@ export async function getWeeklyTasksByWeek(
   return data;
 }
 
-export async function getWeeklyTaskById(
+export const getWeeklyTaskById = async (
+  client: pkg.SupabaseClient<Database>,
   { taskId, profileId }: { taskId: string; profileId: string }
-) {
+) => {
   const { data, error } = await client
     .from("weekly_tasks")
     .select(WEEKLY_TASK_COLUMNS)
@@ -234,9 +242,10 @@ export async function getWeeklyTaskById(
   return data;
 }
 
-export async function createWeeklyTask(
+export const createWeeklyTask = async (
+  client: pkg.SupabaseClient<Database>,
   taskData: WeeklyTaskInsert
-) {
+) => {
   const { data, error } = await client
     .from("weekly_tasks")
     .insert(taskData)
@@ -250,9 +259,10 @@ export async function createWeeklyTask(
   return data;
 }
 
-export async function updateWeeklyTask(
+export const updateWeeklyTask = async (
+  client: pkg.SupabaseClient<Database>,
   { taskId, profileId, updates }: { taskId: string; profileId: string; updates: Partial<Omit<WeeklyTask, "id" | "profile_id" | "created_at" | "updated_at">> }
-) {
+) => {
   const { data, error } = await client
     .from("weekly_tasks")
     .update(updates)
@@ -275,9 +285,10 @@ export async function updateWeeklyTask(
   return data;
 }
 
-export async function deleteWeeklyTask(
+export const deleteWeeklyTask = async (
+  client: pkg.SupabaseClient<Database>,
   { taskId, profileId }: { taskId: string; profileId: string }
-) {
+) => {
   const { error } = await client
     .from("weekly_tasks")
     .delete()
@@ -294,9 +305,10 @@ export async function deleteWeeklyTask(
 
 // == Weekly Notes ==
 
-export async function getWeeklyNoteByWeek(
+export const getWeeklyNoteByWeek = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, weekStartDate }: { profileId: string; weekStartDate: string /* YYYY-MM-DD, typically a Monday */ }
-) {
+) => {
   const { data, error } = await client
     .from("weekly_notes")
     .select(WEEKLY_NOTE_COLUMNS)
@@ -312,9 +324,10 @@ export async function getWeeklyNoteByWeek(
   return data;
 }
 
-export async function upsertWeeklyNote(
+export const upsertWeeklyNote = async (
+  client: pkg.SupabaseClient<Database>,
   noteData: WeeklyNoteInsert
-) {
+) => {
   // Check if a note already exists for this profile and week
   const { data: existingNote, error: fetchError } = await client
     .from("weekly_notes")
@@ -377,9 +390,10 @@ export async function upsertWeeklyNote(
 
 // == Monthly Goals ==
 
-export async function getMonthlyGoalsByMonth(
+export const getMonthlyGoalsByMonth = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, monthDate }: { profileId: string; monthDate: string /* YYYY-MM-01 */ }
-) {
+) => {
   const { data, error } = await client
     .from("monthly_goals")
     .select(MONTHLY_GOAL_COLUMNS)
@@ -394,9 +408,10 @@ export async function getMonthlyGoalsByMonth(
   return data;
 }
 
-export async function getMonthlyGoalById(
+export const getMonthlyGoalById = async (
+  client: pkg.SupabaseClient<Database>,
   { goalId, profileId }: { goalId: string; profileId: string }
-) {
+) => {
   const { data, error } = await client
     .from("monthly_goals")
     .select(MONTHLY_GOAL_COLUMNS)
@@ -412,9 +427,10 @@ export async function getMonthlyGoalById(
   return data;
 }
 
-export async function createMonthlyGoal(
+export const createMonthlyGoal = async (
+  client: pkg.SupabaseClient<Database>,
   goalData: MonthlyGoalInsert
-) {
+) => {
   const { data, error } = await client
     .from("monthly_goals")
     .insert(goalData)
@@ -428,9 +444,10 @@ export async function createMonthlyGoal(
   return data;
 }
 
-export async function updateMonthlyGoal(
+export const updateMonthlyGoal = async (
+  client: pkg.SupabaseClient<Database>,
   { goalId, profileId, updates }: { goalId: string; profileId: string; updates: Partial<Omit<MonthlyGoalRow, "id" | "profile_id" | "created_at" | "updated_at">> }
-) {
+) => {
   const { data, error } = await client
     .from("monthly_goals")
     .update(updates)
@@ -446,9 +463,10 @@ export async function updateMonthlyGoal(
   return data;
 }
 
-export async function deleteMonthlyGoal(
+export const deleteMonthlyGoal = async (
+  client: pkg.SupabaseClient<Database>,
   { goalId, profileId }: { goalId: string; profileId: string }
-) {
+) => {
   const { error } = await client
     .from("monthly_goals")
     .delete()
@@ -464,9 +482,10 @@ export async function deleteMonthlyGoal(
 
 // == Monthly Reflections ==
 
-export async function getMonthlyReflectionByMonth(
+export const getMonthlyReflectionByMonth = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, monthDate }: { profileId: string; monthDate: string /* YYYY-MM-01 */ }
-) {
+) => {
   const { data, error } = await client
     .from("monthly_reflections")
     .select(MONTHLY_REFLECTION_COLUMNS)
@@ -482,9 +501,10 @@ export async function getMonthlyReflectionByMonth(
   return data;
 }
 
-export async function upsertMonthlyReflection(
+export const upsertMonthlyReflection = async (
+  client: pkg.SupabaseClient<Database>,
   reflectionData: MonthlyReflectionInsert
-) {
+) => {
   const upsertData: MonthlyReflectionInsert & { updated_at?: string } = {
     ...reflectionData,
     updated_at: new Date().toISOString(), // Explicitly set updated_at
@@ -508,9 +528,10 @@ export async function upsertMonthlyReflection(
 // If explicit deletion is needed, it can be added similarly to other delete functions.
 
 // Function to get monthly goals relevant for a specific week (e.g., current month's goals)
-export async function getMonthlyGoalsForWeek(
-    { profileId, dateInWeek }: { profileId: string; dateInWeek: string }
-): Promise<MonthlyGoalRow[] | null> {
+export const getMonthlyGoalsForWeek = async (
+  client: pkg.SupabaseClient<Database>,
+  { profileId, dateInWeek }: { profileId: string; dateInWeek: string }
+): Promise<MonthlyGoalRow[] | null> => {
     const dt = DateTime.fromISO(dateInWeek);
     const monthFirstDay = dt.startOf('month').toISODate(); // YYYY-MM-01
 
@@ -529,7 +550,7 @@ export async function getMonthlyGoalsForWeek(
 }
 
 // Helper to get week number (1-4/5) within the month for a given date string
-export function getWeekOfMonth(dateString: string): number {
+export const getWeekOfMonth = (dateString: string): number => {
   const date = DateTime.fromISO(dateString);
   const firstDayOfMonth = date.startOf('month');
   const firstDayOfWeek = date.startOf('week');

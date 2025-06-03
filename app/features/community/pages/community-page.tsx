@@ -6,15 +6,26 @@ import { Avatar, AvatarFallback, AvatarImage } from "~/common/components/ui/avat
 import { getCommunityPosts, type CommunityPostWithAuthor } from "~/features/community/queries";
 import { DateTime } from "luxon";
 import { Plus } from "lucide-react";
+import { makeSSRClient } from "~/supa-client";
 
 export interface CommunityPageLoaderData {
   posts: CommunityPostWithAuthor[];
   profileId: string; // Assuming we get this similarly to other pages
 }
 
-async function getProfileId(_request: Request): Promise<string> {
-  // Replace with actual profile ID fetching logic
-  return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// async function getProfileId(_request: Request): Promise<string> {
+//   // Replace with actual profile ID fetching logic
+//   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// }
+async function getProfileId(request: Request): Promise<string> {
+  const { client } = makeSSRClient(request);
+  const { data: { user } } = await client.auth.getUser();
+  
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+  
+  return user.id;
 }
 
 export const meta: MetaFunction = () => {
@@ -25,9 +36,10 @@ export const meta: MetaFunction = () => {
 };
 
 export async function loader({ request }: LoaderFunctionArgs): Promise<CommunityPageLoaderData> {
+  const { client } = makeSSRClient(request);
   const profileId = await getProfileId(request);
   // TODO: Add pagination later if needed
-  const posts = await getCommunityPosts({});
+  const posts = await getCommunityPosts(client, {});
   return { posts, profileId };
 }
 

@@ -1,5 +1,7 @@
-import client from "~/supa-client";
-import type { Database } from "database.types";
+
+import pkg from '@supabase/supabase-js';
+import type { Database } from 'database.types';
+// import type { Database } from "~/supa-client";
 
 // Types from database.types.ts
 type ShareSettingsTable = Database['public']['Tables']['share_settings'];
@@ -33,9 +35,10 @@ const DAILY_RECORD_HEATMAP_COLUMNS = `
 
 // == Share Settings ==
 
-export async function getShareSettings(
+export const getShareSettings = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId }: { profileId: string }
-) {
+) => {
   const { data, error } = await client
     .from("share_settings")
     .select(SHARE_SETTING_COLUMNS)
@@ -51,9 +54,10 @@ export async function getShareSettings(
   return data;
 }
 
-export async function upsertShareSettings(
+export const upsertShareSettings = async (
+  client: pkg.SupabaseClient<Database>,
   settingsData: ShareSettingInsert
-) {
+) => {
   const { data, error } = await client
     .from("share_settings")
     .upsert(settingsData, { onConflict: 'profile_id' })
@@ -74,9 +78,10 @@ export interface YearlyActivity {
   count: number; // Number of records or sum of durations, etc.
 }
 
-export async function getYearlyActivityHeatmapData(
+export const getYearlyActivityHeatmapData = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, year }: { profileId: string; year: number }
-): Promise<YearlyActivity[]> {
+): Promise<YearlyActivity[]> => {
   const startDate = `${year}-01-01`;
   const endDate = `${year}-12-31`;
 
@@ -112,9 +117,10 @@ export async function getYearlyActivityHeatmapData(
  * This query might be better implemented as a database view or function for performance 
  * if it involves complex aggregations or is frequently used.
  */
-export async function getCategoryDistribution(
+export const getCategoryDistribution = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, startDate, endDate }: { profileId: string; startDate: string; endDate: string }
-) {
+) => {
   // Supabase client does not directly support GROUP BY with typed responses easily for complex aggregates.
   // For complex aggregations, consider using a PostgREST function (RPC) or a view.
   // This is a simplified client-side aggregation for demonstration.

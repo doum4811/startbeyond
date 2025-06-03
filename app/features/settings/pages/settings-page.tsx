@@ -23,7 +23,7 @@ import { PlusCircle, Edit, Trash2, Palette, Search, GripVertical, Check, X, Star
 import { type CategoryCode, CATEGORIES as DEFAULT_CATEGORIES } from '~/common/types/daily'; // 기본 카테고리 및 타입 임포트
 import { useFetcher, Form } from "react-router"; // Added Form, useFetcher
 import type { LoaderFunctionArgs, MetaFunction, ActionFunctionArgs } from "react-router"; // Added ActionFunctionArgs
-
+import { makeSSRClient } from "~/supa-client";
 import * as settingsQueries from "~/features/settings/queries";
 import type { 
     UserCategory as DbUserCategory, 
@@ -37,14 +37,24 @@ import type {
 } from "~/features/settings/queries";
 
 // Helper to get profileId (replace with actual implementation if available)
+// async function getProfileId(request: Request): Promise<string> {
+//   // This is a mock. In a real app, you'd get this from session/auth state.
+//   const loaderData = (request as any).loaderData as SettingsPageLoaderData | undefined;
+//   if (loaderData?.profileId) return loaderData.profileId;
+//   // Fallback for actions where loaderData might not be directly on request
+//   // Consider a more robust way to get profileId in actions if needed
+//   // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; 
+//   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// }
 async function getProfileId(request: Request): Promise<string> {
-  // This is a mock. In a real app, you'd get this from session/auth state.
-  const loaderData = (request as any).loaderData as SettingsPageLoaderData | undefined;
-  if (loaderData?.profileId) return loaderData.profileId;
-  // Fallback for actions where loaderData might not be directly on request
-  // Consider a more robust way to get profileId in actions if needed
-  // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; 
-  return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+  const { client } = makeSSRClient(request);
+  const { data: { user } } = await client.auth.getUser();
+  
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+  
+  return user.id;
 }
 
 export interface SettingsPageLoaderData {
@@ -64,12 +74,12 @@ export const meta: MetaFunction = () => {
 
 export async function loader({ request }: LoaderFunctionArgs): Promise<SettingsPageLoaderData> {
   const profileId = await getProfileId(request);
-
+  const { client } = makeSSRClient(request);
   const [userCategoriesData, userSubcodesData, defaultCodePreferencesData, userCodeSettingsData] = await Promise.all([
-    settingsQueries.getUserCategories({ profileId }),
-    settingsQueries.getAllUserSubcodes({ profileId }), // Fetches all subcodes for the user
-    settingsQueries.getUserDefaultCodePreferences({ profileId }),
-    settingsQueries.getUserCodeSettings({ profileId })
+    settingsQueries.getUserCategories(client, { profileId }),
+    settingsQueries.getAllUserSubcodes(client, { profileId }), // Fetches all subcodes for the user
+    settingsQueries.getUserDefaultCodePreferences(client, { profileId }),
+    settingsQueries.getUserCodeSettings(client, { profileId })
   ]);
 
   return {
@@ -83,6 +93,7 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<SettingsP
 
 export async function action({ request }: ActionFunctionArgs) {
     const profileId = await getProfileId(request);
+    const { client } = makeSSRClient(request);
     const formData = await request.formData();
     const intent = formData.get("intent") as string;
     console.log(`[Settings Action] Intent: ${intent}, Profile ID: ${profileId}`);
@@ -110,12 +121,12 @@ export async function action({ request }: ActionFunctionArgs) {
                     console.log(`[Settings Action saveUserCategory] Updating category ID: ${id}`);
                     const updates: Partial<Omit<DbUserCategory, "id" | "profile_id" | "created_at" | "updated_at">> =
                         { code, label, icon, color, is_active };
-                    savedCategory = await settingsQueries.updateUserCategory({ categoryId: id, profileId, updates });
+                    savedCategory = await settingsQueries.updateUserCategory(client, { categoryId: id, profileId, updates });
                 } else {
                     console.log("[Settings Action saveUserCategory] Creating new category.");
                     const insertData: UserCategoryInsert = { profile_id: profileId, code, label, icon, color, is_active, sort_order: 0 };
                     console.log("[Settings Action saveUserCategory] Insert data for query:", insertData);
-                    savedCategory = await settingsQueries.createUserCategory(insertData);
+                    savedCategory = await settingsQueries.createUserCategory(client, insertData);
                     console.log("[Settings Action saveUserCategory] Result from createUserCategory:", savedCategory);
                 }
                 
@@ -129,7 +140,7 @@ export async function action({ request }: ActionFunctionArgs) {
             case "deleteUserCategory": {
                 const categoryId = formData.get("categoryId") as string;
                 if (!categoryId) return { ok: false, error: "Category ID is required.", intent };
-                await settingsQueries.deleteUserCategory({ categoryId, profileId });
+                await settingsQueries.deleteUserCategory(client, { categoryId, profileId });
                 return { ok: true, intent, deletedCategoryId: categoryId };
             }
             case "saveUserSubcode": {
@@ -148,17 +159,17 @@ export async function action({ request }: ActionFunctionArgs) {
                 if (id && id !== "undefined") {
                      const updates: Partial<Omit<DbUserSubcode, "id" | "profile_id" | "created_at" | "updated_at">> = 
                         { parent_category_code, subcode, description, is_favorite }; // parent_category_code usually not updatable after creation
-                    savedSubcode = await settingsQueries.updateUserSubcode({ subcodeId: id, profileId, updates });
+                    savedSubcode = await settingsQueries.updateUserSubcode(client, { subcodeId: id, profileId, updates });
                 } else {
                     const insertData: UserSubcodeInsert = { profile_id: profileId, parent_category_code, subcode, description, is_favorite, frequency_score: 0 };
-                    savedSubcode = await settingsQueries.createUserSubcode(insertData);
+                    savedSubcode = await settingsQueries.createUserSubcode(client, insertData);
                 }
                 return { ok: true, intent, savedSubcode };
             }
             case "deleteUserSubcode": {
                 const subcodeId = formData.get("subcodeId") as string;
                 if (!subcodeId) return { ok: false, error: "Subcode ID is required.", intent };
-                await settingsQueries.deleteUserSubcode({ subcodeId, profileId });
+                await settingsQueries.deleteUserSubcode(client, { subcodeId, profileId });
                 return { ok: true, intent, deletedSubcodeId: subcodeId };
             }
             case "toggleSubcodeFavorite": { // This might be better as a specific update action
@@ -166,7 +177,7 @@ export async function action({ request }: ActionFunctionArgs) {
                 const currentIsFavorite = formData.get("is_favorite") === "true"; // current state from form
                 if (!subcodeId) return { ok: false, error: "Subcode ID is required.", intent };
                 
-                const updatedSubcode = await settingsQueries.updateUserSubcode({
+                const updatedSubcode = await settingsQueries.updateUserSubcode(client, {
                     subcodeId,
                     profileId,
                     updates: { is_favorite: !currentIsFavorite }
@@ -185,7 +196,7 @@ export async function action({ request }: ActionFunctionArgs) {
                     default_category_code,
                     is_active
                 };
-                const upsertedPreference = await settingsQueries.upsertUserDefaultCodePreference(preferenceData);
+                const upsertedPreference = await settingsQueries.upsertUserDefaultCodePreference(client, preferenceData);
                 return { ok: true, intent, upsertedPreference };
             }
             case "upsertUserCodeSettings": {
@@ -201,7 +212,7 @@ export async function action({ request }: ActionFunctionArgs) {
                     enable_recommendation,
                     recommendation_source
                 };
-                const upsertedSettings = await settingsQueries.upsertUserCodeSettings(settingsData);
+                const upsertedSettings = await settingsQueries.upsertUserCodeSettings(client, settingsData);
                 return { ok: true, intent, upsertedSettings };
             }
             default:

@@ -25,6 +25,7 @@ import type {
 } from "~/features/plan/queries";
 import * as settingsQueries from "~/features/settings/queries";
 import type { UserCategory as DbUserCategory, UserDefaultCodePreference as DbUserDefaultCodePreference } from "~/features/settings/queries";
+import { makeSSRClient } from "~/supa-client";
 
 // Generic JSON type if specific one isn't available from supabase-helpers
 export type Json = | string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
@@ -60,9 +61,19 @@ interface MonthlyReflectionUI {
 }
 
 // --- Helper Functions ---
-async function getProfileId(_request?: Request): Promise<string> {
-  // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; 
-  return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// async function getProfileId(_request?: Request): Promise<string> {
+//   // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; 
+//   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// }
+async function getProfileId(request: Request): Promise<string> {
+  const { client } = makeSSRClient(request);
+  const { data: { user } } = await client.auth.getUser();
+  
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+  
+  return user.id;
 }
 
 function getCurrentMonthStartDateISO(dateParam?: string | null): string {
@@ -203,6 +214,7 @@ export interface MonthlyPageLoaderData {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<MonthlyPageLoaderData> => {
+  const { client } = makeSSRClient(request);
   const profileId = await getProfileId(request);
   const url = new URL(request.url);
   const monthParam = url.searchParams.get("month");
@@ -215,10 +227,10 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<MonthlyPa
     userCategoriesData,
     userDefaultCodePreferencesData
   ] = await Promise.all([
-    planQueries.getMonthlyGoalsByMonth({ profileId, monthDate: selectedMonth }),
-    planQueries.getMonthlyReflectionByMonth({ profileId, monthDate: selectedMonth }),
-    settingsQueries.getUserCategories({ profileId }),
-    settingsQueries.getUserDefaultCodePreferences({ profileId })
+    planQueries.getMonthlyGoalsByMonth(client, { profileId, monthDate: selectedMonth }),
+    planQueries.getMonthlyReflectionByMonth(client, { profileId, monthDate: selectedMonth }),
+    settingsQueries.getUserCategories(client, { profileId }),
+    settingsQueries.getUserDefaultCodePreferences(client, { profileId })
   ]);
 
   const monthlyGoals: MonthlyGoalUI[] = (dbGoals || []).map(dbGoalToUIGoal);
@@ -292,6 +304,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<MonthlyPa
 
 // --- Action ---
 export const action = async ({ request }: ActionFunctionArgs) => {
+  const { client } = makeSSRClient(request);
   const profileId = await getProfileId(request);
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
@@ -301,8 +314,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // Fetch active categories for action validation (Copied from other pages)
   const activeCategoriesForAction = await (async () => {
     const [userCategoriesDb, defaultPreferencesDb] = await Promise.all([
-        settingsQueries.getUserCategories({ profileId }),
-        settingsQueries.getUserDefaultCodePreferences({ profileId })
+        settingsQueries.getUserCategories(client, { profileId }),
+        settingsQueries.getUserDefaultCodePreferences(client, { profileId })
     ]);
     const categoriesToValidate: UICategory[] = [];
     const defaultPrefsMap = new Map((defaultPreferencesDb || []).map(p => [p.default_category_code, p.is_active]));
@@ -380,7 +393,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             weekly_breakdown: weekly_breakdown_for_db,
             is_completed: false,
           };
-          const newGoalDb = await planQueries.createMonthlyGoal(goalData);
+          const newGoalDb = await planQueries.createMonthlyGoal(client, goalData);
           const newGoal = newGoalDb ? dbGoalToUIGoal(newGoalDb) : null;
           return { ok: true, intent, newGoal };
         } else { // updateMonthlyGoal
@@ -397,7 +410,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             weekly_breakdown: weekly_breakdown_for_db,
             is_completed: isCompleted,
           };
-          const updatedGoalDb = await planQueries.updateMonthlyGoal({ goalId, profileId, updates });
+          const updatedGoalDb = await planQueries.updateMonthlyGoal(client, { goalId, profileId, updates });
           const updatedGoal = updatedGoalDb ? dbGoalToUIGoal(updatedGoalDb) : null;
           return { ok: true, intent, updatedGoal, goalId };
         }
@@ -405,7 +418,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       case "deleteMonthlyGoal": {
         const goalId = formData.get("goalId") as string | null;
         if (!goalId) return { ok: false, error: "Goal ID is required for deletion.", intent };
-        await planQueries.deleteMonthlyGoal({ goalId, profileId });
+        await planQueries.deleteMonthlyGoal(client, { goalId, profileId });
         return { ok: true, intent, deletedGoalId: goalId };
       }
       case "updateGoalCompletionStatus": { 
@@ -437,7 +450,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           success_criteria: success_criteria_parsed as unknown as Json, 
           is_completed: allCriteriaCompleted
         };
-        const updatedGoalDb = await planQueries.updateMonthlyGoal({ goalId, profileId, updates });
+        const updatedGoalDb = await planQueries.updateMonthlyGoal(client, { goalId, profileId, updates });
         const updatedGoal = updatedGoalDb ? dbGoalToUIGoal(updatedGoalDb) : null;
         return { ok: true, intent, updatedGoal, goalId };
       }
@@ -454,7 +467,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           reflectionData.id = reflectionId;
         }
         
-        const upsertedReflectionDb = await planQueries.upsertMonthlyReflection(reflectionData);
+        const upsertedReflectionDb = await planQueries.upsertMonthlyReflection(client, reflectionData);
         const upsertedReflection = upsertedReflectionDb ? dbReflectionToUIReflection(upsertedReflectionDb) : null;
         return { ok: true, intent, upsertedReflection };
       }

@@ -1,12 +1,11 @@
-// import db from "~/db"
-// import client from "~/supa-client";
-// import type { SupabaseClient } from "@supabase/supabase-js";
-// import type { Database } from "~/supa-client"; //  경로는 실제 위치에 맞게 조정 필요
-// // import type { Profile } from "~/features/users/types"; // Profile 타입 정의가 있다면
 import { DateTime } from "luxon";
 
-import client from "~/supa-client";
-import type { Database } from "database.types"; // Ensure this path is correct
+
+import pkg from '@supabase/supabase-js';
+
+import type { Database } from "database.types";
+
+// import type { Database } from "database.types"; // Ensure this path is correct
 import type { DailyNoteUI } from "./pages/daily-page";
 
 // Assuming your database.types.ts is at the root, if it's elsewhere adjust the import path.
@@ -70,9 +69,10 @@ const MEMO_COLUMNS = `
   updated_at
 `;
 
-export async function getDailyRecordsByDate(
+export const getDailyRecordsByDate = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, date }: { profileId: string; date: string /* "YYYY-MM-DD" */ }
-) {
+) => {
   const { data, error } = await client
     .from("daily_records")
     .select(DAILY_RECORD_COLUMNS)
@@ -87,9 +87,10 @@ export async function getDailyRecordsByDate(
   return data;
 }
 
-export async function getDailyRecordsByPeriod(
+export const getDailyRecordsByPeriod = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, startDate, endDate }: { profileId: string; startDate: string; endDate: string }
-) {
+) => {
   const { data, error } = await client
     .from("daily_records")
     .select(DAILY_RECORD_COLUMNS)
@@ -106,9 +107,10 @@ export async function getDailyRecordsByPeriod(
   return data;
 }
 
-export async function getDailyRecordById(
+export const getDailyRecordById = async (
+  client: pkg.SupabaseClient<Database>,
   { recordId, profileId }: { recordId: string; profileId: string }
-) {
+) => {
   const { data, error } = await client
     .from("daily_records")
     .select(DAILY_RECORD_COLUMNS)
@@ -124,9 +126,10 @@ export async function getDailyRecordById(
   return data;
 }
 
-export async function createDailyRecord(
+export const createDailyRecord = async (
+  client: pkg.SupabaseClient<Database>,
   recordData: DailyRecordInsert
-) {
+) => {
   const { data, error } = await client
     .from("daily_records")
     .insert(recordData)
@@ -140,9 +143,10 @@ export async function createDailyRecord(
   return data;
 }
 
-export async function updateDailyRecord(
+export const updateDailyRecord = async (
+  client: pkg.SupabaseClient<Database>,
   { recordId, profileId, updates }: { recordId: string; profileId: string; updates: Partial<Omit<DailyRecord, "id" | "profile_id" | "created_at" | "updated_at">> }
-) {
+) => {
   const { data, error } = await client
     .from("daily_records")
     .update(updates)
@@ -163,9 +167,10 @@ export async function updateDailyRecord(
   return data;
 }
 
-export async function deleteDailyRecord(
+export const deleteDailyRecord = async (
+  client: pkg.SupabaseClient<Database>,
   { recordId, profileId }: { recordId: string; profileId: string }
-) {
+) => {
   // First, delete associated memos
   const { error: memoError } = await client
     .from("memos")
@@ -196,9 +201,10 @@ export async function deleteDailyRecord(
 
 // == Daily Notes ==
 
-export async function getDailyNotesByDate(
+export const getDailyNotesByDate = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, date }: { profileId: string; date: string /* "YYYY-MM-DD" */ }
-): Promise<DailyNote[]> {
+): Promise<DailyNote[]> => {
   const { data, error } = await client
     .from("daily_notes")
     .select(DAILY_NOTE_COLUMNS)
@@ -213,9 +219,10 @@ export async function getDailyNotesByDate(
   return data || [];
 }
 
-export async function getDailyNotesByPeriod(
+export const getDailyNotesByPeriod = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, startDate, endDate }: { profileId: string; startDate: string; endDate: string }
-): Promise<DailyNote[]> {
+): Promise<DailyNote[]> => {
   const { data, error } = await client
     .from("daily_notes")
     .select(DAILY_NOTE_COLUMNS)
@@ -232,9 +239,10 @@ export async function getDailyNotesByPeriod(
   return data || [];
 }
 
-export async function createDailyNote(
+export const createDailyNote = async (
+  client: pkg.SupabaseClient<Database>,
   noteData: DailyNoteInsert
-): Promise<DailyNote | null> {
+): Promise<DailyNote | null> => {
   const insertPayload: DailyNoteInsert = {
       profile_id: noteData.profile_id,
       date: noteData.date,
@@ -254,9 +262,10 @@ export async function createDailyNote(
   return data;
 }
 
-export async function deleteDailyNoteById(
+export const deleteDailyNoteById = async (
+  client: pkg.SupabaseClient<Database>,
   { noteId, profileId }: { noteId: string; profileId: string }
-): Promise<boolean> {
+): Promise<boolean> => {
   const { error } = await client
     .from("daily_notes")
     .delete()
@@ -270,9 +279,10 @@ export async function deleteDailyNoteById(
   return true;
 }
 
-export async function updateDailyNote(
+export const updateDailyNote = async (
+  client: pkg.SupabaseClient<Database>,
   { noteId, profileId, content }: { noteId: string; profileId: string; content: string }
-) {
+) => {
   if (!content || content.trim() === "") {
     throw new Error("Note content cannot be empty.");
   }
@@ -293,9 +303,10 @@ export async function updateDailyNote(
 
 // == Memos ==
 
-export async function getMemosByRecordId(
+export const getMemosByRecordId = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, recordId }: { profileId: string; recordId: string }
-) {
+) => {
   const { data, error } = await client
     .from("memos")
     .select(MEMO_COLUMNS)
@@ -310,9 +321,10 @@ export async function getMemosByRecordId(
   return data || [];
 }
 
-export async function getMemosByRecordIds(
+export const getMemosByRecordIds = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, recordIds }: { profileId: string; recordIds: string[] }
-) {
+) => {
   if (recordIds.length === 0) return [];
   const { data, error } = await client
     .from("memos")
@@ -328,9 +340,10 @@ export async function getMemosByRecordIds(
   return data || [];
 }
 
-export async function deleteMemosByRecordId(
+export const deleteMemosByRecordId = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, recordId }: { profileId: string; recordId: string }
-) {
+) => {
   const { error } = await client
     .from("memos")
     .delete()
@@ -344,9 +357,10 @@ export async function deleteMemosByRecordId(
   return { ok: true };
 }
 
-export async function getMemoById(
+export const getMemoById = async (
+  client: pkg.SupabaseClient<Database>,
   { memoId, profileId }: { memoId: string; profileId: string }
-) {
+) => {
   const { data: memo, error: memoError } = await client
     .from("memos")
     .select(`${MEMO_COLUMNS}, daily_records ( profile_id )`) // Fetch memo and its related record's profile_id
@@ -371,9 +385,10 @@ export async function getMemoById(
 }
 
 
-export async function createMemo(
+export const createMemo = async (
+  client: pkg.SupabaseClient<Database>,
   memoData: MemoInsert
-) {
+) => {
   if (!memoData.record_id) {
     throw new Error("record_id is required to create a memo.");
   }
@@ -406,9 +421,10 @@ export async function createMemo(
   return data;
 }
 
-export async function updateMemo(
+export const updateMemo = async (
+  client: pkg.SupabaseClient<Database>,
   { memoId, updates, profileId }: { memoId: string; updates: Partial<Omit<Memo, "id" | "record_id" | "created_at" | "updated_at">>; profileId: string }
-) {
+) => {
   // First, ensure the memo belongs to the user by checking its daily_record
   const { data: existingMemo, error: existingMemoError } = await client
     .from("memos")
@@ -442,9 +458,10 @@ export async function updateMemo(
   return data as Memo; 
 }
 
-export async function deleteMemo(
+export const deleteMemo = async (
+  client: pkg.SupabaseClient<Database>,
   { memoId, profileId }: { memoId: string; profileId: string }
-) {
+) => {
    // First, ensure the memo belongs to the user by checking its daily_record
   const { data: existingMemo, error: existingMemoError } = await client
     .from("memos")
@@ -521,9 +538,10 @@ export async function deleteMemo(
 
 // == Utility / Aggregation Queries ==
 
-export async function getDatesWithRecords(
+export const getDatesWithRecords = async (
+  client: pkg.SupabaseClient<Database>,
     { profileId, year, month }: { profileId: string; year: number; month: number }
-  ): Promise<{ date: string }[]> {
+  ): Promise<{ date: string }[]> => {
     const startDate = DateTime.fromObject({ year, month, day: 1 }).toISODate();
     const endDate = DateTime.fromObject({ year, month, day: 1 }).endOf('month').toISODate();
   

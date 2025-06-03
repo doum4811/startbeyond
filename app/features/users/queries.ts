@@ -1,5 +1,6 @@
-import client from "~/supa-client";
-import type { Database } from "database.types";
+import pkg from '@supabase/supabase-js';
+import type { Database } from 'database.types';
+// import type { Database } from "~/supa-client";
 
 // Types from database.types.ts
 type ProfileTable = Database['public']['Tables']['profiles'];
@@ -23,9 +24,10 @@ const PROFILE_COLUMNS = `
 
 // == Profiles ==
 
-export async function getProfileById(
+export const getProfileById = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId }: { profileId: string }
-) {
+) => {
   const { data, error } = await client
     .from("profiles")
     .select(PROFILE_COLUMNS)
@@ -40,9 +42,10 @@ export async function getProfileById(
   return data;
 }
 
-export async function getProfileByUsername(
+export const getProfileByUsername = async (
+  client: pkg.SupabaseClient<Database>,
   { username }: { username: string }
-) {
+) => {
   const { data, error } = await client
     .from("profiles")
     .select(PROFILE_COLUMNS)
@@ -57,9 +60,10 @@ export async function getProfileByUsername(
   return data;
 }
 
-export async function updateProfile(
+export const updateProfile = async (
+  client: pkg.SupabaseClient<Database>,
   { profileId, updates }: { profileId: string; updates: ProfileUpdate }
-) {
+) => {
   // Ensure profile_id from updates is not overriding the path/session profileId
   const { profile_id, ...safeUpdates } = updates;
   
@@ -102,3 +106,26 @@ export async function updateProfile(
 // Note: Profile creation is typically handled by a database trigger 
 // (e.g., handle_new_user) when a new user signs up in auth.users table.
 // Direct creation of a profile via API might be less common unless specific admin tools are built. 
+
+export const getUserById = async (
+  client: pkg.SupabaseClient<Database>,
+  { id }: { id: string }
+) => {
+  const { data, error } = await client
+    .from("profiles")
+    .select(
+      `
+        profile_id,
+        full_name,
+        username,
+        avatar_url 
+        `
+    )
+    .eq("profile_id", id)
+    .single();
+  if (error) {
+    if (error.code === 'PGRST116') return null; // Not found
+    throw error;
+  }
+  return data;
+};

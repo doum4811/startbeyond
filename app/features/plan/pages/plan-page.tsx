@@ -7,13 +7,24 @@ import { DateTime } from "luxon";
 
 import * as planQueries from "~/features/plan/queries";
 import * as dailyQueries from "~/features/daily/queries";
+import { makeSSRClient } from "~/supa-client";
 // Assuming a common way to get profileId, adjust if necessary
 // import { getProfileId } from "~/utils/auth"; 
 
 // Placeholder for getProfileId - replace with your actual implementation
-async function getProfileId(_request?: Request): Promise<string> {
-  // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; // Mock profileId
-  return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// async function getProfileId(_request?: Request): Promise<string> {
+//   // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; // Mock profileId
+//   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// }
+async function getProfileId(request: Request): Promise<string> {
+  const { client } = makeSSRClient(request);
+  const { data: { user } } = await client.auth.getUser();
+  
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+  
+  return user.id;
 }
 
 export interface PlanOverviewLoaderData {
@@ -38,6 +49,7 @@ export const meta: MetaFunction = () => {
 };
 
 export async function loader({ request }: LoaderFunctionArgs): Promise<PlanOverviewLoaderData> {
+  const { client } = makeSSRClient(request);
   const profileId = await getProfileId(request);
   const today = DateTime.now();
   const tomorrow = today.plus({ days: 1 }).toISODate();
@@ -45,12 +57,12 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<PlanOverv
   const currentMonthStartDate = today.startOf('month').toISODate();
 
   const [tomorrowsPlansResult, weeklyTasksResult, monthlyGoalsResult, dailyNoteResult, weeklyNoteResult, monthlyReflectionResult] = await Promise.all([
-    planQueries.getDailyPlansByDate({ profileId, date: tomorrow! }),
-    planQueries.getWeeklyTasksByWeek({ profileId, weekStartDate: currentWeekStartDate! }),
-    planQueries.getMonthlyGoalsByMonth({ profileId, monthDate: currentMonthStartDate! }),
-    dailyQueries.getDailyNotesByDate({ profileId, date: today.toISODate()! }),
-    planQueries.getWeeklyNoteByWeek({ profileId, weekStartDate: currentWeekStartDate! }),
-    planQueries.getMonthlyReflectionByMonth({ profileId, monthDate: currentMonthStartDate! })
+    planQueries.getDailyPlansByDate(client, { profileId, date: tomorrow! }),
+    planQueries.getWeeklyTasksByWeek(client, { profileId, weekStartDate: currentWeekStartDate! }),
+    planQueries.getMonthlyGoalsByMonth(client, { profileId, monthDate: currentMonthStartDate! }),
+    dailyQueries.getDailyNotesByDate(client, { profileId, date: today.toISODate()! }),
+    planQueries.getWeeklyNoteByWeek(client, { profileId, weekStartDate: currentWeekStartDate! }),
+    planQueries.getMonthlyReflectionByMonth(client, { profileId, monthDate: currentMonthStartDate! })
   ]);
 
   const tomorrowsPlans = tomorrowsPlansResult || [];

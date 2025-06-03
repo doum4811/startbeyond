@@ -9,10 +9,21 @@ import { Label } from "~/common/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/common/components/ui/select"; // Assuming select is available
 import { createCommunityPost } from "~/features/community/queries";
 import type { CommunityPostInsert } from "~/features/community/queries";
+import { makeSSRClient } from "~/supa-client";
 
 // Dummy profile ID for now
-async function getProfileId(_request: Request): Promise<string> {
-  return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a"; 
+// async function getProfileId(_request: Request): Promise<string> {
+//   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a"; 
+// }
+async function getProfileId(request: Request): Promise<string> {
+  const { client } = makeSSRClient(request);
+  const { data: { user } } = await client.auth.getUser();
+  
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+  
+  return user.id;
 }
 
 export const meta: MetaFunction = () => {
@@ -28,6 +39,7 @@ interface ActionResponse {
 }
 
 export async function action({ request }: ActionFunctionArgs): Promise<Response | ActionResponse> {
+  const { client } = makeSSRClient(request);
   const profileId = await getProfileId(request);
   const formData = await request.formData();
   const title = formData.get("title") as string;
@@ -51,7 +63,7 @@ export async function action({ request }: ActionFunctionArgs): Promise<Response 
       content,
       category,
     };
-    const newPost = await createCommunityPost(postData);
+    const newPost = await createCommunityPost(client, postData);
     if (newPost && newPost.id) {
       return redirect(`/community/${newPost.id}`);
     }

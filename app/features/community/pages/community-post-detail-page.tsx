@@ -10,6 +10,7 @@ import type { CommunityPostWithAuthor, CommunityCommentWithAuthor, CommunityComm
 import { DateTime } from "luxon";
 import { useState, useEffect } from "react";
 import { Trash2 } from "lucide-react";
+import { makeSSRClient } from "~/supa-client";
 
 export interface CommunityPostDetailPageLoaderData {
   post: CommunityPostWithAuthor | null;
@@ -24,8 +25,18 @@ interface ActionResponse {
   intent?: string;
 }
 
-async function getProfileId(_request: Request): Promise<string> {
-  return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a"; // Replace with actual profile ID
+// async function getProfileId(_request: Request): Promise<string> {
+//   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a"; // Replace with actual profile ID
+// }
+async function getProfileId(request: Request): Promise<string> {
+  const { client } = makeSSRClient(request);
+  const { data: { user } } = await client.auth.getUser();
+  
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+  
+  return user.id;
 }
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
@@ -38,13 +49,14 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
 };
 
 export async function loader({ request, params }: LoaderFunctionArgs): Promise<CommunityPostDetailPageLoaderData> {
+  const { client } = makeSSRClient(request);
   const profileId = await getProfileId(request);
   const postId = params.postId;
   if (!postId) {
     throw new Response("Post not found", { status: 404 });
   }
-  const post = await getCommunityPostById({ postId });
-  const comments = await getCommentsByPostId({ postId });
+  const post = await getCommunityPostById(client, { postId });
+  const comments = await getCommentsByPostId(client, { postId });
   
   if (!post) {
     throw new Response("Post not found", { status: 404 });
@@ -53,6 +65,7 @@ export async function loader({ request, params }: LoaderFunctionArgs): Promise<C
 }
 
 export async function action({ request, params }: ActionFunctionArgs): Promise<Response | ActionResponse> {
+  const { client } = makeSSRClient(request);
   const profileId = await getProfileId(request);
   const postId = params.postId;
   const formData = await request.formData();
@@ -71,7 +84,7 @@ export async function action({ request, params }: ActionFunctionArgs): Promise<R
         profile_id: profileId,
         content,
       };
-      const newComment = await createCommunityComment(commentData);
+      const newComment = await createCommunityComment(client, commentData);
       if (!newComment || !newComment.id) {
         return { ok: false, error: "Failed to create comment.", intent };
       }
@@ -79,14 +92,14 @@ export async function action({ request, params }: ActionFunctionArgs): Promise<R
     } else if (intent === "deleteComment") {
       const commentId = formData.get("commentId") as string;
       if (!commentId) return { ok: false, error: "Comment ID is missing for deletion.", intent };
-      await deleteCommunityComment({ commentId, profileId });
+      await deleteCommunityComment(client, { commentId, profileId });
       return { ok: true, commentId, intent };
     } else if (intent === "deletePost") {
-      const post = await getCommunityPostById({ postId });
+      const post = await getCommunityPostById(client, { postId });
       if (post?.profile_id !== profileId) {
         return { ok: false, error: "You are not authorized to delete this post.", intent };
       }
-      await deleteCommunityPost({ postId, profileId });
+      await deleteCommunityPost(client, { postId, profileId });
       return redirect("/community");
     }
     return { ok: false, error: "Unknown intent.", intent };
