@@ -9,6 +9,45 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      category_stats: {
+        Row: {
+          category_code: string
+          count: number
+          created_at: string
+          id: string
+          percentage: number
+          period_end: string
+          period_start: string
+          profile_id: string
+          total_duration: number
+          updated_at: string
+        }
+        Insert: {
+          category_code: string
+          count?: number
+          created_at?: string
+          id?: string
+          percentage?: number
+          period_end: string
+          period_start: string
+          profile_id: string
+          total_duration?: number
+          updated_at?: string
+        }
+        Update: {
+          category_code?: string
+          count?: number
+          created_at?: string
+          id?: string
+          percentage?: number
+          period_end?: string
+          period_start?: string
+          profile_id?: string
+          total_duration?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       community_comments: {
         Row: {
           content: string
@@ -88,6 +127,39 @@ export type Database = {
             referencedColumns: ["profile_id"]
           },
         ]
+      }
+      daily_activity: {
+        Row: {
+          categories: Json
+          count: number
+          created_at: string
+          date: string
+          id: string
+          profile_id: string
+          total_duration: number
+          updated_at: string
+        }
+        Insert: {
+          categories?: Json
+          count?: number
+          created_at?: string
+          date: string
+          id?: string
+          profile_id: string
+          total_duration?: number
+          updated_at?: string
+        }
+        Update: {
+          categories?: Json
+          count?: number
+          created_at?: string
+          date?: string
+          id?: string
+          profile_id?: string
+          total_duration?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       daily_notes: {
         Row: {
@@ -390,6 +462,45 @@ export type Database = {
           },
         ]
       }
+      monthly_summary: {
+        Row: {
+          active_days: number
+          created_at: string
+          id: string
+          month: string
+          most_active_category: string | null
+          most_active_category_percentage: number | null
+          profile_id: string
+          total_duration: number
+          total_records: number
+          updated_at: string
+        }
+        Insert: {
+          active_days?: number
+          created_at?: string
+          id?: string
+          month: string
+          most_active_category?: string | null
+          most_active_category_percentage?: number | null
+          profile_id: string
+          total_duration?: number
+          total_records?: number
+          updated_at?: string
+        }
+        Update: {
+          active_days?: number
+          created_at?: string
+          id?: string
+          month?: string
+          most_active_category?: string | null
+          most_active_category_percentage?: number | null
+          profile_id?: string
+          total_duration?: number
+          total_records?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -444,7 +555,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          id?: string
+          id: string
           include_daily_notes?: boolean
           include_memos?: boolean
           include_records?: boolean
@@ -466,15 +577,37 @@ export type Database = {
           share_link_token?: string | null
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "share_settings_profile_id_profiles_profile_id_fk"
-            columns: ["profile_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["profile_id"]
-          },
-        ]
+        Relationships: []
+      }
+      stats_cache: {
+        Row: {
+          activity_heatmap: Json | null
+          category_distribution: Json
+          created_at: string
+          id: string
+          month_date: string
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          activity_heatmap?: Json | null
+          category_distribution: Json
+          created_at?: string
+          id: string
+          month_date: string
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          activity_heatmap?: Json | null
+          category_distribution?: Json
+          created_at?: string
+          id?: string
+          month_date?: string
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_categories: {
         Row: {
@@ -486,7 +619,7 @@ export type Database = {
           is_active: boolean
           label: string
           profile_id: string
-          sort_order: number
+          sort_order: number | null
           updated_at: string
         }
         Insert: {
@@ -498,7 +631,7 @@ export type Database = {
           is_active?: boolean
           label: string
           profile_id: string
-          sort_order?: number
+          sort_order?: number | null
           updated_at?: string
         }
         Update: {
@@ -510,7 +643,7 @@ export type Database = {
           is_active?: boolean
           label?: string
           profile_id?: string
-          sort_order?: number
+          sort_order?: number | null
           updated_at?: string
         }
         Relationships: [

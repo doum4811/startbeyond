@@ -9,11 +9,12 @@ export default [
         route("weekly", "features/plan/pages/weekly-page.tsx"),
         route("monthly", "features/plan/pages/monthly-page.tsx"),
     ]),
-    route("stats-old", "features/stats/pages/stats-page-old.tsx"),
+    // route("stats-old", "features/stats/pages/stats-page-old.tsx"),
     ...prefix("stats", [
         route("summary", "features/stats/pages/summary-page.tsx"),
         route("category", "features/stats/pages/category-page.tsx"),
         route("advanced", "features/stats/pages/advanced-page.tsx"),
+        route("records", "features/stats/pages/records-page.tsx"),
     ]),
     ...prefix("community", [
         index("features/community/pages/community-page.tsx"),
@@ -30,6 +31,7 @@ export default [
             route("/start", "features/auth/pages/otp-start-page.tsx"),
             route("/complete", "features/auth/pages/otp-complete-page.tsx"),
           ]),
+          route("/logout", "features/auth/pages/logout-page.tsx"),
           ...prefix("/social/:provider", [
             route("/start", "features/auth/pages/social-start-page.tsx"),
             route("/complete", "features/auth/pages/social-complete-page.tsx"),

@@ -53,11 +53,11 @@ const menus = [
             // }        
         ]
     },
-    {
-        name: "Stats-old",
-        to: "/stats-old",
-        icon: LineChartIcon,
-    },
+    // {
+    //     name: "Stats-old",
+    //     to: "/stats-old",
+    //     icon: LineChartIcon,
+    // },
     {
         name: "Stats",
         to: "/stats/summary",
@@ -69,6 +69,11 @@ const menus = [
                 to: "/stats/summary"
             },
             {
+                name: "records",
+                description: "기록 검색",
+                to: "/stats/records"
+            },
+            {
                 name: "category",
                 description: "카테고리별 상세 통계",
                 to: "/stats/category"
@@ -77,7 +82,7 @@ const menus = [
                 name: "advanced",
                 description: "히트맵, 시간대별 분석 등",
                 to: "/stats/advanced"
-            },
+            }, 
         ]
     },
     {

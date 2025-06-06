@@ -1,5 +1,4 @@
-import React from "react";
-import type { ReactElement } from "react";
+import React, { type ReactElement, useState, useEffect } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
@@ -7,7 +6,7 @@ import { Switch } from "../ui/switch";
 import { Label } from "../ui/label";
 import { Checkbox } from "../ui/checkbox";
 import { PDFDownloadLink } from "@react-pdf/renderer";
-import { Share2, Copy, Check, Calendar as CalendarIcon } from "lucide-react";
+import { Share2, Copy, Check, Calendar as CalendarIcon, Download } from "lucide-react";
 
 interface ShareSettings {
   isPublic: boolean;
@@ -46,6 +45,12 @@ export function StatsPageHeader({
   pdfFileName,
   periodButton,
 }: StatsPageHeaderProps) {
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   return (
     <div className="flex items-center justify-between mb-6">
       <div>
@@ -138,14 +143,14 @@ export function StatsPageHeader({
             <CalendarIcon className="w-4 h-4 mr-2" /> 기간 선택
           </Button>
         )}
-        {pdfDocument && (
+        {isClient && pdfDocument && (
           <PDFDownloadLink
             document={pdfDocument}
             fileName={pdfFileName}
           >
             {({ loading }) => (
               <Button variant="outline" size="sm" disabled={loading}>
-                <CalendarIcon className="w-4 h-4 mr-2" />
+                <Download className="w-4 h-4 mr-2" />
                 {loading ? "PDF 생성 중..." : "PDF 다운로드"}
               </Button>
             )}

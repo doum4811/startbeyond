@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "~/common/components/ui/card";
-import { DateTime } from "luxon";
+import { Button } from "~/common/components/ui/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { UICategory } from "~/common/types/daily";
 import type { MonthlyDayRecord } from "../types";
@@ -11,74 +11,78 @@ interface Props {
   onToggleDate: (date: string) => void;
 }
 
-export default function MonthlyRecordsListView({ data, categories, expandedDates, onToggleDate }: Props) {
+export function MonthlyRecordsListView({ data, categories, expandedDates, onToggleDate }: Props) {
   return (
     <div className="space-y-4">
-      {data.length === 0 && (
-        <div className="text-center text-muted-foreground py-8">기록이 없습니다</div>
-      )}
-      {data.map((day) => {
-        const displayDate = DateTime.fromISO(day.date).toFormat("yyyy-MM-dd (ccc)");
-        const isOpen = expandedDates.has(day.date);
-        return (
+      {data.map((day) => (
           <Card key={day.date}>
-            <CardHeader className="cursor-pointer" onClick={() => onToggleDate(day.date)}>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <span>{displayDate}</span>
-                  <span className="text-sm font-normal text-muted-foreground">{day.records.length}개의 기록</span>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {new Date(day.date).toLocaleDateString("ko-KR", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                weekday: "long",
+              })}
                 </CardTitle>
-                {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onToggleDate(day.date)}
+            >
+              {expandedDates.has(day.date) ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
             </CardHeader>
-            {isOpen && (
+          {expandedDates.has(day.date) && (
               <CardContent>
                 <div className="space-y-4">
-                  <div className="space-y-2">
                     {day.records.map((record) => {
-                      const cat = categories.find(c => c.code === record.category_code);
+                  const category = categories.find(c => c.code === record.category_code);
                       return (
-                        <div key={record.id} className="flex items-center gap-4 p-3 border rounded-lg">
-                          <span className="text-2xl">{cat?.icon || "❓"}</span>
+                    <div key={record.id} className="flex items-start gap-4">
+                      <div className="w-24 flex-shrink-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{category?.icon}</span>
+                          <span className="text-sm font-medium">{category?.label}</span>
+                        </div>
+                      </div>
                           <div className="flex-1">
-                            <div className="font-medium">{cat?.label || record.category_code}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {record.subcode && <span>{record.subcode} • </span>}
-                              {record.duration && <span>{record.duration}분 • </span>}
+                        <div className="text-sm">
+                          {record.duration && `${record.duration}분 • `}
                               {record.comment}
+                          {record.subcode && ` (${record.subcode})`}
                             </div>
+                        {record.memos.length > 0 && (
+                          <div className="mt-2 space-y-2">
+                            {record.memos.map((memo) => (
+                              <div key={memo.id} className="text-sm text-muted-foreground">
+                                <div className="font-medium">{memo.title}</div>
+                                <div>{memo.content}</div>
                           </div>
-                          <div className="text-sm text-muted-foreground">
-                            {record.created_at ? new Date(record.created_at).toLocaleTimeString() : ""}
+                            ))}
+                          </div>
+                        )}
                           </div>
                         </div>
                       );
                     })}
-                  </div>
                   {day.dailyNote && (
-                    <div className="p-3 border rounded-lg">
-                      <div className="text-sm font-medium mb-1">일일 메모</div>
-                      <div className="text-sm text-muted-foreground whitespace-pre-line">{day.dailyNote}</div>
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="text-sm font-medium mb-2">일일 메모</div>
+                    <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {day.dailyNote}
                     </div>
-                  )}
-                  {day.memos.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="text-sm font-medium">상세 메모</div>
-                      {day.memos.map((memo) => (
-                        <div key={memo.id} className="p-3 border rounded-lg">
-                          <div className="font-medium mb-1">{memo.title || "메모"}</div>
-                          <div className="text-sm text-muted-foreground whitespace-pre-line">{memo.content || ""}</div>
-                          <div className="text-xs text-muted-foreground mt-2">{memo.created_at ? new Date(memo.created_at).toLocaleString() : ""}</div>
-                        </div>
-                      ))}
                     </div>
                   )}
                 </div>
               </CardContent>
             )}
           </Card>
-        );
-      })}
+      ))}
     </div>
   );
 } 

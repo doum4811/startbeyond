@@ -1,171 +1,249 @@
 // app/features/stats/pages/advanced-page.tsx
 import React, { useState } from "react";
-import { useNavigate } from "react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "~/common/components/ui/card";
-import { TimeAnalysisChart } from "~/common/components/stats/time-analysis-chart";
-import { CategoryDistributionChart } from "~/common/components/stats/category-distribution-chart";
+import { type LoaderFunctionArgs, type MetaFunction } from "react-router";
 import { DateTime } from "luxon";
+import { Card, CardContent, CardHeader, CardTitle } from "~/common/components/ui/card";
 import { StatsPageHeader } from "~/common/components/stats/stats-page-header";
-import { PDFDownloadLink, Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import type { CategoryCode } from "~/common/types/daily";
-import { CategoryHeatmapGrid, type HeatmapData } from "~/common/components/stats/category-heatmap-grid";
+import { CategoryHeatmapGrid } from "~/common/components/stats/category-heatmap-grid";
+import { CategoryDistributionChart } from "~/common/components/stats/category-distribution-chart";
+import { makeSSRClient } from "~/supa-client";
+import { getUserCategories } from "~/features/settings/queries";
+import * as statsQueries from "~/features/stats/queries";
+import type { AdvancedPageLoaderData, HeatmapData, ActivityHeatmap as ActivityHeatmapType } from "~/features/stats/types";
+import type { CategoryCode, UICategory } from "~/common/types/daily";
+import { CATEGORIES as DEFAULT_CATEGORIES } from "~/common/types/daily";
 
-// Mock 데이터
-const mockTimeData = [
-  { date: "2024-03-01", categories: { EX: 2, BK: 1, ML: 1, EM: 0, ST: 0, WK: 0, HB: 0, SL: 0, RT: 0 }, total: 4 },
-  { date: "2024-03-02", categories: { EX: 1, BK: 2, ML: 0, EM: 1, ST: 0, WK: 0, HB: 0, SL: 0, RT: 0 }, total: 4 },
-];
+// Mock Categories (fallback if DB fetch fails)
+const MOCK_UI_CATEGORIES: UICategory[] = Object.values(DEFAULT_CATEGORIES).map(cat => ({
+  ...cat,
+  isCustom: false,
+  isActive: true,
+  sort_order: cat.sort_order || 999,
+  hasDuration: true,
+}));
 
-const mockCategoryData = [
-  { category: "EX" as CategoryCode, count: 30, duration: 45, percentage: 35 },
-  { category: "BK" as CategoryCode, count: 20, duration: 30, percentage: 25 },
-  { category: "ML" as CategoryCode, count: 15, duration: 20, percentage: 20 },
-  { category: "EM" as CategoryCode, count: 10, duration: 15, percentage: 15 },
-  { category: "ST" as CategoryCode, count: 5, duration: 10, percentage: 5 },
-];
-
-const allCategoryCodes = ["EX", "BK", "ML", "EM", "ST", "WK", "HB", "SL", "RT"] as const;
-const yearlyCategoryHeatmapData = Object.fromEntries(
-  allCategoryCodes.map(code => [
-    code,
-    Array.from({ length: 365 }, (_, i) => ({
-      date: DateTime.now().minus({ days: i }).toFormat("yyyy-MM-dd"),
-      intensity: Math.random(),
-      categories: {
-        EX: 0, BK: 0, ML: 0, EM: 0, ST: 0, WK: 0, HB: 0, SL: 0, RT: 0,
-        [code]: Math.floor(Math.random() * 3),
-      }
-    }))
-  ])
-) as Record<CategoryCode, HeatmapData[]>;
-
-const categories = [
-  { code: "EX" as CategoryCode, label: "운동", icon: "🏃" },
-  { code: "BK" as CategoryCode, label: "독서", icon: "📚" },
-  { code: "ML" as CategoryCode, label: "명상", icon: "🧘" },
-  { code: "EM" as CategoryCode, label: "영어", icon: "🇬🇧" },
-];
-
-interface ShareSettings {
-  isPublic: boolean;
-  includeRecords: boolean;
-  includeDailyNotes: boolean;
-  includeMemos: boolean;
-  includeStats: boolean;
+async function getProfileId(request: Request): Promise<string | null> {
+  try {
+    const { client } = makeSSRClient(request);
+    const { data: { user } } = await client.auth.getUser();
+    return user?.id || null;
+  } catch (error) {
+    console.warn("Failed to get profileId in advanced-page loader:", error);
+    return null;
+  }
 }
 
-const initialShareSettings: ShareSettings = {
-  isPublic: false,
-  includeRecords: true,
-  includeDailyNotes: true,
-  includeMemos: false,
-  includeStats: true,
+export const loader = async ({ request }: LoaderFunctionArgs): Promise<AdvancedPageLoaderData> => {
+  let profileId: string | null = null;
+  let uiCategories: UICategory[] = MOCK_UI_CATEGORIES;
+  const { client } = makeSSRClient(request);
+
+  try {
+    profileId = await getProfileId(request);
+    if (profileId) {
+      const dbUserCategories = await getUserCategories(client, { profileId });
+      if (dbUserCategories && dbUserCategories.length > 0) {
+        const fetchedCategories = dbUserCategories.map(cat => ({
+          code: cat.code as CategoryCode,
+          label: cat.label,
+          icon: cat.icon || '❓',
+          color: cat.color,
+          isCustom: true, 
+          isActive: cat.is_active ?? true,
+          sort_order: cat.sort_order ?? 1000,
+          hasDuration: true, 
+        }));
+        uiCategories = fetchedCategories.length > 0 ? fetchedCategories : MOCK_UI_CATEGORIES;
+      }
+    }
+  } catch (error) {
+    console.error("Error fetching categories in advanced-page loader:", error);
+  }
+
+  const currentYear = DateTime.now().year;
+  const activeCategories = uiCategories.filter(c => c.isActive);
+  const activeCategoryCodes = activeCategories.map(c => c.code as CategoryCode);
+  
+  const yearlyCategoryHeatmapData = Object.fromEntries(
+    activeCategoryCodes.map(code => [code, [] as HeatmapData[]])
+  ) as Record<CategoryCode, HeatmapData[]>;
+
+  if (profileId) {
+    const startDate = DateTime.fromObject({ year: currentYear }).startOf('year').toISODate()!;
+    const endDate = DateTime.fromObject({ year: currentYear }).endOf('year').toISODate()!;
+    
+    const yearlyActivity: ActivityHeatmapType[] = await statsQueries.calculateActivityHeatmap(client, { profileId, startDate, endDate });
+
+    const activityByDate: { [date: string]: ActivityHeatmapType } = {};
+    for (const day of yearlyActivity) {
+        activityByDate[day.date] = day;
+    }
+
+    let maxCategoryIntensity = 1;
+    for (const day of yearlyActivity) {
+      for (const catCode in day.categories) {
+        if (day.categories[catCode as CategoryCode] > maxCategoryIntensity) {
+          maxCategoryIntensity = day.categories[catCode as CategoryCode];
+        }
+      }
+    }
+    
+    for (const code of activeCategoryCodes) {
+        const categoryYearlyData: HeatmapData[] = [];
+        let currentDate = DateTime.fromObject({ year: currentYear }).startOf('year');
+        
+        while (currentDate.year === currentYear) {
+            const dateStr = currentDate.toISODate()!;
+            const dayData = activityByDate[dateStr];
+            const categoryCount = dayData?.categories[code] || 0;
+            
+            categoryYearlyData.push({
+                date: dateStr,
+                intensity: categoryCount / maxCategoryIntensity,
+                categories: { [code]: categoryCount } as Record<CategoryCode, number>,
+                total: categoryCount,
+            });
+            currentDate = currentDate.plus({ days: 1 });
+        }
+        yearlyCategoryHeatmapData[code] = categoryYearlyData;
+    }
+  } else {
+    // For non-logged-in users, data is already initialized with empty arrays.
+    // We can fill with empty day placeholders if needed, but for now this is fine.
+    activeCategoryCodes.forEach(code => {
+        const dailyData = Array.from({ length: 365 }, (_, i) => {
+            const date = DateTime.now().startOf('year').plus({ days: i });
+            return {
+              date: date.toFormat("yyyy-MM-dd"),
+              intensity: 0,
+              categories: {} as Record<CategoryCode, number>,
+              total: 0,
+            } as HeatmapData;
+          });
+        yearlyCategoryHeatmapData[code] = dailyData;
+    });
+  }
+
+  const usedCategoryCodes = new Set(Object.keys(yearlyCategoryHeatmapData).filter(code => 
+    yearlyCategoryHeatmapData[code as CategoryCode].some(day => day.total > 0)
+  ));
+
+  const categoriesForGrid = uiCategories.filter(c => usedCategoryCodes.has(c.code));
+
+  const mockCategoryDistributionData = [
+    { category: "EX" as CategoryCode, count: 120, duration: 3600, percentage: 30 },
+    { category: "BK" as CategoryCode, count: 80, duration: 4800, percentage: 25 },
+    { category: "WK" as CategoryCode, count: 150, duration: 7200, percentage: 35 },
+    { category: "RT" as CategoryCode, count: 50, duration: 1800, percentage: 10 },
+  ];
+
+  return {
+    profileId,
+    categories: categoriesForGrid,
+    currentYear,
+    yearlyCategoryHeatmapData,
+    mockCategoryData: mockCategoryDistributionData,
+  };
 };
 
-// PDF Dummy 컴포넌트 (히트맵 요약)
-const AdvancedStatsPDF = () => (
-  <Document>
-    <Page size="A4" style={pdfStyles.page}>
-      <View style={pdfStyles.header}>
-        <Text style={pdfStyles.title}>심화 통계 (히트맵 요약)</Text>
-        <Text style={pdfStyles.date}>{DateTime.now().toFormat("yyyy년 MM월")}</Text>
-      </View>
-      <View style={pdfStyles.section}>
-        <Text style={pdfStyles.sectionTitle}>카테고리별 연간 활동 히트맵</Text>
-        <Text>카테고리별 연간 데이터 요약 (mock)</Text>
-      </View>
-    </Page>
-  </Document>
-);
+export const meta: MetaFunction<typeof loader> = ({ data }) => {
+  const pageData = data as AdvancedPageLoaderData | undefined;
+  return [
+    { title: `Advanced Statistics ${pageData?.currentYear || ""} - StartBeyond` },
+    { name: "description", content: `View advanced statistics including yearly heatmaps for ${pageData?.currentYear || ""}.` },
+  ];
+};
 
-const pdfStyles = StyleSheet.create({
-  page: { padding: 30, fontFamily: "Helvetica" },
-  header: { marginBottom: 20 },
-  title: { fontSize: 24, marginBottom: 10 },
-  date: { fontSize: 14, color: "#666" },
-  section: { marginBottom: 20 },
-  sectionTitle: { fontSize: 18, marginBottom: 10 },
-});
+interface AdvancedStatsPageProps {
+  loaderData: AdvancedPageLoaderData;
+}
 
-export default function AdvancedStatsPage() {
-  const [shareSettings, setShareSettings] = useState<ShareSettings>(initialShareSettings);
+export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps) {
+  const { 
+    categories,
+    currentYear,
+    yearlyCategoryHeatmapData,
+    mockCategoryData
+  } = loaderData;
+
+  const [shareSettings, setShareSettings] = useState({
+    isPublic: false,
+    includeRecords: true,
+    includeDailyNotes: true,
+    includeMemos: false,
+    includeStats: true,
+  });
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  const navigate = useNavigate();
 
-  function handleShareSettingsChange(key: keyof ShareSettings, value: boolean) {
+  const handleShareSettingsChange = (key: string, value: boolean) => {
     setShareSettings(prev => ({ ...prev, [key]: value }));
-  }
-  function handleCopyLink() {
-    const mockLink = "https://startbeyond.com/share/advanced/abc123";
-    navigator.clipboard.writeText(mockLink);
-    setIsCopied(true);
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText("mock/share/link/advanced");
+    setIsCopied(true); 
     setTimeout(() => setIsCopied(false), 2000);
-  }
+  };
+
+  const distributionChartCategories = categories.filter(c => 
+    mockCategoryData.length > 0 && 
+    mockCategoryData.find(dataItem => dataItem.category === c.code)
+  );
 
   return (
-    <div className="max-w-7xl mx-auto py-12 px-4 bg-background min-h-screen">
+    <div className="max-w-7xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen space-y-8">
       <StatsPageHeader
-        title="심화 통계 (유료)"
-        description="더 자세한 통계와 분석을 위해 프리미엄으로 업그레이드하세요."
-        shareSettings={shareSettings}
-        onShareSettingsChange={handleShareSettingsChange}
+        title={`Advanced Statistics (${currentYear})`}
+        shareSettings={shareSettings as any} 
+        onShareSettingsChange={handleShareSettingsChange as any}
         isShareDialogOpen={isShareDialogOpen}
         setIsShareDialogOpen={setIsShareDialogOpen}
         isCopied={isCopied}
         onCopyLink={handleCopyLink}
-        shareLink="https://startbeyond.com/share/advanced/abc123"
-        pdfDocument={<AdvancedStatsPDF />}
-        pdfFileName={`advanced-report-${DateTime.now().toFormat("yyyy-MM")}.pdf`}
+        shareLink="mock/share/link/advanced"
+        pdfFileName={`advanced-stats-${currentYear}.pdf`}
       />
 
-        {/* 카테고리별 히트맵 그리드 */}
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>카테고리별 연간 활동 히트맵</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CategoryHeatmapGrid
-              year={2025}
-              data={yearlyCategoryHeatmapData}
-              categories={categories}
+      <Card>
+        <CardHeader>
+          <CardTitle>Yearly Category Activity Heatmap ({currentYear})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {categories && categories.length > 0 && yearlyCategoryHeatmapData ? (
+            <CategoryHeatmapGrid 
+              year={currentYear} 
+              data={yearlyCategoryHeatmapData} 
+              categories={categories} 
             />
-          </CardContent>
-        </Card>
+          ) : (
+            <p>No category data available to display heatmap.</p>
+          )}
+        </CardContent>
+      </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* 시간대별 분석 섹션 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>시간대별 분석</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TimeAnalysisChart data={mockTimeData} />
-          </CardContent>
-        </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Category Distribution (Mock Data)</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[350px]">
+          {distributionChartCategories.length > 0 ? (
+            <CategoryDistributionChart data={mockCategoryData} categories={distributionChartCategories} />
+          ) : (
+            <p className="text-center text-muted-foreground pt-12">No data for category distribution chart.</p>
+          )}
+        </CardContent>
+      </Card>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Monthly/Weekly Comparison (Placeholder)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">Placeholder for Monthly/Weekly Comparison charts and data.</p>
+        </CardContent>
+      </Card>
 
-        {/* 카테고리 분포 섹션 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>카테고리 분포</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CategoryDistributionChart data={mockCategoryData} />
-          </CardContent>
-        </Card>
-
-        {/* 월간/주간 비교 섹션 */}
-        <Card>
-          <CardHeader>
-            <CardTitle>월간/주간 비교</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-              비교 차트 자리 (프리미엄 전용)
-            </div>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }

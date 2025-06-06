@@ -15,6 +15,41 @@
       "when": 1748803123795,
       "tag": "0001_peaceful_switch",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1749126254944,
+      "tag": "0002_good_boom_boom",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1749127320489,
+      "tag": "0003_daily_deadpool",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1749129190209,
+      "tag": "0004_unusual_nextwave",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1749129841260,
+      "tag": "0005_petite_boom_boom",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1749143424760,
+      "tag": "0006_broken_expediter",
+      "breakpoints": true
     }
   ]
 }

@@ -1,13 +1,14 @@
-import { useState, useMemo, useCallback } from "react";
-import { Popover, PopoverContent, PopoverTrigger } from "~/common/components/ui/popover";
+import { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "~/common/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/common/components/ui/tabs";
 import { Button } from "~/common/components/ui/button";
 import { Input } from "~/common/components/ui/input";
-import { Search, Filter } from "lucide-react";
-import type { MonthlyDayRecord } from "~/features/daily/types";
+import { Search, List, Grid, ChevronsDown, ChevronsUp } from "lucide-react";
 import type { UICategory } from "~/common/types/daily";
-import MonthlyRecordsFilter from "./MonthlyRecordsFilter";
-import MonthlyRecordsListView from "./MonthlyRecordsListView";
-import MonthlyRecordsGridView from "./MonthlyRecordsGridView";
+import type { MonthlyDayRecord } from "../types";
+import { MonthlyRecordsFilter } from "./MonthlyRecordsFilter";
+import { MonthlyRecordsListView } from "./MonthlyRecordsListView";
+import { MonthlyRecordsGridView } from "./MonthlyRecordsGridView";
 
 interface Props {
   monthlyRecordsForDisplay: MonthlyDayRecord[];
@@ -20,7 +21,7 @@ export default function MonthlyRecordsTab({ monthlyRecordsForDisplay, categories
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
 
-  const toggleDate = useCallback((date: string) => {
+  function toggleDate(date: string) {
     setExpandedDates(prev => {
       const next = new Set(prev);
       if (next.has(date)) {
@@ -30,103 +31,103 @@ export default function MonthlyRecordsTab({ monthlyRecordsForDisplay, categories
       }
       return next;
     });
-  }, []);
+  }
 
-  const toggleCategory = useCallback((code: string) => {
+  function toggleCategory(category: string) {
     setSelectedCategories(prev => {
       const next = new Set(prev);
-      if (next.has(code)) {
-        next.delete(code);
+      if (next.has(category)) {
+        next.delete(category);
       } else {
-        next.add(code);
+        next.add(category);
       }
       return next;
     });
-  }, []);
+  }
 
-  const clearFilters = useCallback(() => {
-    setSelectedCategories(new Set());
+  function clearFilters() {
     setSearchQuery("");
-  }, []);
+    setSelectedCategories(new Set());
+  }
 
-  const filterRecords = useCallback((data: MonthlyDayRecord[]) => {
-    return data.filter(day => {
-      // Category filter
-      if (selectedCategories.size > 0) {
-        const hasSelectedCategory = day.records.some(r => 
-          selectedCategories.has(r.category_code)
-        );
-        if (!hasSelectedCategory) return false;
-      }
-
-      // Search filter
-      if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        const matches = 
-          day.records.some(r => 
-            (r.comment || "").toLowerCase().includes(q) ||
-            (r.subcode || "").toLowerCase().includes(q)
+  function filterRecords(records: MonthlyDayRecord[]) {
+    return records.filter(record => {
+      const matchesSearch = searchQuery === "" || 
+        record.records.some(r => 
+          r.comment?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          r.subcode?.toLowerCase().includes(searchQuery.toLowerCase())
           ) ||
-          (day.dailyNote || "").toLowerCase().includes(q) ||
-          day.memos.some(m =>
-            (m.title || "").toLowerCase().includes(q) ||
-            (m.content || "").toLowerCase().includes(q)
+        record.dailyNote?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        record.memos.some(m => 
+          m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          m.content.toLowerCase().includes(searchQuery.toLowerCase())
           );
-        if (!matches) return false;
-      }
 
-      return true;
+      const matchesCategories = selectedCategories.size === 0 ||
+        record.records.some(r => selectedCategories.has(r.category_code));
+
+      return matchesSearch && matchesCategories;
     });
-  }, [selectedCategories, searchQuery]);
+  }
 
-  const filteredRecords = useMemo(() => 
-    filterRecords(monthlyRecordsForDisplay),
-    [filterRecords, monthlyRecordsForDisplay]
-  );
+  const filteredRecords = filterRecords(monthlyRecordsForDisplay);
+
+  function handleExpandAll() {
+    const allDates = new Set(filteredRecords.map(r => r.date));
+    setExpandedDates(allDates);
+  }
+
+  function handleCollapseAll() {
+    setExpandedDates(new Set());
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="relative">
+        <div className="flex items-center gap-2 flex-wrap">
             <Input
-              placeholder="검색..."
+            placeholder="검색어를 입력하세요"
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-64 pl-9"
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-[300px]"
             />
-            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-          </div>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="icon">
-                <Filter className="w-4 h-4" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80">
               <MonthlyRecordsFilter
                 categories={categories}
                 selectedCategories={selectedCategories}
                 onToggleCategory={toggleCategory}
                 onClear={clearFilters}
               />
-            </PopoverContent>
-          </Popover>
         </div>
         <div className="flex items-center gap-2">
+           <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExpandAll}
+          >
+            <ChevronsDown className="h-4 w-4 mr-2" />
+            전체 열기
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCollapseAll}
+          >
+            <ChevronsUp className="h-4 w-4 mr-2" />
+            전체 접기
+          </Button>
           <Button
             variant={viewMode === "list" ? "default" : "outline"}
-            size="sm"
+            size="icon"
             onClick={() => setViewMode("list")}
           >
-            목록
+            <List className="h-4 w-4" />
           </Button>
           <Button
             variant={viewMode === "grid" ? "default" : "outline"}
-            size="sm"
+            size="icon"
             onClick={() => setViewMode("grid")}
           >
-            그리드
+            <Grid className="h-4 w-4" />
           </Button>
         </div>
       </div>

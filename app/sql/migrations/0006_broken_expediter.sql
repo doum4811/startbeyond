@@ -1,0 +1,1 @@
+ALTER TABLE "stats_cache" DROP COLUMN "time_analysis";

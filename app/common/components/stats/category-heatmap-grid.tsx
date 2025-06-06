@@ -1,47 +1,35 @@
 import React from "react";
 import { ActivityHeatmap } from "./activity-heatmap";
 import { DateTime } from "luxon";
-import type { CategoryCode } from "~/common/types/daily";
+import type { CategoryCode, UICategory } from "~/common/types/daily";
+import { Card } from "~/common/components/ui/card";
+import type { ActivityHeatmap as ActivityHeatmapType } from "~/features/stats/queries";
 
-export interface HeatmapData {
-  date: string; // yyyy-MM-dd
-  intensity: number;
-  categories: {
-    [key in CategoryCode]: number;
-  };
-}
-
-interface CategoryInfo {
-  code: CategoryCode;
-  label: string;
-  icon: string;
-}
-
-interface CategoryHeatmapGridProps {
+interface Props {
   year: number;
-  data: Record<CategoryCode, HeatmapData[]>;
-  categories: CategoryInfo[];
+  data: Record<CategoryCode, ActivityHeatmapType[]>;
+  categories: UICategory[];
 }
 
-export function CategoryHeatmapGrid({ year, data, categories }: CategoryHeatmapGridProps) {
-  const startDate = DateTime.fromObject({ year, month: 1, day: 1 });
-  const endDate = DateTime.fromObject({ year, month: 12, day: 31 });
+export function CategoryHeatmapGrid({ year, data, categories }: Props) {
+  const startDate = DateTime.fromObject({ year }).startOf("year");
+  const endDate = DateTime.fromObject({ year }).endOf("year");
 
   return (
-    <div className="space-y-4">
-      <div className="text-3xl font-bold mb-2">{year}</div>
+    <div className="space-y-6">
       {categories.map((cat) => (
-        <div key={cat.code} className="mb-2">
-          <div className="flex items-center mb-1">
-            <span className="text-xl mr-2">{cat.icon}</span>
-            <span className="font-semibold text-base">{cat.label}</span>
-          </div>
+        <div key={cat.code}>
+          <h3 className="text-lg font-medium mb-2 flex items-center">
+            {cat.icon} <span className="ml-2">{cat.label}</span>
+          </h3>
+          <div className="p-1 border rounded-md overflow-x-auto">
           <ActivityHeatmap
-            data={data[cat.code] || []}
+              data={data[cat.code as CategoryCode] || []}
             startDate={startDate}
             endDate={endDate}
-            compact
+              compact={true}
           />
+          </div>
         </div>
       ))}
     </div>
