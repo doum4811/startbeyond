@@ -174,7 +174,7 @@ export default function Navigation({
         {isLoggedIn? 
         <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" asChild className="relative">
-                <Link to="/my/notifications">
+                <Link to="/notifications">
                 <BellIcon className="size-4" />
                 {/* {hasNotifications && <div className="absolute top-1.5 right-1.5 bg-red-500 text-white rounded-full text-xs w-4 h-4 flex items-center justify-center">1</div>} */}
                 {hasNotifications && <div className="absolute top-1.5 right-1.5 size-2 bg-red-500 rounded-full"></div>}
@@ -217,7 +217,7 @@ export default function Navigation({
                     Dashboard</Link>
                 </DropdownMenuItem> */}
                 <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link to="/my/profile">
+                    <Link to={`/users/${username}`}>
                     <UserIcon className="size-4 mr-2" />
                     Profile</Link>
                 </DropdownMenuItem>
@@ -279,17 +279,19 @@ export default function Navigation({
         <SheetFooter className="border-t pt-4 flex justify-around">
           {isLoggedIn ? (
             <>
-              <Link to="/my/notifications" className="relative">
+              <Link to="/notifications" className="relative">
                 <BellIcon className="h-5 w-5" />
                 {hasNotifications && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500" />}
               </Link>
-              <Link to="/my/messages" className="relative">
+              <Link to="/messages" className="relative">
                 <MessageCircleIcon className="h-5 w-5" />
                 {hasMessages && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500" />}
               </Link>
-              <Avatar>
-                {avatar ? <AvatarImage src={avatar} /> : <AvatarFallback>{name?.[0]}</AvatarFallback>}
-              </Avatar>
+              <Link to={`/users/${username}`}>
+                <Avatar>
+                  {avatar ? <AvatarImage src={avatar} /> : <AvatarFallback>{name?.[0]}</AvatarFallback>}
+                </Avatar>
+              </Link>
             </>
           ) : (
             <>

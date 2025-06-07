@@ -85,7 +85,7 @@ export interface AdvancedPageLoaderData {
   categories: UICategory[]; 
   currentYear: number;
   yearlyCategoryHeatmapData: Record<CategoryCode, HeatmapData[]>;
-  mockCategoryData: any[]; // Using any for now for mock data flexibility
+  categoryDistribution: CategoryDistribution[];
 }
 
 export namespace Route {

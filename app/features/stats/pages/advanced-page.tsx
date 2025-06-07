@@ -130,19 +130,19 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<AdvancedP
 
   const categoriesForGrid = uiCategories.filter(c => usedCategoryCodes.has(c.code));
 
-  const mockCategoryDistributionData = [
-    { category: "EX" as CategoryCode, count: 120, duration: 3600, percentage: 30 },
-    { category: "BK" as CategoryCode, count: 80, duration: 4800, percentage: 25 },
-    { category: "WK" as CategoryCode, count: 150, duration: 7200, percentage: 35 },
-    { category: "RT" as CategoryCode, count: 50, duration: 1800, percentage: 10 },
-  ];
+  const categoryDistribution = profileId ? await statsQueries.calculateCategoryDistribution(client, {
+    profileId,
+    startDate: DateTime.fromObject({ year: currentYear }).startOf('year').toISODate()!,
+    endDate: DateTime.fromObject({ year: currentYear }).endOf('year').toISODate()!,
+  }) : [];
+
 
   return {
     profileId,
     categories: categoriesForGrid,
     currentYear,
     yearlyCategoryHeatmapData,
-    mockCategoryData: mockCategoryDistributionData,
+    categoryDistribution,
   };
 };
 
@@ -163,7 +163,7 @@ export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps
     categories,
     currentYear,
     yearlyCategoryHeatmapData,
-    mockCategoryData
+    categoryDistribution
   } = loaderData;
 
   const [shareSettings, setShareSettings] = useState({
@@ -187,8 +187,8 @@ export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps
   };
 
   const distributionChartCategories = categories.filter(c => 
-    mockCategoryData.length > 0 && 
-    mockCategoryData.find(dataItem => dataItem.category === c.code)
+    categoryDistribution.length > 0 && 
+    categoryDistribution.find(dataItem => dataItem.category === c.code)
   );
 
   return (
@@ -224,11 +224,11 @@ export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps
 
       <Card>
         <CardHeader>
-          <CardTitle>Category Distribution (Mock Data)</CardTitle>
+          <CardTitle>Yearly Category Distribution ({currentYear})</CardTitle>
         </CardHeader>
         <CardContent className="h-[350px]">
           {distributionChartCategories.length > 0 ? (
-            <CategoryDistributionChart data={mockCategoryData} categories={distributionChartCategories} />
+            <CategoryDistributionChart data={categoryDistribution} categories={distributionChartCategories} />
           ) : (
             <p className="text-center text-muted-foreground pt-12">No data for category distribution chart.</p>
           )}
