@@ -128,6 +128,42 @@ export type Database = {
           },
         ]
       }
+      conversations: {
+        Row: {
+          created_at: string
+          id: string
+          participant1_id: string
+          participant2_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          participant1_id: string
+          participant2_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          participant1_id?: string
+          participant2_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_participant1_id_profiles_profile_id_fk"
+            columns: ["participant1_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "conversations_participant2_id_profiles_profile_id_fk"
+            columns: ["participant2_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
       daily_activity: {
         Row: {
           categories: Json
@@ -374,6 +410,48 @@ export type Database = {
           },
         ]
       }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          is_read: boolean
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_conversations_id_fk"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_profiles_profile_id_fk"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
       monthly_goals: {
         Row: {
           category_code: string
@@ -501,6 +579,51 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          actor_id: string | null
+          created_at: string
+          id: string
+          is_read: boolean
+          recipient_id: string
+          resource_url: string | null
+          type: string
+        }
+        Insert: {
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          recipient_id: string
+          resource_url?: string | null
+          type: string
+        }
+        Update: {
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          recipient_id?: string
+          resource_url?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_actor_id_profiles_profile_id_fk"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "notifications_recipient_id_profiles_profile_id_fk"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -582,7 +705,7 @@ export type Database = {
       stats_cache: {
         Row: {
           activity_heatmap: Json | null
-          category_distribution: Json
+          category_distribution: Json | null
           created_at: string
           id: string
           month_date: string
@@ -591,7 +714,7 @@ export type Database = {
         }
         Insert: {
           activity_heatmap?: Json | null
-          category_distribution: Json
+          category_distribution?: Json | null
           created_at?: string
           id: string
           month_date: string
@@ -600,7 +723,7 @@ export type Database = {
         }
         Update: {
           activity_heatmap?: Json | null
-          category_distribution?: Json
+          category_distribution?: Json | null
           created_at?: string
           id?: string
           month_date?: string

@@ -5,7 +5,7 @@ import type { DailyPageLoaderData } from "../types";
 import type { DailyRecordUI, DailyPlanUI } from "../types";
 import { CalendarPopover } from "./calendar-popover";
 import { PlanBanner } from "./plan-banner";
-import { DailyRecordForm } from "./daily-record-form";
+// import { DailyRecordForm } from "./daily-record-form";
 import { DailyRecordList } from "./daily-record-list";
 import { DailyNotesSection } from "./daily-notes-section";
 import { ActivateCategoryDialog } from "./activate-category-dialog";

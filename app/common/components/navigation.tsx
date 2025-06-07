@@ -5,10 +5,10 @@ import { cn } from "~/lib/utils";
 import { DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "./ui/dropdown-menu";
 import { Button } from "./ui/button";
 import { DropdownMenu } from "./ui/dropdown-menu";
-import { BarChart3Icon, BellIcon, LogOutIcon, MessageCircleIcon, SettingsIcon, UserIcon, HomeIcon, CalendarDaysIcon, LineChartIcon } from "lucide-react";
+import { BarChart3Icon, BellIcon, LogOutIcon, MessageCircleIcon, SettingsIcon, UserIcon, HomeIcon, CalendarDaysIcon, LineChartIcon, MenuIcon, X as CloseIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-// import { CategoryHeatmapGrid } from "./ui/category-heatmap-grid";
-// import { ActivityHeatmap } from "./ui/activity-heatmap";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
+import { Sheet, SheetTrigger, SheetContent, SheetClose, SheetFooter } from "./ui/sheet";
 
 const menus = [
     {
@@ -110,8 +110,21 @@ export default function Navigation({
             avatar?: string | null;
             name?: string;
         } 
-) {
-    return <nav className="flex px-20 h-16 items-center justify-between backdrop-blur fixed top-0 left-0 right-0 z-50 bg-background/70">
+) { return (
+    <Sheet>
+      {/* Mobile Navbar */}
+      <nav className="flex md:hidden px-5 h-16 items-center justify-between fixed top-0 left-0 right-0 bg-background/70 backdrop-blur z-50">
+        <Link to="/" className="text-lg font-bold">StartBeyond</Link>
+        <SheetTrigger asChild>
+          <Button variant="ghost" size="icon">
+            <MenuIcon className="h-6 w-6" />
+          </Button>
+        </SheetTrigger>
+      </nav>
+
+      {/* Desktop Navbar */}
+      <nav className="hidden md:flex px-8 h-16 items-center justify-between fixed top-0 left-0 right-0 bg-background/70 backdrop-blur z-50">
+    {/* return <nav className="flex px-20 h-16 items-center justify-between backdrop-blur fixed top-0 left-0 right-0 z-50 bg-background/70"> */}
         <div className="flex items-center gap-2">
             <Link to="/" className="font-bold tracking-tight text-lg">StartBeyond</Link>
             <Separator orientation="vertical" className="h-6 mx-4" />
@@ -232,5 +245,60 @@ export default function Navigation({
                     <Link to="/auth/join">Join</Link>
                 </Button>
             </div>} 
-    </nav>;
+    </nav>
+
+      {/* Mobile Sheet Menu */}
+      <SheetContent className="mt-16 p-4 flex flex-col justify-between h-[calc(100vh-4rem)]">
+        {/* <SheetClose asChild>
+          <Button variant="ghost" size="icon" className="self-end">
+            <CloseIcon className="h-6 w-6" />
+          </Button>
+        </SheetClose> */}
+        <div className="space-y-2">
+          {menus.map((menu) =>
+            menu.items ? (
+              <Accordion key={menu.name} type="single" collapsible>
+                <AccordionItem value={menu.name}>
+                  <AccordionTrigger className="py-2 text-base font-medium">{menu.name}</AccordionTrigger>
+                  <AccordionContent className="pl-4">
+                    {menu.items.map((item) => (
+                      <Link key={item.name} to={item.to} className="block py-2 text-sm hover:underline">
+                        {item.name} →
+                      </Link>
+                    ))}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            ) : (
+              <Link key={menu.name} to={menu.to} className="block py-3 text-base font-medium hover:underline">
+                {menu.name} →
+              </Link>
+            )
+          )}
+        </div>
+        <SheetFooter className="border-t pt-4 flex justify-around">
+          {isLoggedIn ? (
+            <>
+              <Link to="/my/notifications" className="relative">
+                <BellIcon className="h-5 w-5" />
+                {hasNotifications && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500" />}
+              </Link>
+              <Link to="/my/messages" className="relative">
+                <MessageCircleIcon className="h-5 w-5" />
+                {hasMessages && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500" />}
+              </Link>
+              <Avatar>
+                {avatar ? <AvatarImage src={avatar} /> : <AvatarFallback>{name?.[0]}</AvatarFallback>}
+              </Avatar>
+            </>
+          ) : (
+            <>
+              <Link to="/auth/login" className="text-sm font-medium">Login</Link>
+              <Link to="/auth/join" className="text-sm font-medium">Join</Link>
+            </>
+          )}
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+  );
 }

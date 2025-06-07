@@ -1,10 +1,11 @@
 import pkg from '@supabase/supabase-js';
 import type { Database } from 'database.types';
+import type { SupabaseClient } from "@supabase/supabase-js";
 // import type { Database } from "~/supa-client";
 
 // Types from database.types.ts
 type ProfileTable = Database['public']['Tables']['profiles'];
-type Profile = ProfileTable['Row'];
+export type Profile = ProfileTable['Row'];
 type ProfileInsert = ProfileTable['Insert']; // Usually handled by auth trigger
 type ProfileUpdate = ProfileTable['Update'];
 
@@ -129,3 +130,167 @@ export const getUserById = async (
   }
   return data;
 };
+
+export async function getUserProfile(
+  client: SupabaseClient<Database>,
+  { username }: { username: string }
+): Promise<Profile | null> {
+  const { data, error } = await client
+    .from("profiles")
+    .select("*")
+    .eq("username", username)
+    .single();
+
+  if (error) {
+    console.error("Error fetching user profile:", error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function getUserProfileById(
+  client: SupabaseClient<Database>,
+  { profileId }: { profileId: string }
+) {
+  const { data, error } = await client
+    .from("profiles")
+    .select(
+      `
+      profile_id,
+      username,
+      full_name,
+      avatar_url,
+      headline,
+      bio
+    `
+    )
+    .eq("profile_id", profileId)
+    .single();
+
+  if (error) {
+    console.error("Error fetching user profile by ID:", error);
+    return null;
+  }
+
+  return data;
+}
+
+export type Post = Database["public"]["Tables"]["community_posts"]["Row"];
+
+export async function getUserPosts(
+  client: SupabaseClient<Database>,
+  { userId }: { userId: string }
+): Promise<Post[] | null> {
+  const { data, error } = await client
+    .from("community_posts")
+    .select("*")
+    .eq("profile_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching user posts:", error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function getFollowStatus(
+  client: SupabaseClient<Database>,
+  { followerId, followingId }: { followerId: string; followingId: string }
+): Promise<{ isFollowing: boolean }> {
+  const { data, error, count } = await client
+    .from("follows")
+    .select("*", { count: "exact" })
+    .eq("follower_id", followerId)
+    .eq("following_id", followingId);
+
+  if (error) {
+    console.error("Error fetching follow status:", error);
+    return { isFollowing: false };
+  }
+
+  return { isFollowing: (count ?? 0) > 0 };
+}
+
+export async function getFollowCounts(
+  client: SupabaseClient<Database>,
+  { userId }: { userId: string }
+): Promise<{ followers: number; following: number }> {
+  const { count: followers, error: followersError } = await client
+    .from("follows")
+    .select("*", { count: "exact" })
+    .eq("following_id", userId);
+
+  const { count: following, error: followingError } = await client
+    .from("follows")
+    .select("*", { count: "exact" })
+    .eq("follower_id", userId);
+
+  if (followersError || followingError) {
+    console.error("Error fetching follow counts:", { followersError, followingError });
+    return { followers: 0, following: 0 };
+  }
+
+  return { followers: followers ?? 0, following: following ?? 0 };
+}
+
+export async function followUser(
+  client: SupabaseClient<Database>,
+  { followerId, followingId }: { followerId: string; followingId: string }
+) {
+  const { error } = await client
+    .from("follows")
+    .insert({ follower_id: followerId, following_id: followingId });
+
+  if (error) {
+    console.error("Error following user:", error);
+    throw new Error(error.message);
+  }
+}
+
+export async function unfollowUser(
+  client: SupabaseClient<Database>,
+  { followerId, followingId }: { followerId: string; followingId: string }
+) {
+  const { error } = await client
+    .from("follows")
+    .delete()
+    .eq("follower_id", followerId)
+    .eq("following_id", followingId);
+
+  if (error) {
+    console.error("Error unfollowing user:", error);
+    throw new Error(error.message);
+  }
+}
+
+export async function updateUserProfile(
+  client: SupabaseClient<Database>,
+  {
+    profileId,
+    updates,
+  }: {
+    profileId: string;
+    updates: {
+      full_name?: string;
+      headline?: string;
+      bio?: string;
+      avatar_url?: string;
+    };
+  }
+) {
+  const { data, error } = await client
+    .from("profiles")
+    .update(updates)
+    .eq("profile_id", profileId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating user profile:", error);
+    throw new Error(error.message);
+  }
+  return data;
+}

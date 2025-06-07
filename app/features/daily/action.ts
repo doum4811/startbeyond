@@ -6,22 +6,34 @@ import { getToday } from "./utils";
 import { isValidCategoryCode } from "./utils";
 import type { UICategory } from "./types";
 import type { CategoryCode } from "~/common/types/daily";
+import { makeSSRClient } from "~/supa-client";
 
 const MAX_MINUTES_PER_DAY = 60 * 24;
 
-async function getProfileId(_request?: Request): Promise<string> {
-  return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// async function getProfileId(_request?: Request): Promise<string> {
+//   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
+// }
+async function getProfileId(request: Request): Promise<string> {
+  const { client } = makeSSRClient(request);
+  const { data: { user } } = await client.auth.getUser();
+  
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+  
+  return user.id;
 }
 
 export async function action({ request }: ActionFunctionArgs) {
+  const { client } = makeSSRClient(request);
   const profileId = await getProfileId(request);
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
   const date = formData.get("date") as string || getToday();
 
   const [userCategoriesDb, userDefaultCodePreferencesDb] = await Promise.all([
-    settingsQueries.getUserCategories({ profileId }),
-    settingsQueries.getUserDefaultCodePreferences({ profileId })
+    settingsQueries.getUserCategories(client, { profileId }),
+    settingsQueries.getUserDefaultCodePreferences(client, { profileId })
   ]);
 
   const activeCategories: UICategory[] = [];
@@ -77,7 +89,7 @@ export async function action({ request }: ActionFunctionArgs) {
         linked_plan_id: null,
       };
       try {
-        const createdRecord = await dailyQueries.createDailyRecord(newRecord);
+        const createdRecord = await dailyQueries.createDailyRecord(client, newRecord);
         if (!createdRecord || !createdRecord.id) {
             return { ok: false, intent, error: "Failed to create record: No ID returned" };
         }
@@ -95,7 +107,7 @@ export async function action({ request }: ActionFunctionArgs) {
         is_public: isPublic,
       };
       try {
-        const updatedRecordDb = await dailyQueries.updateDailyRecord({ profileId, recordId, updates: updatedFields });
+        const updatedRecordDb = await dailyQueries.updateDailyRecord(client, { profileId, recordId, updates: updatedFields });
          if (!updatedRecordDb || !updatedRecordDb.id) {
             return { ok: false, intent, error: "Failed to update record: No ID returned" };
         }
@@ -130,7 +142,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
     try {
       if (intent === "updateDailyNote" && noteId) {
-        const updatedNoteDb = await dailyQueries.updateDailyNote({ profileId, noteId, content: contentValue }); 
+        const updatedNoteDb = await dailyQueries.updateDailyNote(client, { profileId, noteId, content: contentValue }); 
         if (!updatedNoteDb || !updatedNoteDb.id) return { ok: false, intent, error: "Failed to update note."};
         const updatedNote: DailyNoteUI = { 
             id: updatedNoteDb.id!, 
@@ -142,7 +154,7 @@ export async function action({ request }: ActionFunctionArgs) {
          }; 
         return { ok: true, intent: "updateDailyNote", updatedNote };
       } else if (intent === "saveDailyNote" && !noteId) { 
-        const newNoteDb = await dailyQueries.createDailyNote({ profile_id: profileId, date, content: contentValue });
+        const newNoteDb = await dailyQueries.createDailyNote(client, { profile_id: profileId, date, content: contentValue });
         if (!newNoteDb || !newNoteDb.id) return { ok: false, intent, error: "Failed to create note."};
         const newNote: DailyNoteUI = { 
             id:newNoteDb.id!, 
@@ -166,7 +178,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const noteId = formData.get("noteId") as string;
     if (!noteId) return { ok: false, intent, error: "Note ID is missing." };
     try {
-      await dailyQueries.deleteDailyNoteById({ profileId, noteId });
+      await dailyQueries.deleteDailyNoteById(client, { profileId, noteId });
       return { ok: true, intent, deletedNoteId: noteId };
     } catch (error: any) {
       console.error("Error deleting daily note:", error);
@@ -189,7 +201,7 @@ export async function action({ request }: ActionFunctionArgs) {
       content: content || "", 
     };
     try {
-      const createdMemoDb = await dailyQueries.createMemo(newMemo);
+      const createdMemoDb = await dailyQueries.createMemo(client, newMemo);
       if (!createdMemoDb || !createdMemoDb.id) return { ok: false, intent, error: "Failed to create memo."};
       const createdMemo: MemoUI = {
           id: createdMemoDb.id!,
@@ -212,7 +224,7 @@ export async function action({ request }: ActionFunctionArgs) {
     const recordId = formData.get("recordId") as string; 
     if (!memoId) return { ok: false, intent, error: "Memo ID is missing." };
     try {
-      await dailyQueries.deleteMemo({ profileId, memoId });
+      await dailyQueries.deleteMemo(client, { profileId, memoId });
       return { ok: true, intent, memoId, recordId };
     } catch (error: any) {
       console.error("Error deleting memo:", error);
@@ -253,7 +265,7 @@ export async function action({ request }: ActionFunctionArgs) {
     };
 
     try {
-      const createdRecord = await dailyQueries.createDailyRecord(newRecord);
+      const createdRecord = await dailyQueries.createDailyRecord(client, newRecord);
       if (!createdRecord || !createdRecord.id) {
         return { ok: false, intent, error: "Failed to create record from plan." };
       }
@@ -277,7 +289,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
     
     try {
-        await settingsQueries.upsertUserDefaultCodePreference({
+        await settingsQueries.upsertUserDefaultCodePreference(client, {
             profile_id: profileId,
             default_category_code: categoryToActivate,
             is_active: true
@@ -300,7 +312,7 @@ export async function action({ request }: ActionFunctionArgs) {
             is_public: false,
             linked_plan_id: planId,
         };
-        const createdRecord = await dailyQueries.createDailyRecord(newRecord);
+        const createdRecord = await dailyQueries.createDailyRecord(client, newRecord);
         if (!createdRecord || !createdRecord.id) {
             return { ok: false, intent, error: "Failed to create record after activating category." };
         }
@@ -352,7 +364,7 @@ export async function action({ request }: ActionFunctionArgs) {
       };
 
       try {
-        const createdRecord = await dailyQueries.createDailyRecord(newRecord);
+        const createdRecord = await dailyQueries.createDailyRecord(client,  newRecord);
         if (createdRecord && createdRecord.id) {
           results.push({ plan_id: plan.planId, success: true, record_id: createdRecord.id });
           addedRecordPlanIds.push(plan.planId);
@@ -383,7 +395,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     try {
-        const updatedRecordDb = await dailyQueries.updateDailyRecord({
+        const updatedRecordDb = await dailyQueries.updateDailyRecord(client, {
             profileId,
             recordId,
             updates: { subcode: newSubcode === '' ? null : newSubcode }

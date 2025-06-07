@@ -1,4 +1,3 @@
-
 import pkg from '@supabase/supabase-js';
 import type { Database } from "database.types";
 import { DateTime } from "luxon";
@@ -201,6 +200,25 @@ export const deleteDailyPlan = async (
   }
   return true;
 }
+
+export const getDailyPlansByPeriod = async (
+  client: pkg.SupabaseClient<Database>,
+  { profileId, startDate, endDate }: { profileId: string; startDate: string; endDate: string; }
+) => {
+  const { data, error } = await client
+    .from("daily_plans")
+    .select(DAILY_PLAN_COLUMNS)
+    .eq("profile_id", profileId)
+    .gte("plan_date", startDate)
+    .lte("plan_date", endDate)
+    .order("plan_date", { ascending: true });
+
+  if (error) {
+    console.error("Error fetching daily plans by period:", error.message);
+    throw new Error(error.message);
+  }
+  return data;
+};
 
 // == Weekly Tasks ==
 

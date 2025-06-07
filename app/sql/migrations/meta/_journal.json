@@ -50,6 +50,20 @@
       "when": 1749143424760,
       "tag": "0006_broken_expediter",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1749313785121,
+      "tag": "0007_new_changeling",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1749317230665,
+      "tag": "0008_spooky_bill_hollister",
+      "breakpoints": true
     }
   ]
 }
