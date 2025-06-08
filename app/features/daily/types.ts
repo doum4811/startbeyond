@@ -5,11 +5,11 @@ import type { DailyPlan as DbDailyPlan } from "~/features/plan/queries";
 export interface UICategory {
   code: string;
   label: string;
-  icon: string;
-  color?: string;
+  icon: string | null;
+  color?: string | null;
   isCustom: boolean;
   isActive: boolean;
-  hasDuration: boolean;
+  hasDuration?: boolean;
   sort_order?: number;
   subcodes?: Array<{ code: string; name: string; }>;
 }
@@ -28,7 +28,7 @@ export interface DailyRecordUI {
   updated_at?: string;
 }
 
-export interface DailyNoteUI {
+export interface DailyNoteUI extends Omit<DbDailyNote, "date" | "created_at" | "updated_at"> {
   id: string;
   date: string;
   content: string;
@@ -38,7 +38,8 @@ export interface DailyNoteUI {
 
 export interface MemoUI {
   id: string;
-  record_id: string;
+  record_id: string | null;
+  profile_id: string;
   title: string | null;
   content: string;
   created_at?: string;
@@ -73,12 +74,14 @@ export interface AddFormState {
   category_code: string;
   duration: string;
   comment: string;
+  is_public: boolean;
 }
 
 export const initialAddFormState: AddFormState = {
   category_code: "",
   duration: "",
-  comment: ""
+  comment: "",
+  is_public: false
 };
 
 export interface MonthlyDayRecord {

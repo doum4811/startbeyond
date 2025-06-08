@@ -6,7 +6,7 @@ import pkg from '@supabase/supabase-js';
 import type { Database } from "database.types";
 
 // import type { Database } from "database.types"; // Ensure this path is correct
-import type { DailyNoteUI } from "./pages/daily-page";
+import type { DailyNoteUI } from "./types";
 
 // Assuming your database.types.ts is at the root, if it's elsewhere adjust the import path.
 export type DailyRecordTable = Database['public']['Tables']['daily_records'];

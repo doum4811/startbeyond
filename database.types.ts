@@ -998,7 +998,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      track_event: {
+        Args: {
+          event_type: string
+          event_data: Json
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

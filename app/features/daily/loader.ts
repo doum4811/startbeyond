@@ -7,6 +7,8 @@ import { CATEGORIES, type CategoryCode, type Category } from "~/common/types/dai
 import type { DailyPageLoaderData, DailyRecordUI, DailyNoteUI, DailyPlanUI, MemoUI, UICategory } from "./types";
 import { getToday } from "./utils";
 import { makeSSRClient } from "~/supa-client";
+import type { DailyRecord as DbDailyRecord, DailyNote as DbDailyNote, Memo as DbMemo } from "~/features/daily/queries";
+import type { DailyPlan as DbDailyPlan } from "~/features/plan/queries";
 
 // async function getProfileId(_request?: Request): Promise<string> {
 //   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
@@ -44,30 +46,47 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPage
     settingsQueries.getUserDefaultCodePreferences(client, { profileId })
   ]);
 
-  const records: DailyRecordUI[] = (recordsData || []).map((r: any) => ({
-    ...r,
-    id: r.id!,
-    date: r.date || selectedDate,
+  const records: DailyRecordUI[] = (recordsData || []).map((r) => ({
+    id: r.id,
+    date: r.date,
+    category_code: r.category_code,
     duration: r.duration_minutes ?? undefined,
-    is_public: r.is_public ?? false,
     comment: r.comment ?? null,
     subcode: r.subcode ?? null,
+    is_public: r.is_public ?? false,
     linked_plan_id: r.linked_plan_id ?? null,
-    category_code: r.category_code
-  } as DailyRecordUI));
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  }));
 
-  const dailyNotes: DailyNoteUI[] = (dailyNotesData || []).map((note: any) => ({
-    ...note,
+  const dailyNotes: DailyNoteUI[] = (dailyNotesData || []).map((note) => ({
     id: note.id!,
     date: note.date || selectedDate,
     content: note.content,
     created_at: note.created_at,
     updated_at: note.updated_at
-  } as DailyNoteUI));
+  }));
 
-  const plansForBanner: DailyPlanUI[] = (plansForBannerData || []).map((p: any) => ({
-    ...p,
-    id: p.id!,
+  const recordIds = records.map((r) => r.id);
+  const memosData = await dailyQueries.getMemosByRecordIds(client, { profileId, recordIds });
+
+  const memos: MemoUI[] = (memosData || []).map((m) => ({
+    id: m.id,
+    record_id: m.record_id,
+    profile_id: m.profile_id,
+    title: m.title,
+    content: m.content,
+    created_at: m.created_at,
+    updated_at: m.updated_at,
+  }));
+  
+  const recordsWithMemos: DailyRecordUI[] = records.map((r) => ({
+    ...r,
+    memos: memos.filter((m) => m.record_id === r.id)
+  }));
+  
+  const plansForBanner: DailyPlanUI[] = (plansForBannerData || []).map((p) => ({
+    id: p.id,
     plan_date: p.plan_date || selectedDate,
     duration: p.duration_minutes ?? undefined,
     is_completed: p.is_completed ?? false,
@@ -76,15 +95,8 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPage
     category_code: p.category_code,
     profile_id: p.profile_id,
     linked_weekly_task_id: p.linked_weekly_task_id ?? null,
-  } as DailyPlanUI));
-
-  const recordIds = records.map((r: DailyRecordUI) => r.id).filter((id): id is string => typeof id === 'string');
-  const memosData = recordIds.length > 0 ? await dailyQueries.getMemosByRecordIds(client, { profileId, recordIds }) : [];
-  const memos: MemoUI[] = (memosData || []).map((m: any) => ({...m, id: m.id!})) as MemoUI[];
-
-  const recordsWithMemos: DailyRecordUI[] = records.map((r: DailyRecordUI) => ({
-    ...r,
-    memos: memos.filter((m: MemoUI) => m.record_id === r.id)
+    created_at: p.created_at,
+    updated_at: p.updated_at,
   }));
 
   const processedCategories: UICategory[] = [];
@@ -110,7 +122,7 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPage
     }
   }
 
-  (userCategoriesData || []).forEach((userCat: any) => {
+  (userCategoriesData || []).forEach((userCat: settingsQueries.UserCategory) => {
     const existingIndex = processedCategories.findIndex(c => c.code === userCat.code && !c.isCustom);
     if (existingIndex !== -1) {
       if(userCat.is_active) {

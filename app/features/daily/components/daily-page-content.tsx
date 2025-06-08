@@ -6,7 +6,7 @@ import type { DailyRecordUI, DailyPlanUI } from "../types";
 import { CalendarPopover } from "./calendar-popover";
 import { PlanBanner } from "./plan-banner";
 // import { DailyRecordForm } from "./daily-record-form";
-import { DailyRecordList } from "./daily-record-list";
+// import { DailyRecordList } from "./daily-record-list";
 import { DailyNotesSection } from "./daily-notes-section";
 import { ActivateCategoryDialog } from "./activate-category-dialog";
 import { AddMemoDialog } from "./add-memo-dialog";
@@ -254,7 +254,7 @@ export function DailyPage({ loaderData }: DailyPageProps) {
         />
       )}
       
-      <div id="daily-record-form-card">
+      {/* <div id="daily-record-form-card">
         <DailyRecordForm
           today={currentSelectedDate}
           profileId={profileId} 
@@ -265,7 +265,7 @@ export function DailyPage({ loaderData }: DailyPageProps) {
           initialFormState={initialAddFormState} 
           activeCategories={activeCategories} 
         />
-      </div>
+      </div> */}
       
       {fetcher.data && !fetcher.data.ok && fetcher.state === 'idle' && (
         <div className="my-4 p-3 bg-red-100 border border-red-400 text-red-700 dark:bg-red-900/30 dark:border-red-700 dark:text-red-300 rounded">
@@ -281,7 +281,7 @@ export function DailyPage({ loaderData }: DailyPageProps) {
         </div>
       )}
 
-      <DailyRecordList
+      {/* <DailyRecordList
         records={records}
         categories={allCategories}
         onEdit={handleRowClick}
@@ -289,15 +289,15 @@ export function DailyPage({ loaderData }: DailyPageProps) {
         onAddMemo={handleAddMemo}
         onDeleteMemo={handleDeleteMemo}
         onSubcodeChange={handleSubcodeChange}
-      />
+      /> */}
 
-      <DailyNotesSection 
+      {/* <DailyNotesSection 
         currentDailyNotes={dailyNotes}
         newNoteContent={newNoteContentForSection}
         setNewNoteContent={setNewNoteContentForSection}
         fetcher={fetcher} 
         today={currentSelectedDate}
-      />
+      /> */}
  
       <AddMemoDialog
         open={!!showAddMemoModalForRecordId}
