@@ -1,4 +1,4 @@
-import { pgTable, uuid, date, text, integer, boolean, timestamp, varchar } from "drizzle-orm/pg-core";
+import { pgTable, uuid, date, text, integer, boolean, timestamp, varchar, pgPolicy } from "drizzle-orm/pg-core";
 import { profiles } from '../users/schema';
 import { sql } from 'drizzle-orm';
 
@@ -14,7 +14,14 @@ export const dailyRecords = pgTable("daily_records", {
   linked_plan_id: uuid("linked_plan_id"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
-});
+}, (table) => ([
+  pgPolicy("daily_records_rls", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid() = ${table.profile_id}`,
+    withCheck: sql`auth.uid() = ${table.profile_id}`,
+  }),
+]));
 
 export const dailyNotes = pgTable("daily_notes", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -23,7 +30,14 @@ export const dailyNotes = pgTable("daily_notes", {
   content: text("content").notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
-});
+}, (table) => ([
+  pgPolicy("daily_notes_rls", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid() = ${table.profile_id}`,
+    withCheck: sql`auth.uid() = ${table.profile_id}`,
+  }),
+]));
 
 export const memos = pgTable("memos", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -33,4 +47,11 @@ export const memos = pgTable("memos", {
   content: text("content").notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
-});
+}, (table) => ([
+  pgPolicy("memos_rls", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid() = ${table.profile_id}`,
+    withCheck: sql`auth.uid() = ${table.profile_id}`,
+  }),
+]));

@@ -1,10 +1,12 @@
 import {
   boolean,
+  pgPolicy,
   pgTable,
   text,
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { profiles } from "~/features/users/schema";
 
 export const notifications = pgTable("notifications", {
@@ -21,4 +23,11 @@ export const notifications = pgTable("notifications", {
   created_at: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-}); 
+}, (table) => ({
+  rls: pgPolicy("notifications_rls", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid() = ${table.recipient_id}`,
+    withCheck: sql`auth.uid() = ${table.recipient_id}`,
+  }),
+})); 

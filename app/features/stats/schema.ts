@@ -1,7 +1,7 @@
 // import { pgTable, text, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 // import { sql } from "drizzle-orm";
 // import type { Database } from "~/types/supabase";
-import { pgTable, uuid, text, timestamp, varchar, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, varchar, boolean, jsonb, pgPolicy } from "drizzle-orm/pg-core";
 import { profiles } from '../users/schema'; // Assuming profiles schema exists
 import { sql } from 'drizzle-orm';
 import type pkg from '@supabase/supabase-js';
@@ -19,7 +19,14 @@ export const shareSettings = pgTable("share_settings", {
   share_link_token: text("share_link_token"),
   created_at: timestamp("created_at").notNull().defaultNow(),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  rls: pgPolicy("share_settings_rls", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid()::text = ${table.profile_id}`,
+    withCheck: sql`auth.uid()::text = ${table.profile_id}`,
+  }),
+}));
 
 export const statsCache = pgTable("stats_cache", {
   id: text("id").primaryKey().$defaultFn(() => sql`gen_random_uuid()`),
@@ -29,7 +36,14 @@ export const statsCache = pgTable("stats_cache", {
   activity_heatmap: jsonb("activity_heatmap"),
   created_at: timestamp("created_at").notNull().defaultNow(),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => ({
+  rls: pgPolicy("stats_cache_rls", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid()::text = ${table.profile_id}`,
+    withCheck: sql`auth.uid()::text = ${table.profile_id}`,
+  }),
+}));
 
 // Export derived types
 export type ShareSettingsInsert = typeof shareSettings.$inferInsert;

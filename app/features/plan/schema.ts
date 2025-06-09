@@ -1,4 +1,4 @@
-import { pgTable, uuid, date, text, integer, boolean, timestamp, varchar, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, date, text, integer, boolean, timestamp, varchar, jsonb, uniqueIndex, pgPolicy } from "drizzle-orm/pg-core";
 import { profiles } from '../users/schema';
 import { sql } from 'drizzle-orm';
 
@@ -14,7 +14,14 @@ export const dailyPlans = pgTable("daily_plans", {
   linked_weekly_task_id: uuid("linked_weekly_task_id"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
-});
+}, (table) => ({
+  rls: pgPolicy("daily_plans_rls", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid() = ${table.profile_id}`,
+    withCheck: sql`auth.uid() = ${table.profile_id}`,
+  }),
+}));
 
 export const weeklyTasks = pgTable("weekly_tasks", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -29,7 +36,14 @@ export const weeklyTasks = pgTable("weekly_tasks", {
   sort_order: integer("sort_order").default(0).notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
-});
+}, (table) => ({
+  rls: pgPolicy("weekly_tasks_rls", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid() = ${table.profile_id}`,
+    withCheck: sql`auth.uid() = ${table.profile_id}`,
+  }),
+}));
 
 export const weeklyNotes = pgTable("weekly_notes", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -41,7 +55,14 @@ export const weeklyNotes = pgTable("weekly_notes", {
   weekly_goal_note: text("weekly_goal_note"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
-});
+}, (table) => ({
+  rls: pgPolicy("weekly_notes_rls", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid() = ${table.profile_id}`,
+    withCheck: sql`auth.uid() = ${table.profile_id}`,
+  }),
+}));
 
 export const monthlyGoals = pgTable("monthly_goals", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -55,7 +76,14 @@ export const monthlyGoals = pgTable("monthly_goals", {
   is_completed: boolean("is_completed").default(false).notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
-});
+}, (table) => ({
+  rls: pgPolicy("monthly_goals_rls", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid() = ${table.profile_id}`,
+    withCheck: sql`auth.uid() = ${table.profile_id}`,
+  }),
+}));
 
 export const monthlyReflections = pgTable("monthly_reflections", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -65,8 +93,12 @@ export const monthlyReflections = pgTable("monthly_reflections", {
   monthly_notes: text("monthly_notes"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
-}, (table) => {
-  return {
-    profileMonthUnique: uniqueIndex('monthly_reflections_profile_month_idx').on(table.profile_id, table.month_date),
-  };
-});
+}, (table) => ({
+  profileMonthUnique: uniqueIndex('monthly_reflections_profile_month_idx').on(table.profile_id, table.month_date),
+  rls: pgPolicy("monthly_reflections_rls", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid() = ${table.profile_id}`,
+    withCheck: sql`auth.uid() = ${table.profile_id}`,
+  }),
+}));

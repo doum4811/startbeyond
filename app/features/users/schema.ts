@@ -8,10 +8,12 @@ import {
     uuid,
   } from "drizzle-orm/pg-core";
 import { sql } from 'drizzle-orm';
+import { authUsers } from "drizzle-orm/supabase";
+
   
-  const users = pgSchema("auth").table("users", {
-    id: uuid('id').primaryKey(),
-  });
+  // const users = pgSchema("auth").table("users", {
+  //   id: uuid('id').primaryKey(),
+  // });
   
 //   export const roles = pgEnum("role", [
 //     "developer",
@@ -24,7 +26,7 @@ import { sql } from 'drizzle-orm';
 export const profiles = pgTable("profiles", {
     profile_id: uuid('profile_id')
       .primaryKey()
-      .references(() => users.id, { onDelete: "cascade" }),
+      .references(() => authUsers.id, { onDelete: "cascade" }),
     avatar: text('avatar_url'),
     name: text('full_name').notNull(),
     username: text('username').notNull(),

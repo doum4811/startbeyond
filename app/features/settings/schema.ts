@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, varchar, integer, boolean, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, varchar, integer, boolean, timestamp, uniqueIndex, pgPolicy } from "drizzle-orm/pg-core";
 import { profiles } from '../users/schema';
 import { sql } from 'drizzle-orm';
 
@@ -14,7 +14,14 @@ export const userCategories = pgTable("user_categories", {
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
   // Consider adding: UNIQUE(profile_id, code)
-});
+}, (table) => ({
+  rls: pgPolicy("user_categories_rls", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid() = ${table.profile_id}`,
+    withCheck: sql`auth.uid() = ${table.profile_id}`,
+  }),
+}));
 
 export const userSubcodes = pgTable("user_subcodes", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -27,7 +34,14 @@ export const userSubcodes = pgTable("user_subcodes", {
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
   // Consider adding: UNIQUE(profile_id, parent_category_code, subcode)
-});
+}, (table) => ({
+  rls: pgPolicy("user_subcodes_rls", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid() = ${table.profile_id}`,
+    withCheck: sql`auth.uid() = ${table.profile_id}`,
+  }),
+}));
 
 export const userCodeSettings = pgTable("user_code_settings", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -37,7 +51,14 @@ export const userCodeSettings = pgTable("user_code_settings", {
   recommendation_source: varchar("recommendation_source", { length: 20 }).default("frequency").notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
-});
+}, (table) => ({
+  rls: pgPolicy("user_code_settings_rls", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid() = ${table.profile_id}`,
+    withCheck: sql`auth.uid() = ${table.profile_id}`,
+  }),
+}));
 
 export const userDefaultCodePreferences = pgTable("user_default_code_preferences", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -46,11 +67,15 @@ export const userDefaultCodePreferences = pgTable("user_default_code_preferences
   is_active: boolean("is_active").default(true).notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
-}, (table) => {
-  return {
-    profileDefaultCodeUnique: uniqueIndex('user_default_pref_profile_code_idx').on(table.profile_id, table.default_category_code),
-  };
-});
+}, (table) => ({
+  profileDefaultCodeUnique: uniqueIndex('user_default_pref_profile_code_idx').on(table.profile_id, table.default_category_code),
+  rls: pgPolicy("user_default_code_preferences_rls", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid() = ${table.profile_id}`,
+    withCheck: sql`auth.uid() = ${table.profile_id}`,
+  }),
+}));
 
 interface UICategory {
   code: string; // CategoryCode 또는 사용자 정의 코드
