@@ -57,4 +57,6 @@ export default [
           route("/posts", "features/users/pages/profile-posts-page.tsx"), // 필요함
         ]),
       ]),
+        // CRON Job API Route
+  route("api/cron/weekly-summary", "features/notifications/api/weekly-summary.ts"),
 ] satisfies RouteConfig;

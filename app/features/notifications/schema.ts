@@ -18,6 +18,7 @@ export const notifications = pgTable("notifications", {
     onDelete: "cascade",
   }),
   type: text("type").notNull(),
+  message: text("message").notNull(),
   resource_url: text("resource_url"),
   is_read: boolean("is_read").default(false).notNull(),
   created_at: timestamp("created_at", { withTimezone: true })
