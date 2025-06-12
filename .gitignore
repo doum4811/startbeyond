@@ -1,14 +1,19 @@
 # 환경 설정
 .env
 !.env.example
+.dev.vars
 
 # macOS
 .DS_Store
 
 # 의존성
-/node_modules/
+node_modules/
 
 # 빌드 및 캐시
-/build/
+build/
 .react-router/
 *.tsbuildinfo
+
+# 기타
+.exit.sql
+features/stats/pages/.stats-page.tsx

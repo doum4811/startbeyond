@@ -63,6 +63,7 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPage
     id: note.id!,
     date: note.date || selectedDate,
     content: note.content,
+    profile_id: profileId,
     created_at: note.created_at,
     updated_at: note.updated_at
   }));

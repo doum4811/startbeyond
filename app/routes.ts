@@ -56,6 +56,7 @@ export default [
           // route("/products", "features/users/pages/profile-products-page.tsx"), //필요없음
           route("/posts", "features/users/pages/profile-posts-page.tsx"), // 필요함
         ]),
+        route("/welcome", "features/users/pages/welcome-page.tsx"),
       ]),
         // CRON Job API Route
   route("api/cron/weekly-summary", "features/notifications/api/weekly-summary.ts"),
