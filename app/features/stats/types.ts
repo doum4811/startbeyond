@@ -55,10 +55,11 @@ export interface SummaryPageLoaderData {
   subcodeDistribution: SubcodeDistribution[];
   categories: UICategory[];
   timeOfDayDistribution: TimeOfDayDistribution;
-  prevMonthCategoryDistribution: CategoryDistribution[];
+  prevMonthCategoryDistribution: { category_code: string; count: number; duration: number }[];
   currentMonthGoalStats: GoalCompletionStats;
   prevMonthGoalStats: GoalCompletionStats;
   summaryInsights: SummaryInsights;
+  locale: string;
 }
 
 export interface ShareSettings {
@@ -111,3 +112,7 @@ export type {
   SubcodeDistribution,
   GoalCompletionStats,
 } from "./queries"; 
+
+export interface ShareableStatsData {
+  // ... existing code ...
+} 

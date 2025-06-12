@@ -86,7 +86,7 @@ function getCurrentMonthStartDateISO(dateParam?: string | null): string {
 }
 
 function getMonthName(dateISO: string, t: any, i18n: any): string {
-    const dt = DateTime.fromISO(dateISO);
+    const dt = DateTime.fromISO(dateISO).setLocale(i18n.language);
     if (i18n.language === 'ko') {
         return dt.toFormat("yyyy년 M월");
     }

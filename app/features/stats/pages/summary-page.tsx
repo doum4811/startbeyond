@@ -20,6 +20,7 @@ import { SubcodeDistributionChart } from "~/common/components/stats/subcode-dist
 import { CategoryDistributionList } from "../components/CategoryDistributionList";
 import { SubcodeDistributionList } from "../components/SubcodeDistributionList";
 import type { SummaryPageLoaderData } from '../types';
+import i18next from "i18next";
 
 // Register a font for PDF (Optional, but good for Korean characters)
 // Ensure you have a font file (e.g., NotoSansKR-Regular.ttf) in your project
@@ -236,21 +237,30 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<SummaryPa
     subcodeDistribution,
     categories: processedCategories,
     timeOfDayDistribution,
-    prevMonthCategoryDistribution,
+    prevMonthCategoryDistribution: prevMonthCategoryDistribution.map(item => ({
+      category_code: item.category,
+      count: item.count,
+      duration: item.duration,
+    })),
     currentMonthGoalStats,
     prevMonthGoalStats,
     summaryInsights,
+    locale: i18next.language,
   };
 };
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   const pageData = data as SummaryPageLoaderData | undefined;
-  const monthName = pageData?.selectedMonthISO ? DateTime.fromFormat(pageData.selectedMonthISO, "yyyy-MM").toFormat("MMMM yyyy") : "Stats";
-  // Translation in meta function is tricky. For now, keeping it static Korean.
-  // A better approach would involve passing locale from the loader.
+  if (!pageData) return [];
+  
+  const currentMonth = DateTime.fromFormat(pageData.selectedMonthISO, "yyyy-MM").setLocale(pageData.locale);
+  const monthName = pageData.locale === 'ko' ? currentMonth.toFormat("yyyy년 M월") : currentMonth.toFormat("MMMM yyyy");
+  const title = pageData.locale === 'ko' ? `월간 요약 ${monthName} - StartBeyond` : `Monthly Summary ${monthName} - StartBeyond`;
+  const description = pageData.locale === 'ko' ? `${monthName} 활동 요약입니다.` : `Activity summary for ${monthName}.`;
+
   return [
-    { title: `월간 요약 ${monthName} - StartBeyond` },
-    { name: "description", content: `${monthName} 활동 요약입니다.` },
+    { title },
+    { name: "description", content: description },
   ];
 };
 
@@ -272,7 +282,7 @@ export default function SummaryStatsPage() {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
-  const currentMonth = DateTime.fromFormat(selectedMonthISO, "yyyy-MM");
+  const currentMonth = DateTime.fromFormat(selectedMonthISO, "yyyy-MM").setLocale(i18n.language);
   const prevMonthISO = currentMonth.minus({ months: 1 }).toFormat("yyyy-MM");
   const nextMonthISO = currentMonth.plus({ months: 1 }).toFormat("yyyy-MM");
   const monthNameForDisplay = i18n.language === 'ko' ? currentMonth.toFormat("yyyy년 M월") : currentMonth.toFormat("MMMM yyyy");

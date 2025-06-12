@@ -11,6 +11,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react
 import { Switch } from "~/common/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "~/common/components/ui/popover";
 import { Calendar } from "~/common/components/ui/calendar";
+import { useTranslation } from "react-i18next";
 
 import * as planQueries from "~/features/plan/queries";
 import type { 
@@ -68,9 +69,9 @@ function getCurrentWeekStartDateISO(): string {
   return DateTime.now().startOf('week').toISODate();
 }
 
-function getWeekRangeString(startDateISO: string): string {
-  const start = DateTime.fromISO(startDateISO);
-  const end = start.endOf('week');
+function getWeekRangeString(startDateISO: string, locale?: string): string {
+  const start = DateTime.fromISO(startDateISO).setLocale(locale || 'en');
+  const end = start.endOf('week').setLocale(locale || 'en');
   return `${start.toFormat('yyyy.MM.dd (ccc)')} ~ ${end.toFormat('yyyy.MM.dd (ccc)')}`;
 }
 
@@ -542,6 +543,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
     categories
   } = loaderData;
 
+  const { t, i18n } = useTranslation();
   const editFetcher = useFetcher<Awaited<ReturnType<typeof action>>>();
   const deleteFetcher = useFetcher<Awaited<ReturnType<typeof action>>>();
   const dayToggleFetcher = useFetcher<Awaited<ReturnType<typeof action>>>();
@@ -805,7 +807,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
     });
 
     if (tasksToAddFromGoals.length === 0) {
-      alert("All relevant monthly goal tasks for this week have already been added or there are no tasks to add.");
+      alert(t('weekly_page.all_monthly_added_alert'));
       return;
     }
 
@@ -825,10 +827,14 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
     monthlyGoalFetcher.state !== 'idle' ||
     notesFetcher.state !== 'idle';
 
+  if (!i18n.isInitialized) {
+    return null;
+  }
+
   return (
     <div className="max-w-5xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-bold text-3xl">Weekly Plan</h1>
+        <h1 className="font-bold text-3xl">{t('weekly_page.title')}</h1>
         <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={() => handleWeekNavigate('prev')}>
                 <ChevronLeft className="h-4 w-4" />
@@ -840,7 +846,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                         className="w-[280px] justify-start text-left font-normal"
                     >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {getWeekRangeString(currentWeekStartDate)}
+                        {getWeekRangeString(currentWeekStartDate, i18n.language)}
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -855,7 +861,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
             </Button>
         </div>
         <Button asChild variant="ghost" size="sm">
-            <Link to="/plan/tomorrow">To Tomorrow's Plan</Link>
+            <Link to="/plan/tomorrow">{t('weekly_page.to_tomorrows_plan')}</Link>
         </Button>
       </div>
 
@@ -864,8 +870,8 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
              <Card>
                 <CardHeader className="cursor-pointer py-4" onClick={() => setIsMonthlyGoalsCollapsed(false)}>
                     <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">Monthly Goals for this Week ({monthlyGoalsForWeek.length})</CardTitle>
-                        <Button variant="ghost" size="sm">펴기</Button>
+                        <CardTitle className="text-lg">{t('weekly_page.monthly_goals_title', { count: monthlyGoalsForWeek.length })}</CardTitle>
+                        <Button variant="ghost" size="sm">{t('weekly_page.expand')}</Button>
                     </div>
                 </CardHeader>
             </Card>
@@ -873,10 +879,10 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                        <CardTitle>Monthly Goals: Week {currentWeekNumberInMonth} Focus</CardTitle>
-                        <Button variant="ghost" size="sm" onClick={() => setIsMonthlyGoalsCollapsed(true)}>접기</Button>
+                        <CardTitle>{t('weekly_page.monthly_goals_focus', { week: currentWeekNumberInMonth })}</CardTitle>
+                        <Button variant="ghost" size="sm" onClick={() => setIsMonthlyGoalsCollapsed(true)}>{t('weekly_page.collapse')}</Button>
                 </div>
-                    <CardDescription>Tasks derived from your monthly goals for the current week.</CardDescription>
+                    <CardDescription>{t('weekly_page.monthly_goals_desc')}</CardDescription>
             </CardHeader>
                 {monthlyGoalsForWeek.length > 0 ? (
                     <>
@@ -907,7 +913,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                       size="sm"
                                         disabled={isAdded || anyFetcherSubmitting || taskDescription === "N/A for this week" || !taskDescription.trim()}
                     >
-                                        {isAdded ? "Added" : (monthlyGoalFetcher.state !== 'idle' && monthlyGoalFetcher.formData?.get('monthlyGoalId') === goal.id ? "Adding..." : "Add as Weekly Task")}
+                                        {isAdded ? t('weekly_page.added') : (monthlyGoalFetcher.state !== 'idle' && monthlyGoalFetcher.formData?.get('monthlyGoalId') === goal.id ? t('weekly_page.adding') : t('weekly_page.add_as_weekly_task'))}
                     </Button>
                                 </monthlyGoalFetcher.Form>
                   </div>
@@ -921,13 +927,13 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                     onClick={handleAddAllMonthlyTasks}
                                 disabled={allMonthlyTasksForTheWeekAdded || anyFetcherSubmitting}
                   >
-                                {monthlyGoalFetcher.state !== 'idle' && monthlyGoalFetcher.formData?.get('intent') === 'addAllWeeklyTasksFromMonthlyGoals' ? "Adding All..." : "Add All Relevant to Weekly Tasks"}
+                                {monthlyGoalFetcher.state !== 'idle' && monthlyGoalFetcher.formData?.get('intent') === 'addAllWeeklyTasksFromMonthlyGoals' ? t('weekly_page.adding_all') : t('weekly_page.add_all_from_monthly')}
                   </Button>
                         </CardFooter>
                     </>
                 ) : (
                     <CardContent>
-                        <p className="text-muted-foreground text-center py-4">No monthly goals set for this month, or no specific tasks for week {currentWeekNumberInMonth}.</p>
+                        <p className="text-muted-foreground text-center py-4">{t('weekly_page.no_monthly_goals', { week: currentWeekNumberInMonth })}</p>
             </CardContent>
                 )}
           </Card>
@@ -936,7 +942,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
       
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle>{editingTaskId ? "Edit Weekly Task" : "Add Weekly Task"}</CardTitle>
+          <CardTitle>{editingTaskId ? t('weekly_page.edit_task') : t('weekly_page.add_task')}</CardTitle>
         </CardHeader>
           <CardContent>
           <editFetcher.Form method="post" onSubmit={(e) => {
@@ -969,7 +975,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
             <div className="flex flex-col sm:flex-row gap-2 mb-3 mt-2">
                 <Input
                 name="subcode"
-                placeholder="Subcode (optional)"
+                placeholder={t('weekly_page.subcode_placeholder')}
                 value={editingTaskId && editTaskData ? (editTaskData.subcode || "") : newTaskSubcode}
                 onChange={e => editingTaskId && editTaskData ? setEditTaskData(d => ({...(d || {} as Partial<WeeklyTaskUI>), subcode: e.target.value})) : setNewTaskSubcode(e.target.value)}
                 className="sm:w-1/3"
@@ -977,7 +983,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                 />
                 <Input
                 name="comment"
-                placeholder="Task description (e.g., Weekly Report Prep)"
+                placeholder={t('weekly_page.task_desc_placeholder')}
                 value={editingTaskId && editTaskData ? (editTaskData.comment || "") : newTaskComment}
                 onChange={e => editingTaskId && editTaskData ? setEditTaskData(d => ({...(d || {} as Partial<WeeklyTaskUI>), comment: e.target.value})) : setNewTaskComment(e.target.value)}
                   className="flex-1"
@@ -987,15 +993,15 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
               {editingTaskId && editTaskData ? (
                 <div className="flex gap-2">
                     <Button type="submit" size="sm" disabled={anyFetcherSubmitting || !editTaskData.comment?.trim()}>
-                        <Save className="w-4 h-4 mr-1" /> Save Changes
+                        <Save className="w-4 h-4 mr-1" /> {t('weekly_page.save_changes')}
                     </Button>
                     <Button type="button" variant="outline" size="sm" onClick={handleCancelEdit} disabled={anyFetcherSubmitting}>
-                        <X className="w-4 h-4 mr-1" /> Cancel
+                        <X className="w-4 h-4 mr-1" /> {t('weekly_page.cancel')}
                     </Button>
                 </div>
               ) : (
                 <Button type="submit" disabled={anyFetcherSubmitting || !newTaskComment.trim()}>
-                    {editFetcher.state !== 'idle' && editFetcher.formData?.get("intent") === "addWeeklyTask" ? "Adding..." : <><PlusCircle className="w-4 h-4 mr-1" /> Add Task</>}
+                    {editFetcher.state !== 'idle' && editFetcher.formData?.get("intent") === "addWeeklyTask" ? t('weekly_page.adding') : <><PlusCircle className="w-4 h-4 mr-1" /> {t('weekly_page.add_task_button')}</>}
                 </Button>
               )}
               </div>
@@ -1003,17 +1009,17 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
 
           <div className="mt-6 overflow-x-auto">
             {weeklyTasks.length === 0 ? (
-                <p className="text-muted-foreground text-center py-6">No weekly tasks planned yet. Add some!</p>
+                <p className="text-muted-foreground text-center py-6">{t('weekly_page.no_tasks_yet')}</p>
             ) : (
             <table className="min-w-full text-sm">
                 <thead>
                 <tr className="border-b">
-                  <th className="py-2 px-1 text-left">Task</th>
+                  <th className="py-2 px-1 text-left">{t('weekly_page.table_header_task')}</th>
                   {DAYS_OF_WEEK.map(day => (
                     <th key={day} className="py-2 px-1 text-center w-10">{day}</th>
                   ))}
-                  <th className="py-2 px-1 text-center">Lock</th>
-                  <th className="py-2 px-1 text-center">Actions</th>
+                  <th className="py-2 px-1 text-center">{t('weekly_page.table_header_lock')}</th>
+                  <th className="py-2 px-1 text-center">{t('weekly_page.table_header_actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1047,7 +1053,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                             checked={task.is_locked || false}
                             onCheckedChange={(newCheckedState) => handleToggleTaskLock(task.id, newCheckedState)}
                             disabled={anyFetcherSubmitting}
-                            aria-label="Lock Task"
+                            aria-label={t('weekly_page.lock_task_aria')}
                         />
                       </td>
                       <td className="py-2 px-1 text-center">
@@ -1076,33 +1082,33 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
 
           <Card>
             <CardHeader>
-          <CardTitle>Weekly Reflections & Notes</CardTitle>
-          <CardDescription>Set your focus and reflect on your week.</CardDescription>
+          <CardTitle>{t('weekly_page.reflections_title')}</CardTitle>
+          <CardDescription>{t('weekly_page.reflections_desc')}</CardDescription>
             </CardHeader>
         <notesFetcher.Form method="post">
             <input type="hidden" name="intent" value="upsertWeeklyGoals" />
             {weeklyNote && weeklyNote.id && <input type="hidden" name="existingGoalId" value={weeklyNote.id} />}
             <CardContent className="space-y-6">
             <div>
-                <Label htmlFor="csf" className="block text-base font-medium mb-1">Critical Success Factor (CSF)</Label>
-                <Textarea id="csf" name="criticalSuccessFactor" value={csfInput} onChange={e => setCsfInput(e.target.value)} placeholder="이번 주 핵심 성공 요소를 정의하세요 (예: 프로젝트 A 마일스톤 달성)" className="min-h-[80px]" />
+                <Label htmlFor="csf" className="block text-base font-medium mb-1">{t('weekly_page.csf_label')}</Label>
+                <Textarea id="csf" name="criticalSuccessFactor" value={csfInput} onChange={e => setCsfInput(e.target.value)} placeholder={t('weekly_page.csf_placeholder')} className="min-h-[80px]" />
             </div>
             <div>
-                <Label htmlFor="weeklySee" className="block text-base font-medium mb-1">Weekly See (관찰)</Label>
-                <Textarea id="weeklySee" name="weeklySee" value={seeInput} onChange={e => setSeeInput(e.target.value)} placeholder="이번 주에 관찰하거나 집중해서 볼 내용 (예: 팀원들의 진행 상황)" className="min-h-[80px]" />
+                <Label htmlFor="weeklySee" className="block text-base font-medium mb-1">{t('weekly_page.see_label')}</Label>
+                <Textarea id="weeklySee" name="weeklySee" value={seeInput} onChange={e => setSeeInput(e.target.value)} placeholder={t('weekly_page.see_placeholder')} className="min-h-[80px]" />
             </div>
             <div>
-                <Label htmlFor="praise" className="block text-base font-medium mb-1">Words of Praise (칭찬과 격려)</Label>
-                <Textarea id="praise" name="wordsOfPraise" value={praiseInput} onChange={e => setPraiseInput(e.target.value)} placeholder="스스로에게 또는 타인에게 해주고 싶은 칭찬 (예: 어려운 문제 해결에 대한 자부심)" className="min-h-[80px]" />
+                <Label htmlFor="praise" className="block text-base font-medium mb-1">{t('weekly_page.praise_label')}</Label>
+                <Textarea id="praise" name="wordsOfPraise" value={praiseInput} onChange={e => setPraiseInput(e.target.value)} placeholder={t('weekly_page.praise_placeholder')} className="min-h-[80px]" />
                 </div>
             <div>
-                <Label htmlFor="goalNote" className="block text-base font-medium mb-1">Note for Weekly Goals (주간 목표 메모)</Label>
-                <Textarea id="goalNote" name="weeklyGoalNote" value={goalNoteInput} onChange={e => setGoalNoteInput(e.target.value)} placeholder="주간 목표 달성을 위한 추가적인 생각이나 다짐 (예: 매일 아침 30분 집중 시간 확보)" className="min-h-[100px]" />
+                <Label htmlFor="goalNote" className="block text-base font-medium mb-1">{t('weekly_page.goal_note_label')}</Label>
+                <Textarea id="goalNote" name="weeklyGoalNote" value={goalNoteInput} onChange={e => setGoalNoteInput(e.target.value)} placeholder={t('weekly_page.goal_note_placeholder')} className="min-h-[100px]" />
                 </div>
             </CardContent>
             <CardFooter className="flex justify-end">
                 <Button type="submit" disabled={anyFetcherSubmitting}>
-                    {notesFetcher.state !== 'idle' ? "Saving Notes..." : <><Save className="w-4 h-4 mr-1" /> Save Weekly Notes</> }
+                    {notesFetcher.state !== 'idle' ? t('weekly_page.saving_notes') : <><Save className="w-4 h-4 mr-1" /> {t('weekly_page.save_notes_button')}</> }
                 </Button>
             </CardFooter>
         </notesFetcher.Form>

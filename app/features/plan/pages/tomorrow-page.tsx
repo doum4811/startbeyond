@@ -1034,7 +1034,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
                         className="w-[200px] justify-start text-left font-normal"
                     >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {DateTime.fromISO(planDate).toFormat("yyyy-MM-dd (ccc)")}
+                        {DateTime.fromISO(planDate).setLocale(i18n.language).toFormat("yyyy-MM-dd (ccc)")}
                     </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
@@ -1220,7 +1220,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
         </CardHeader>
         <CardContent>
           {tomorrowPlans.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">{t('tomorrow_page.no_plans_yet', { date: DateTime.fromISO(planDate).toFormat("yyyy-MM-dd") })}</p>
+            <p className="text-muted-foreground text-center py-8">{t('tomorrow_page.no_plans_yet', { date: DateTime.fromISO(planDate).setLocale(i18n.language).toFormat("yyyy-MM-dd") })}</p>
           ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-base">

@@ -289,7 +289,7 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
           <CalendarPopover markedDates={markedDates} currentSelectedDate={today} />
         </div>
         <div className="text-lg font-bold text-muted-foreground">
-          {DateTime.fromISO(today).toFormat("yyyy-MM-dd (ccc)")}
+          {DateTime.fromISO(today).setLocale(i18n.language).toFormat("yyyy-MM-dd (ccc)")}
       </div>
         <Button asChild>
             <Link to="/plan/tomorrow"><Plus className="w-4 h-4 mr-1" />{t('tomorrow_plan')}</Link>
@@ -433,7 +433,7 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                     </CardHeader>
                             <CardContent className="p-3 pt-0">
                                 <p className="text-sm whitespace-pre-wrap">{memo.content}</p>
-                                <p className="text-xs text-muted-foreground mt-2">{DateTime.fromISO(memo.created_at!).toLocaleString(DateTime.DATETIME_SHORT)}</p>
+                                <p className="text-xs text-muted-foreground mt-2">{DateTime.fromISO(memo.created_at!).setLocale(i18n.language).toLocaleString(DateTime.DATETIME_SHORT)}</p>
                     </CardContent>
                   </Card>
                 ))}

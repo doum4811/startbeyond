@@ -1,5 +1,6 @@
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import { useTranslation } from "react-i18next"
 import { cn } from "~/lib/utils"
 import { buttonVariants } from "~/common/components/ui/button"
 import { DateTime } from "luxon"
@@ -17,6 +18,7 @@ export function Calendar({
   className,
   markedDates,
 }: CalendarProps) {
+  const { i18n } = useTranslation();
   const [currentMonth, setCurrentMonth] = React.useState<DateTime>(
     selectedDate.startOf("month")
   )
@@ -27,6 +29,11 @@ export function Calendar({
   for (let i = 0; i < 42; i++) {
     days.push(startOfWeek.plus({ days: i }))
   }
+  
+  const monthName = currentMonth.setLocale(i18n.language).toFormat(i18n.language === 'ko' ? "yyyy년 M월" : "MMMM yyyy");
+  const weekdays = i18n.language === 'ko' 
+    ? ["월", "화", "수", "목", "금", "토", "일"] 
+    : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
   return (
     <div className={cn("w-full max-w-sm p-3", className)}>
@@ -41,7 +48,7 @@ export function Calendar({
           <ChevronLeft className="w-4 h-4" />
         </button>
         <span className="font-semibold">
-          {currentMonth.toFormat("yyyy년 M월")}
+          {monthName}
         </span>
         <button
           onClick={() => setCurrentMonth(currentMonth.plus({ months: 1 }))}
@@ -54,7 +61,7 @@ export function Calendar({
         </button>
       </div>
       <div className="grid grid-cols-7 text-center text-xs text-muted-foreground mb-2">
-        {["월", "화", "수", "목", "금", "토", "일"].map((d) => (
+        {weekdays.map((d) => (
           <div key={d}>{d}</div>
         ))}
       </div>
