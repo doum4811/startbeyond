@@ -9,6 +9,7 @@ import type { MonthlyDayRecord } from "../types";
 import { MonthlyRecordsFilter } from "./MonthlyRecordsFilter";
 import { MonthlyRecordsListView } from "./MonthlyRecordsListView";
 import { MonthlyRecordsGridView } from "./MonthlyRecordsGridView";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   monthlyRecordsForDisplay: MonthlyDayRecord[];
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function MonthlyRecordsTab({ monthlyRecordsForDisplay, categories }: Props) {
+  const { t } = useTranslation();
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
@@ -86,7 +88,7 @@ export default function MonthlyRecordsTab({ monthlyRecordsForDisplay, categories
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 flex-wrap">
             <Input
-            placeholder="검색어를 입력하세요"
+            placeholder={t("stats_records_page.search_placeholder")}
               value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-[300px]"
@@ -105,7 +107,7 @@ export default function MonthlyRecordsTab({ monthlyRecordsForDisplay, categories
             onClick={handleExpandAll}
           >
             <ChevronsDown className="h-4 w-4 mr-2" />
-            전체 열기
+            {t("stats_records_page.expand_all")}
           </Button>
           <Button
             variant="outline"
@@ -113,7 +115,7 @@ export default function MonthlyRecordsTab({ monthlyRecordsForDisplay, categories
             onClick={handleCollapseAll}
           >
             <ChevronsUp className="h-4 w-4 mr-2" />
-            전체 접기
+            {t("stats_records_page.collapse_all")}
           </Button>
           <Button
             variant={viewMode === "list" ? "default" : "outline"}

@@ -7,6 +7,7 @@ import { Label } from "../ui/label";
 import { Checkbox } from "../ui/checkbox";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { Share2, Copy, Check, Calendar as CalendarIcon, Download } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface ShareSettings {
   isPublic: boolean;
@@ -46,6 +47,7 @@ export function StatsPageHeader({
   periodButton,
 }: StatsPageHeaderProps) {
   const [isClient, setIsClient] = useState(false);
+  const { t } = useTranslation();
 
   useEffect(() => {
     setIsClient(true);
@@ -61,16 +63,16 @@ export function StatsPageHeader({
         <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
-              <Share2 className="w-4 h-4 mr-2" /> 공유하기
+              <Share2 className="w-4 h-4 mr-2" /> {t("stats_header.share")}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>통계 공유 설정</DialogTitle>
+              <DialogTitle>{t("stats_header.share_dialog.title")}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="flex items-center justify-between">
-                <Label htmlFor="public">공개 설정</Label>
+                <Label htmlFor="public">{t("stats_header.share_dialog.public_toggle")}</Label>
                 <Switch
                   id="public"
                   checked={shareSettings.isPublic}
@@ -78,14 +80,14 @@ export function StatsPageHeader({
                 />
               </div>
               <div className="space-y-2">
-                <div className="text-sm font-medium">공유할 정보 선택</div>
+                <div className="text-sm font-medium">{t("stats_header.share_dialog.select_info")}</div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
                     id="records"
                     checked={shareSettings.includeRecords}
                     onCheckedChange={checked => onShareSettingsChange("includeRecords", checked as boolean)}
                   />
-                  <Label htmlFor="records">활동 기록</Label>
+                  <Label htmlFor="records">{t("stats_header.share_dialog.activity_records")}</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -93,7 +95,7 @@ export function StatsPageHeader({
                     checked={shareSettings.includeDailyNotes}
                     onCheckedChange={checked => onShareSettingsChange("includeDailyNotes", checked as boolean)}
                   />
-                  <Label htmlFor="dailyNotes">일일 메모</Label>
+                  <Label htmlFor="dailyNotes">{t("stats_header.share_dialog.daily_notes")}</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -101,7 +103,7 @@ export function StatsPageHeader({
                     checked={shareSettings.includeMemos}
                     onCheckedChange={checked => onShareSettingsChange("includeMemos", checked as boolean)}
                   />
-                  <Label htmlFor="memos">상세 메모</Label>
+                  <Label htmlFor="memos">{t("stats_header.share_dialog.detailed_memos")}</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -109,12 +111,12 @@ export function StatsPageHeader({
                     checked={shareSettings.includeStats}
                     onCheckedChange={checked => onShareSettingsChange("includeStats", checked as boolean)}
                   />
-                  <Label htmlFor="stats">통계</Label>
+                  <Label htmlFor="stats">{t("stats_header.share_dialog.statistics")}</Label>
                 </div>
               </div>
               {shareSettings.isPublic && (
                 <div className="space-y-2">
-                  <div className="text-sm font-medium">공유 링크</div>
+                  <div className="text-sm font-medium">{t("stats_header.share_dialog.share_link")}</div>
                   <div className="flex gap-2">
                     <Input
                       value={shareLink}
@@ -140,7 +142,7 @@ export function StatsPageHeader({
         </Dialog>
         {periodButton ?? (
           <Button variant="outline" size="sm">
-            <CalendarIcon className="w-4 h-4 mr-2" /> 기간 선택
+            <CalendarIcon className="w-4 h-4 mr-2" /> {t("stats_header.select_period")}
           </Button>
         )}
         {isClient && pdfDocument && (
@@ -151,7 +153,7 @@ export function StatsPageHeader({
             {({ loading }) => (
               <Button variant="outline" size="sm" disabled={loading}>
                 <Download className="w-4 h-4 mr-2" />
-                {loading ? "PDF 생성 중..." : "PDF 다운로드"}
+                {loading ? t("stats_header.pdf.loading") : t("stats_header.pdf.download")}
               </Button>
             )}
           </PDFDownloadLink>

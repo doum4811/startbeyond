@@ -44,6 +44,7 @@ import type { DailyPlan } from "~/features/plan/queries";
 import type { DetailedCategorySummary, SubcodeDetail } from "~/features/stats/queries";
 import type { CategoryCode, UICategory } from "~/common/types/daily";
 import { CATEGORIES as DEFAULT_CATEGORIES } from "~/common/types/daily";
+import { useTranslation } from "react-i18next";
 
 interface GoalAchievementStats {
   totalPlans: number;
@@ -238,11 +239,12 @@ export const loader = async ({
 };
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
+  const { t } = useTranslation();
   return [
-    { title: `상세 통계 - StartBeyond` },
+    { title: t('stats_category_page.meta_title') },
     {
       name: "description",
-      content: `카테고리별 활동의 상세 통계를 확인합니다.`,
+      content: t('stats_category_page.meta_description'),
     },
   ];
 };
@@ -256,6 +258,7 @@ const COLORS = [
   "#FF1943",
   "#19B2FF",
   "#6B19FF",
+  "#82ca9d",
 ];
 
 export default function CategoryStatsPage() {
@@ -264,16 +267,22 @@ export default function CategoryStatsPage() {
   >();
   const [chartType, setChartType] = useState<"bar" | "pie">("bar");
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [shareSettings] = useState({
-    isPublic: false,
-    includeRecords: true,
-    includeDailyNotes: true,
-    includeMemos: false,
-    includeStats: true,
-  });
-    
   const [showOverallEvidence, setShowOverallEvidence] = useState(false);
   const [showCategoryEvidence, setShowCategoryEvidence] = useState<Record<string, boolean>>({});
+  const { t, i18n } = useTranslation();
+
+  const [shareSettings, setShareSettings] = useState({
+    showSummary: true,
+    showActivityTrend: true,
+    showGoalProgress: false
+  });
+
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+
+  const monthName = DateTime.fromFormat(selectedMonthISO, "yyyy-MM")
+    .setLocale(i18n.language)
+    .toFormat("MMMM yyyy");
 
   const toggleCategoryEvidence = (code: string) => {
     setShowCategoryEvidence(prev => ({...prev, [code]: !prev[code]}));
@@ -321,38 +330,47 @@ export default function CategoryStatsPage() {
       .filter((item) => item.value > 0);
   }, [detailedSummary, categories]);
 
+  const [hideUnchecked, setHideUnchecked] = useState(false);
+
+  const handleShareSettingsChange = (key: string, value: boolean) => {
+    setShareSettings(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText("mock/share/link");
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen space-y-8">
       <StatsPageHeader
-        title="카테고리별 상세 통계"
-        description={`${DateTime.fromFormat(
-          selectedMonthISO,
-          "yyyy-MM",
-        ).toFormat("yyyy년 M월")}의 데이터를 표시합니다.`}
-        shareSettings={shareSettings}
-        onShareSettingsChange={() => {}}
-        isShareDialogOpen={false}
-        setIsShareDialogOpen={() => {}}
-        isCopied={false}
-        onCopyLink={() => {}}
-        shareLink=""
+        title={t('stats_category_page.title')}
+        description={t('stats_category_page.description', { month: monthName })}
+        shareSettings={{ isPublic: false, includeRecords: false, includeDailyNotes: false, includeMemos: false, includeStats: false }}
+        onShareSettingsChange={handleShareSettingsChange}
+        isShareDialogOpen={isShareDialogOpen}
+        setIsShareDialogOpen={setIsShareDialogOpen}
+        isCopied={isCopied}
+        onCopyLink={handleCopyLink}
+        shareLink="mock/share/link"
         pdfFileName={`category-report-${DateTime.now().toFormat("yyyy-MM")}.pdf`}
       />
 
       <Tabs defaultValue="analysis" className="space-y-6">
         <TabsList>
           <TabsTrigger value="analysis">
-            그래프 & 요약
+            {t('stats_category_page.tabs.analysis')}
           </TabsTrigger>
           <TabsTrigger value="goals">
-            목표 달성
+            {t('stats_category_page.tabs.goals')}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="analysis" className="space-y-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>그래프</CardTitle>
+              <CardTitle>{t('stats_category_page.analysis.chart_title')}</CardTitle>
               <Select
                 value={chartType}
                 onValueChange={(value: "bar" | "pie") =>
@@ -360,15 +378,11 @@ export default function CategoryStatsPage() {
                 }
               >
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="그래프 종류" />
+                  <SelectValue placeholder={t('stats_category_page.analysis.chart_type_placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="bar">
-                    활동 시간 (막대 그래프)
-                  </SelectItem>
-                  <SelectItem value="pie">
-                    활동 비율 (원 그래프)
-                  </SelectItem>
+                  <SelectItem value="bar">{t('stats_category_page.analysis.chart_type_bar')}</SelectItem>
+                  <SelectItem value="pie">{t('stats_category_page.analysis.chart_type_pie')}</SelectItem>
                 </SelectContent>
               </Select>
             </CardHeader>
@@ -391,7 +405,7 @@ export default function CategoryStatsPage() {
                       <Legend />
                       <Bar
                         dataKey="value"
-                        name="총 활동 시간 (분)"
+                        name={t('stats_category_page.analysis.bar_chart_legend')}
                         fill="#8884d8"
                       />
                     </BarChart>
@@ -454,7 +468,7 @@ export default function CategoryStatsPage() {
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-muted-foreground">
-                    이번 달에 표시할 데이터가 없습니다.
+                    {t('stats_category_page.analysis.no_chart_data')}
                   </p>
                 </div>
               )}
@@ -463,17 +477,17 @@ export default function CategoryStatsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>카테고리별 요약</CardTitle>
+              <CardTitle>{t('stats_category_page.analysis.summary_title')}</CardTitle>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead style={{ width: '25%' }}>카테고리</TableHead>
-                    <TableHead style={{ width: '15%' }}>총 활동 시간</TableHead>
-                    <TableHead style={{ width: '15%' }}>총 활동 횟수</TableHead>
-                    <TableHead style={{ width: '15%' }}>평균 활동 시간</TableHead>
-                    <TableHead>전체 세부코드 (클릭하여 펼치기)</TableHead>
+                    <TableHead style={{ width: '25%' }}>{t('stats_category_page.analysis.table_header_category')}</TableHead>
+                    <TableHead style={{ width: '15%' }}>{t('stats_category_page.analysis.table_header_total_duration')}</TableHead>
+                    <TableHead style={{ width: '15%' }}>{t('stats_category_page.analysis.table_header_total_records')}</TableHead>
+                    <TableHead style={{ width: '15%' }}>{t('stats_category_page.analysis.table_header_avg_duration')}</TableHead>
+                    <TableHead>{t('stats_category_page.analysis.table_header_subcodes')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -505,7 +519,7 @@ export default function CategoryStatsPage() {
                           <TableRow>
                             <TableCell colSpan={5}>
                               <div className="p-4 bg-muted rounded-md">
-                                <h4 className="font-semibold mb-2">세부코드 상세</h4>
+                                <h4 className="font-semibold mb-2">{t('stats_category_page.analysis.subcode_details_title')}</h4>
                                 <ul className="space-y-1">
                                   {row.subcodes.map((sc: SubcodeDetail) => (
                                     <li key={sc.subcode} className="flex justify-between text-sm">
@@ -526,7 +540,7 @@ export default function CategoryStatsPage() {
                         colSpan={5}
                         className="text-center h-24"
                       >
-                        데이터가 없습니다.
+                        {t('stats_category_page.analysis.no_chart_data')}
                       </TableCell>
                     </TableRow>
                   )}
@@ -540,8 +554,8 @@ export default function CategoryStatsPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium">전체 계획 완료율</CardTitle>
-                <p className="text-xs text-muted-foreground">이번 달에 계획된 모든 항목의 달성률입니다.</p>
+                <CardTitle className="text-sm font-medium">{t('stats_category_page.goals.completion_rate_title')}</CardTitle>
+                <p className="text-xs text-muted-foreground">{t('stats_category_page.goals.completion_rate_desc')}</p>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{goalStats.completionRate}%</div>
@@ -550,8 +564,8 @@ export default function CategoryStatsPage() {
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm font-medium">최장 연속 달성</CardTitle>
-                <p className="text-xs text-muted-foreground">계획을 모두 달성한 날이 연속된 최장 기간입니다.</p>
+                <CardTitle className="text-sm font-medium">{t('stats_category_page.goals.longest_streak_title')}</CardTitle>
+                <p className="text-xs text-muted-foreground">{t('stats_category_page.goals.longest_streak_desc')}</p>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{goalStats.longestStreak}일</div>
@@ -561,8 +575,8 @@ export default function CategoryStatsPage() {
             <Card>
               <CardHeader className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-sm font-medium">미완료 계획</CardTitle>
-                   <p className="text-xs text-muted-foreground">이번 달에 달성하지 못한 계획입니다.</p>
+                  <CardTitle className="text-sm font-medium">{t('stats_category_page.goals.unchecked_plans_title')}</CardTitle>
+                   <p className="text-xs text-muted-foreground">{t('stats_category_page.goals.unchecked_plans_desc')}</p>
                 </div>
                 {goalStats.uncheckedPlans.length > 0 && (
                   <button
@@ -570,7 +584,7 @@ export default function CategoryStatsPage() {
                     onClick={() => setShowCategoryEvidence(prev => ({ ...prev, unchecked: !prev.unchecked }))}
                   >
                     <Info className="w-3 h-3" />
-                    {showCategoryEvidence.unchecked ? "목록 닫기" : "목록 보기"}
+                    {showCategoryEvidence.unchecked ? t('stats_category_page.goals.hide_list') : t('stats_category_page.goals.show_list')}
                   </button>
                 )}
               </CardHeader>
@@ -596,7 +610,7 @@ export default function CategoryStatsPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>카테고리별 계획 달성 현황</CardTitle>
+              <CardTitle>{t('stats_category_page.goals.category_completion_title')}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -623,7 +637,7 @@ export default function CategoryStatsPage() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-center text-muted-foreground">이번 달에 설정된 계획이 없습니다.</p>
+                  <p className="text-center text-muted-foreground">{t('stats_category_page.goals.no_plans_this_month')}</p>
                 )}
               </div>
             </CardContent>

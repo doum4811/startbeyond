@@ -7,6 +7,14 @@ import type { MonthlyDayRecord, DailyRecordUI, MemoUI, StatsPageLoaderData } fro
 import type { UICategory, CategoryCode } from "~/common/types/daily";
 import { CATEGORIES } from "~/common/types/daily";
 
+export interface RecordsLoaderData {
+  profileId: string;
+  startDate: string;
+  endDate: string;
+  monthlyRecordsForDisplay: MonthlyDayRecord[];
+  categories: UICategory[];
+}
+
 async function getProfileId(request: Request): Promise<string> {
   const { client } = makeSSRClient(request);
   const { data: { user } } = await client.auth.getUser();
@@ -16,24 +24,38 @@ async function getProfileId(request: Request): Promise<string> {
   return user.id;
 }
 
-export const loader = async ({ request }: LoaderFunctionArgs): Promise<StatsPageLoaderData> => {
+export const loader = async ({ request }: LoaderFunctionArgs): Promise<RecordsLoaderData> => {
   const { client } = makeSSRClient(request);
   const profileId = await getProfileId(request);
   const url = new URL(request.url);
-  const monthParam = url.searchParams.get("month") || DateTime.now().toFormat("yyyy-MM");
-  const selectedMonthStart = DateTime.fromFormat(monthParam, "yyyy-MM").startOf("month");
-  const selectedMonthEnd = selectedMonthStart.endOf("month");
+  
+  const monthParam = url.searchParams.get("month");
+  const startDateParam = url.searchParams.get("startDate");
+  const endDateParam = url.searchParams.get("endDate");
+
+  let startDate: string;
+  let endDate: string;
+
+  if (startDateParam && endDateParam) {
+    startDate = startDateParam;
+    endDate = endDateParam;
+  } else {
+    const month = monthParam || DateTime.now().toFormat("yyyy-MM");
+    const selectedMonth = DateTime.fromFormat(month, "yyyy-MM");
+    startDate = selectedMonth.startOf('month').toISODate()!;
+    endDate = selectedMonth.endOf('month').toISODate()!;
+  }
 
   const [dbRecords, dbNotes, userCategoriesData, userDefaultCodePreferencesData] = await Promise.all([
     dailyQueries.getDailyRecordsByPeriod(client, {
       profileId,
-      startDate: selectedMonthStart.toISODate()!,
-      endDate: selectedMonthEnd.toISODate()!,
+      startDate,
+      endDate,
     }),
     dailyQueries.getDailyNotesByPeriod(client, {
       profileId,
-      startDate: selectedMonthStart.toISODate()!,
-      endDate: selectedMonthEnd.toISODate()!,
+      startDate,
+      endDate,
     }),
     settingsQueries.getUserCategories(client, { profileId }),
     settingsQueries.getUserDefaultCodePreferences(client, { profileId }),
@@ -118,7 +140,8 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<StatsPage
 
   return {
     profileId,
-    selectedMonthISO: monthParam,
+    startDate,
+    endDate,
     monthlyRecordsForDisplay,
     categories: processedCategories,
   };

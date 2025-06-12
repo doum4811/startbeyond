@@ -294,8 +294,8 @@
         "conversations": "대화",
         "no_messages_yet": "메시지가 아직 없습니다.",
         "no_conversations_yet": "대화가 아직 없습니다.",
-        "select_conversation": "대화 선택",
-        "select_conversation_description": "메시지를 보려면 왼쪽 목록에서 대화를 선택하세요."
+        "select_conversation": "대화를 선택하세요",
+        "select_conversation_description": "왼쪽 목록에서 대화를 선택하여 메시지를 확인하세요."
     },
     "stats_summary_page": {
         "meta_title": "월간 요약 {{monthName}} - StartBeyond",
@@ -364,5 +364,93 @@
         "show_summary": "주요 통계",
         "show_activity_trend": "활동 트렌드 (차트)",
         "show_goal_progress": "목표 진행 상황"
+    },
+    "stats_records_page": {
+        "title": "활동 기록",
+        "description": "모든 활동, 메모, 노트를 필터링하고 검색합니다.",
+        "title_search": "활동 기록 검색",
+        "description_search": "날짜 범위를 선택하여 모든 활동, 메모 및 노트를 검색하고 필터링합니다.",
+        "pick_a_date": "날짜를 선택하세요",
+        "search_placeholder": "검색어를 입력하세요",
+        "expand_all": "전체 펼치기",
+        "collapse_all": "전체 접기",
+        "search_by_period": "기간으로 검색",
+        "start_date": "시작일",
+        "end_date": "종료일",
+        "apply_period": "기간 적용",
+        "description_month": "{{month}}의 데이터를 표시합니다.",
+        "description_period": "{{startDate}}부터 {{endDate}}까지의 데이터를 표시합니다."
+    },
+    "stats_category_page": {
+        "title": "카테고리별 상세 통계",
+        "description": "{{month}}의 데이터를 표시합니다.",
+        "tabs": {
+            "analysis": "그래프 & 요약",
+            "goals": "목표 달성"
+        },
+        "analysis": {
+            "chart_title": "그래프",
+            "chart_type_placeholder": "그래프 종류",
+            "chart_type_bar": "활동 시간 (막대 그래프)",
+            "chart_type_pie": "활동 비율 (원 그래프)",
+            "bar_chart_legend": "총 활동 시간 (분)",
+            "no_chart_data": "이번 달에 표시할 데이터가 없습니다.",
+            "summary_title": "카테고리별 요약",
+            "table_header_category": "카테고리",
+            "table_header_total_duration": "총 활동 시간",
+            "table_header_total_records": "총 활동 횟수",
+            "table_header_avg_duration": "평균 활동 시간",
+            "table_header_subcodes": "전체 세부코드 (클릭하여 펼치기)",
+            "subcodes_preview": "{{subcodes}} 등 {{count}}개",
+            "subcode_details_title": "세부코드 상세",
+            "subcode_details_stats": "{{count}}회 / {{duration}}시간"
+        },
+        "goals": {
+            "completion_rate_title": "전체 계획 완료율",
+            "completion_rate_desc": "이번 달에 계획된 모든 항목의 달성률입니다.",
+            "completion_rate_details": "{{total}}개 중 {{completed}}개 완료",
+            "longest_streak_title": "최장 연속 달성",
+            "longest_streak_desc": "계획을 모두 달성한 날이 연속된 최장 기간입니다.",
+            "days": "{{count}}일",
+            "longest_streak_details": "목표를 {{count}}일 연속 달성했습니다.",
+            "unchecked_plans_title": "미완료 계획",
+            "unchecked_plans_desc": "이번 달에 달성하지 못한 계획입니다.",
+            "hide_list": "목록 닫기",
+            "show_list": "목록 보기",
+            "items": "{{count}}개",
+            "unchecked_plans_details": "{{count}}개의 계획이 미완료 상태입니다.",
+            "category_completion_title": "카테고리별 계획 달성 현황",
+            "category_completion_stats": "{{completed}}/{{total}} ({{rate}}%)",
+            "no_plans_this_month": "이번 달에 설정된 계획이 없습니다."
+        }
+    },
+    "stats_advanced_page": {
+        "title": "고급 통계 ({{year}}년)",
+        "heatmap_title": "연간 카테고리 활동 히트맵 ({{year}}년)",
+        "no_heatmap_data": "히트맵을 표시할 카테고리 데이터가 없습니다.",
+        "distribution_title": "연간 카테고리 분포 ({{year}}년)",
+        "no_distribution_data": "카테고리 분포 차트에 대한 데이터가 없습니다.",
+        "comparison_title": "월간/주간 비교 (자리표시자)",
+        "comparison_placeholder": "월간/주간 비교 차트 및 데이터 자리표시자입니다.",
+        "monthly_comparison_title": "월간 비교",
+        "weekly_comparison_title": "주간 비교"
+    },
+    "stats_header": {
+        "share": "공유하기",
+        "select_period": "기간 선택",
+        "pdf": {
+            "loading": "PDF 생성 중...",
+            "download": "PDF 다운로드"
+        },
+        "share_dialog": {
+            "title": "통계 공유 설정",
+            "public_toggle": "공개 설정",
+            "select_info": "공유할 정보 선택",
+            "activity_records": "활동 기록",
+            "daily_notes": "일일 메모",
+            "detailed_memos": "상세 메모",
+            "statistics": "통계",
+            "share_link": "공유 링크"
+        }
     }
 } 

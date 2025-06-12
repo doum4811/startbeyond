@@ -17,7 +17,6 @@ if (!i18n.isInitialized) {
           translation: ko,
         },
       },
-      supportedLngs: ['en', 'ko'],
       fallbackLng: "ko",
       debug: true,
       interpolation: {

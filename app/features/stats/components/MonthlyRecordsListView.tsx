@@ -3,6 +3,8 @@ import { Button } from "~/common/components/ui/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { UICategory } from "~/common/types/daily";
 import type { MonthlyDayRecord } from "../types";
+import { useTranslation } from "react-i18next";
+import { DateTime } from "luxon";
 
 interface Props {
   data: MonthlyDayRecord[];
@@ -12,18 +14,15 @@ interface Props {
 }
 
 export function MonthlyRecordsListView({ data, categories, expandedDates, onToggleDate }: Props) {
+  const { i18n, t } = useTranslation();
+
   return (
     <div className="space-y-4">
       {data.map((day) => (
           <Card key={day.date}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {new Date(day.date).toLocaleDateString("ko-KR", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                weekday: "long",
-              })}
+              {DateTime.fromISO(day.date).setLocale(i18n.language).toLocaleString(DateTime.DATE_FULL)}
                 </CardTitle>
             <Button
               variant="ghost"
@@ -72,7 +71,7 @@ export function MonthlyRecordsListView({ data, categories, expandedDates, onTogg
                     })}
                   {day.dailyNote && (
                   <div className="mt-4 pt-4 border-t">
-                    <div className="text-sm font-medium mb-2">일일 메모</div>
+                    <div className="text-sm font-medium mb-2">{t("daily_notes")}</div>
                     <div className="text-sm text-muted-foreground whitespace-pre-wrap">
                       {day.dailyNote}
                     </div>

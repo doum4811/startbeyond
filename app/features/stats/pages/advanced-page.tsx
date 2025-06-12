@@ -12,6 +12,8 @@ import * as statsQueries from "~/features/stats/queries";
 import type { AdvancedPageLoaderData, HeatmapData, ActivityHeatmap as ActivityHeatmapType } from "~/features/stats/types";
 import type { CategoryCode, UICategory } from "~/common/types/daily";
 import { CATEGORIES as DEFAULT_CATEGORIES } from "~/common/types/daily";
+import { useTranslation } from "react-i18next";
+import { ComparisonCard } from "~/features/stats/components/ComparisonCard";
 
 // Mock Categories (fallback if DB fetch fails)
 const MOCK_UI_CATEGORIES: UICategory[] = Object.values(DEFAULT_CATEGORIES).map(cat => ({
@@ -68,11 +70,21 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<AdvancedP
     activeCategoryCodes.map(code => [code, [] as HeatmapData[]])
   ) as Record<CategoryCode, HeatmapData[]>;
 
+  let comparisonStats = {
+      monthly: { time: { current: 0, prev: 0 }, records: { current: 0, prev: 0 } },
+      weekly: { time: { current: 0, prev: 0 }, records: { current: 0, prev: 0 } },
+  };
+
   if (profileId) {
     const startDate = DateTime.fromObject({ year: currentYear }).startOf('year').toISODate()!;
     const endDate = DateTime.fromObject({ year: currentYear }).endOf('year').toISODate()!;
     
-    const yearlyActivity: ActivityHeatmapType[] = await statsQueries.calculateActivityHeatmap(client, { profileId, startDate, endDate });
+    const [yearlyActivity, fetchedComparisonStats] = await Promise.all([
+        statsQueries.calculateActivityHeatmap(client, { profileId, startDate, endDate }),
+        statsQueries.getComparisonStats(client, { profileId })
+    ]);
+    
+    comparisonStats = fetchedComparisonStats;
 
     const activityByDate: { [date: string]: ActivityHeatmapType } = {};
     for (const day of yearlyActivity) {
@@ -136,13 +148,23 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<AdvancedP
     endDate: DateTime.fromObject({ year: currentYear }).endOf('year').toISODate()!,
   }) : [];
 
+  const categoryDistributionWithPercentage = (() => {
+    if (!categoryDistribution || categoryDistribution.length === 0) return [];
+    const totalDuration = categoryDistribution.reduce((sum, item) => sum + item.duration, 0);
+    if (totalDuration === 0) return categoryDistribution.map(item => ({...item, percentage: 0}));
+    return categoryDistribution.map(item => ({
+      ...item,
+      percentage: Math.round((item.duration / totalDuration) * 100),
+    }));
+  })();
 
   return {
     profileId,
     categories: categoriesForGrid,
     currentYear,
     yearlyCategoryHeatmapData,
-    categoryDistribution,
+    categoryDistribution: categoryDistributionWithPercentage,
+    comparisonStats
   };
 };
 
@@ -163,8 +185,10 @@ export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps
     categories,
     currentYear,
     yearlyCategoryHeatmapData,
-    categoryDistribution
+    categoryDistribution,
+    comparisonStats,
   } = loaderData;
+  const { t } = useTranslation();
 
   const [shareSettings, setShareSettings] = useState({
     isPublic: false,
@@ -190,11 +214,21 @@ export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps
     categoryDistribution.length > 0 && 
     categoryDistribution.find(dataItem => dataItem.category === c.code)
   );
+  
+  const monthlyMetrics = [
+      { label: t('stats_summary_page.total_hours'), currentValue: comparisonStats.monthly.time.current / 60, previousValue: comparisonStats.monthly.time.prev / 60, unit: 'hours' as const },
+      { label: t('stats_summary_page.total_records'), currentValue: comparisonStats.monthly.records.current, previousValue: comparisonStats.monthly.records.prev, unit: 'records' as const }
+  ];
+
+  const weeklyMetrics = [
+      { label: t('stats_summary_page.total_hours'), currentValue: comparisonStats.weekly.time.current / 60, previousValue: comparisonStats.weekly.time.prev / 60, unit: 'hours' as const },
+      { label: t('stats_summary_page.total_records'), currentValue: comparisonStats.weekly.records.current, previousValue: comparisonStats.weekly.records.prev, unit: 'records' as const }
+  ];
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen space-y-8">
       <StatsPageHeader
-        title={`Advanced Statistics (${currentYear})`}
+        title={t("stats_advanced_page.title", { year: currentYear })}
         shareSettings={shareSettings as any} 
         onShareSettingsChange={handleShareSettingsChange as any}
         isShareDialogOpen={isShareDialogOpen}
@@ -207,7 +241,7 @@ export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps
 
       <Card>
         <CardHeader>
-          <CardTitle>Yearly Category Activity Heatmap ({currentYear})</CardTitle>
+          <CardTitle>{t("stats_advanced_page.heatmap_title", { year: currentYear })}</CardTitle>
         </CardHeader>
         <CardContent>
           {categories && categories.length > 0 && yearlyCategoryHeatmapData ? (
@@ -217,32 +251,37 @@ export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps
               categories={categories} 
             />
           ) : (
-            <p>No category data available to display heatmap.</p>
+            <p>{t("stats_advanced_page.no_heatmap_data")}</p>
           )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Yearly Category Distribution ({currentYear})</CardTitle>
+          <CardTitle>{t("stats_advanced_page.distribution_title", { year: currentYear })}</CardTitle>
         </CardHeader>
         <CardContent className="h-[350px]">
           {distributionChartCategories.length > 0 ? (
-            <CategoryDistributionChart data={categoryDistribution} categories={distributionChartCategories} />
+            <CategoryDistributionChart  data={categoryDistribution} categories={distributionChartCategories} />
           ) : (
-            <p className="text-center text-muted-foreground pt-12">No data for category distribution chart.</p>
+            <p className="text-center text-muted-foreground pt-12">{t("stats_advanced_page.no_distribution_data")}</p>
           )}
         </CardContent>
       </Card>
       
       <Card>
         <CardHeader>
-          <CardTitle>Monthly/Weekly Comparison (Placeholder)</CardTitle>
+          <CardTitle>{t("stats_advanced_page.comparison_title")}</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">Placeholder for Monthly/Weekly Comparison charts and data.</p>
+          <p className="text-muted-foreground">{t("stats_advanced_page.comparison_placeholder")}</p>
         </CardContent>
       </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <ComparisonCard title={t('stats_advanced_page.monthly_comparison_title')} metrics={monthlyMetrics} />
+        <ComparisonCard title={t('stats_advanced_page.weekly_comparison_title')} metrics={weeklyMetrics} />
+      </div>
 
     </div>
   );

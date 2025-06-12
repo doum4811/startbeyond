@@ -156,13 +156,14 @@ export const calculateCategoryDistribution = async (
     .eq("profile_id", profileId)
     .gte("date", startDate)
     .lte("date", endDate);
+
   if (error) {
-      console.error("Error in calculateCategoryDistribution:", error);
-      throw error;
+    console.error("Error in calculateCategoryDistribution:", error);
+    throw error;
   }
   if (!data) return [];
-  
-  const aggregatedData: { [key: string]: { count: number, duration: number } } = {};
+
+  const aggregatedData: { [key: string]: { count: number; duration: number } } = {};
   let totalDurationAll = 0;
 
   for (const row of data) {
@@ -172,19 +173,21 @@ export const calculateCategoryDistribution = async (
       aggregatedData[code] = { count: 0, duration: 0 };
     }
     aggregatedData[code].count += 1;
-    const duration = typeof row.duration_minutes === 'number' ? row.duration_minutes : 0;
+    const duration = typeof row.duration_minutes === "number" ? row.duration_minutes : 0;
     aggregatedData[code].duration += duration;
     totalDurationAll += duration;
   }
-  
+
   const totalCount = data.length;
 
-  return Object.entries(aggregatedData).map(([category, values]) => ({
-    category: category as CategoryCode,
-    count: values.count,
-    duration: values.duration,
-    percentage: totalCount > 0 ? Math.round((values.count / totalCount) * 100) : 0,
-  })).sort((a,b) => b.count - a.count);
+  return Object.entries(aggregatedData)
+    .map(([category, values]) => ({
+      category: category as CategoryCode,
+      count: values.count,
+      duration: values.duration,
+      percentage: totalCount > 0 ? Math.round((values.count / totalCount) * 100) : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
 };
 
 export interface YearlyActivity {
@@ -388,9 +391,9 @@ export const calculateSummaryInsights = async (
     weekdayCounts[dt.weekday]++;
     if (dt.weekday >= 1 && dt.weekday <= 5) {
       weekdayRecords++;
-    } else {
+      } else {
       weekendRecords++;
-    }
+      }
 
     if (record.category_code) {
         categoryCounts[record.category_code] = (categoryCounts[record.category_code] || 0) + 1;
@@ -439,12 +442,12 @@ export const calculateTimeOfDayDistribution = async (
     .gte("date", startDate)
     .lte("date", endDate);
 
-    if (error) {
-        console.error("Error in calculateTimeOfDayDistribution:", error);
-        throw error;
-    }
+  if (error) {
+    console.error("Error in calculateTimeOfDayDistribution:", error);
+    throw error;
+  }
     if (!data) return [];
-  
+
   const distribution: { 
       [key in 'morning' | 'afternoon' | 'evening' | 'night']: { count: number; duration_minutes: number } 
   } = {
@@ -545,10 +548,10 @@ export interface DetailedCategorySummary {
   subcodes: SubcodeDetail[];
 }
 
-export const calculateDetailedCategorySummary = async (
-  client: pkg.SupabaseClient<Database>,
+export async function calculateDetailedCategorySummary(
+  client: SupabaseClient,
   { profileId, startDate, endDate }: { profileId: string; startDate: string; endDate: string; }
-): Promise<DetailedCategorySummary[]> => {
+): Promise<DetailedCategorySummary[]> {
   const { data: records, error } = await client
     .from("daily_records")
     .select("category_code, duration_minutes, subcode")
@@ -613,7 +616,7 @@ export const calculateDetailedCategorySummary = async (
       subcodes,
     };
   });
-};
+}
 
 export const calculateGoalCompletionStats = async (
   client: pkg.SupabaseClient<Database>,
@@ -628,7 +631,7 @@ export const calculateGoalCompletionStats = async (
     const total_goals = data.length;
     const completed_goals = data.filter((g: DbMonthlyGoal) => g.is_completed).length;
     const completionRate = total_goals > 0 ? Math.round((completed_goals / total_goals) * 100) : 0;
-    
+
     return {
       totalPlans: total_goals,
       completedPlans: completed_goals,
@@ -662,4 +665,54 @@ export const statsQueries = {
 export const settingsQueries = {
   getUserCategories,
   getUserDefaultCodePreferences,
-}; 
+};
+
+export async function getComparisonStats(
+  client: SupabaseClient,
+  { profileId }: { profileId: string }
+) {
+    const now = DateTime.now();
+    // This month
+    const thisMonthStart = now.startOf('month').toISODate();
+    // This week
+    const thisWeekStart = now.startOf('week').toISODate();
+    // Last month
+    const lastMonthStart = now.minus({ months: 1 }).startOf('month').toISODate();
+    const lastMonthEnd = now.minus({ months: 1 }).endOf('month').toISODate();
+    // Last week
+    const lastWeekStart = now.minus({ weeks: 1 }).startOf('week').toISODate();
+    const lastWeekEnd = now.minus({ weeks: 1 }).endOf('week').toISODate();
+
+    const params = {
+        profile_id_in: profileId,
+        this_month_start_in: thisMonthStart,
+        this_week_start_in: thisWeekStart,
+        last_month_start_in: lastMonthStart,
+        last_month_end_in: lastMonthEnd,
+        last_week_start_in: lastWeekStart,
+        last_week_end_in: lastWeekEnd,
+    };
+
+  const { data, error } = await client.rpc("get_comparison_stats", params);
+
+  if (error) {
+    console.error("Error fetching comparison stats:", error);
+    return {
+      monthly: { time: { current: 0, prev: 0 }, records: { current: 0, prev: 0 } },
+      weekly: { time: { current: 0, prev: 0 }, records: { current: 0, prev: 0 } },
+    };
+  }
+
+  // Assuming the RPC returns data in the expected nested structure.
+  // If the RPC returns a flat structure, this part needs adjustment.
+  return {
+      monthly: {
+          time: { current: data.this_month_duration || 0, prev: data.last_month_duration || 0 },
+          records: { current: data.this_month_records || 0, prev: data.last_month_records || 0 },
+      },
+      weekly: {
+          time: { current: data.this_week_duration || 0, prev: data.last_week_duration || 0 },
+          records: { current: data.this_week_records || 0, prev: data.last_week_records || 0 },
+      }
+  };
+} 

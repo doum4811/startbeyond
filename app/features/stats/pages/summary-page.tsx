@@ -186,6 +186,16 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<SummaryPa
     });
   }
 
+  const categoryDistributionWithPercentage = (() => {
+    if (!categoryDistribution || categoryDistribution.length === 0) return [];
+    const totalDuration = categoryDistribution.reduce((sum, item) => sum + item.duration, 0);
+    if (totalDuration === 0) return categoryDistribution.map(item => ({ ...item, percentage: 0 }));
+    return categoryDistribution.map(item => ({
+        ...item,
+        percentage: Math.round((item.duration / totalDuration) * 100)
+    }));
+  })();
+
   // For stats, we want to show all categories that have data, regardless of their active status.
   const processedCategories: UICategory[] = [];
   
@@ -222,7 +232,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<SummaryPa
   return {
     profileId,
     selectedMonthISO: monthParam,
-    categoryDistribution,
+    categoryDistribution: categoryDistributionWithPercentage,
     subcodeDistribution,
     categories: processedCategories,
     timeOfDayDistribution,
@@ -261,7 +271,7 @@ export default function SummaryStatsPage() {
   const [shareSettings, setShareSettings] = useState<CustomShareSettings>(initialCustomShareSettings);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-  
+
   const currentMonth = DateTime.fromFormat(selectedMonthISO, "yyyy-MM");
   const prevMonthISO = currentMonth.minus({ months: 1 }).toFormat("yyyy-MM");
   const nextMonthISO = currentMonth.plus({ months: 1 }).toFormat("yyyy-MM");
@@ -273,7 +283,7 @@ export default function SummaryStatsPage() {
   
   const prevMonthTotalRecords = prevMonthCategoryDistribution.reduce((sum, cat) => sum + cat.count, 0);
   const prevMonthTotalDurationMinutes = prevMonthCategoryDistribution.reduce((sum, cat) => sum + cat.duration, 0);
-
+  
   function getPercentageChange(current: number, previous: number): string {
     if (previous === 0) {
       return current > 0 ? t('stats_summary_page.vs_last_month_new') : t('stats_summary_page.vs_last_month_no_change');
@@ -308,8 +318,8 @@ export default function SummaryStatsPage() {
   function handleCopyLink() {
     const url = `https://startbeyond.com/share/summary/${selectedMonthISO}`;
     navigator.clipboard.writeText(url).then(() => {
-      setIsCopied(true);
-      setTimeout(() => setIsCopied(false), 2000);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
     });
   }
 
@@ -442,7 +452,7 @@ export default function SummaryStatsPage() {
                 )}
             </div>
         </CardContent>
-       </Card>
+      </Card>
     </div>
   );
 }

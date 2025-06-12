@@ -8,6 +8,7 @@ import type {
   TimeOfDayDistribution,
   SubcodeDistribution,
   GoalCompletionStats,
+  getComparisonStats,
 } from "./queries";
 
 export interface DailyRecordUI {
@@ -57,6 +58,7 @@ export interface SummaryPageLoaderData {
   prevMonthCategoryDistribution: CategoryDistribution[];
   currentMonthGoalStats: GoalCompletionStats;
   prevMonthGoalStats: GoalCompletionStats;
+  summaryInsights: SummaryInsights;
 }
 
 export interface ShareSettings {
@@ -86,6 +88,7 @@ export interface AdvancedPageLoaderData {
   currentYear: number;
   yearlyCategoryHeatmapData: Record<CategoryCode, HeatmapData[]>;
   categoryDistribution: CategoryDistribution[];
+  comparisonStats: Awaited<ReturnType<typeof getComparisonStats>>;
 }
 
 export namespace Route {

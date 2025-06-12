@@ -359,5 +359,95 @@
         "show_summary": "Key Stats",
         "show_activity_trend": "Activity Trend (Chart)",
         "show_goal_progress": "Goal Progress"
+    },
+    "stats_records_page": {
+        "title": "Activity Records",
+        "description": "Filter and search all your activities, memos, and notes.",
+        "title_search": "Search Activity Records",
+        "description_search": "Select a date range to search and filter all activities, memos, and notes.",
+        "pick_a_date": "Pick a date",
+        "search_placeholder": "Enter search query...",
+        "expand_all": "Expand All",
+        "collapse_all": "Collapse All",
+        "search_by_period": "Search by Period",
+        "start_date": "Start Date",
+        "end_date": "End Date",
+        "apply_period": "Apply Period",
+        "description_month": "Displaying data for {{month}}.",
+        "description_period": "Displaying data from {{startDate}} to {{endDate}}."
+    },
+    "stats_category_page": {
+        "title": "Detailed Category Statistics",
+        "description": "Displaying data for {{month}}.",
+        "tabs": {
+            "analysis": "Graph & Summary",
+            "goals": "Goal Achievement"
+        },
+        "analysis": {
+            "chart_title": "Chart",
+            "chart_type_placeholder": "Chart Type",
+            "chart_type_bar": "Activity Duration (Bar Chart)",
+            "chart_type_pie": "Activity Ratio (Pie Chart)",
+            "bar_chart_legend": "Total Activity Duration (minutes)",
+            "no_chart_data": "No data to display for this month.",
+            "summary_title": "Summary by Category",
+            "table_header_category": "Category",
+            "table_header_total_duration": "Total Duration",
+            "table_header_total_records": "Total Records",
+            "table_header_avg_duration": "Avg. Duration",
+            "table_header_subcodes": "All Subcodes (click to expand)",
+            "subcodes_preview": "{{subcodes}}, and {{count}} others",
+            "subcode_details_title": "Subcode Details",
+            "subcode_details_stats": "{{count}} times / {{duration}} hours"
+        },
+        "goals": {
+            "completion_rate_title": "Overall Plan Completion Rate",
+            "completion_rate_desc": "The achievement rate for all items planned this month.",
+            "completion_rate_details": "{{completed}} / {{total}} items completed",
+            "longest_streak_title": "Longest Streak",
+            "longest_streak_desc": "The longest period of consecutive days where all plans were achieved.",
+            "days_one": "{{count}} day",
+            "days_other": "{{count}} days",
+            "longest_streak_details": "Achieved goals for {{count}} consecutive days.",
+            "unchecked_plans_title": "Unchecked Plans",
+            "unchecked_plans_desc": "Plans that were not achieved this month.",
+            "hide_list": "Hide List",
+            "show_list": "Show List",
+            "items_one": "{{count}} item",
+            "items_other": "{{count}} items",
+            "unchecked_plans_details": "{{count}} plans are incomplete.",
+            "category_completion_title": "Plan Achievement Status by Category",
+            "category_completion_stats": "{{completed}}/{{total}} ({{rate}}%)",
+            "no_plans_this_month": "No plans have been set for this month."
+        }
+    },
+    "stats_advanced_page": {
+        "title": "Advanced Statistics ({{year}})",
+        "heatmap_title": "Yearly Category Activity Heatmap ({{year}})",
+        "no_heatmap_data": "No category data available to display heatmap.",
+        "distribution_title": "Yearly Category Distribution ({{year}})",
+        "no_distribution_data": "No data for category distribution chart.",
+        "comparison_title": "Monthly/Weekly Comparison",
+        "comparison_placeholder": "Placeholder for Monthly/Weekly Comparison charts and data.",
+        "monthly_comparison_title": "Monthly Comparison",
+        "weekly_comparison_title": "Weekly Comparison"
+    },
+    "stats_header": {
+        "share": "Share",
+        "select_period": "Select Period",
+        "pdf": {
+            "loading": "Generating PDF...",
+            "download": "Download PDF"
+        },
+        "share_dialog": {
+            "title": "Share Statistics",
+            "public_toggle": "Public",
+            "select_info": "Select information to share",
+            "activity_records": "Activity Records",
+            "daily_notes": "Daily Notes",
+            "detailed_memos": "Detailed Memos",
+            "statistics": "Statistics",
+            "share_link": "Share Link"
+        }
     }
 } 
