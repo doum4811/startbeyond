@@ -78,10 +78,10 @@ export function Calendar({
 
               {isMarked && (
                 <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-sky-400"></span>
-              )}
-            </button>
-          )
-        })}
+      )}
+    </button>
+  )
+})}
       </div>
     </div>
   )

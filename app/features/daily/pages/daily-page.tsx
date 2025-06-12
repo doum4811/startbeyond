@@ -66,14 +66,14 @@ function CalendarPopover({ markedDates, currentSelectedDate }: { markedDates: st
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon">
           <CalendarIcon className="w-5 h-5" />
-        </Button>
+      </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          selectedDate={DateTime.fromISO(currentSelectedDate)}
+          <Calendar
+            selectedDate={DateTime.fromISO(currentSelectedDate)}
           onDateChange={handleDateSelect}
-          markedDates={markedDates}
-        />
+            markedDates={markedDates}
+          />
       </PopoverContent>
     </Popover>
   )
@@ -85,7 +85,8 @@ function PlanBanner({
   categories,
   onAddFromPlan,
   onAddAllFromPlans,
-  isAddingAll
+  isAddingAll,
+  records,
 }: {
   plans: DailyPlanUI[];
   date: string;
@@ -93,9 +94,11 @@ function PlanBanner({
   onAddFromPlan: (plan: DailyPlanUI, isCategoryActive: boolean) => void;
   onAddAllFromPlans: () => void;
   isAddingAll: boolean;
+  records: DailyRecordUI[];
 }) {
   const [isCollapsed, setIsCollapsed] = useState(plans.length === 0);
-  
+  const allPlansAdded = useMemo(() => plans.every(p => records.some(r => r.linked_plan_id === p.id)), [plans, records]);
+
   return (
     <Collapsible open={!isCollapsed} onOpenChange={(open) => setIsCollapsed(!open)} className="mb-8">
        <div className="rounded-xl bg-muted border">
@@ -111,52 +114,53 @@ function PlanBanner({
         <CollapsibleContent>
             <div className="p-4">
               <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="py-2 px-2 text-left">Code</th>
-                    <th className="py-2 px-2 text-left">Subcode</th>
-                    <th className="py-2 px-2 text-left">Duration</th>
-                    <th className="py-2 px-2 text-left">Comment</th>
-                    <th className="py-2 px-2 text-center">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {plans.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="text-center text-muted-foreground py-4">작성한 계획이 없습니다</td>
-                    </tr>
-                  ) : (
+        <thead>
+          <tr className="border-b">
+            <th className="py-2 px-2 text-left">Code</th>
+            <th className="py-2 px-2 text-left">Subcode</th>
+            <th className="py-2 px-2 text-left">Duration</th>
+            <th className="py-2 px-2 text-left">Comment</th>
+            <th className="py-2 px-2 text-center">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {plans.length === 0 ? (
+            <tr>
+              <td colSpan={5} className="text-center text-muted-foreground py-4">작성한 계획이 없습니다</td>
+            </tr>
+          ) : (
                     plans.map((plan) => {
                       const category = categories.find(c => c.code === plan.category_code);
                       const isCategoryActive = !!category?.isActive;
-                      return (
-                        <tr key={plan.id} className="border-b">
-                          <td className="py-2 px-2 flex items-center gap-2">
+                      const isAdded = records.some(r => r.linked_plan_id === plan.id);
+              return (
+              <tr key={plan.id} className="border-b">
+                <td className="py-2 px-2 flex items-center gap-2">
                               <span className={`text-2xl`}>{category?.icon || '❓'}</span>
                               <span>{category?.label || plan.category_code}</span>
-                          </td>
+                </td>
                           <td>{plan.subcode || '-'}</td>
                           <td>{plan.duration ? `${plan.duration}분` : '-'}</td>
                           <td>{plan.comment || '-'}</td>
                           <td className="text-center">
-                              <Button size="sm" onClick={() => onAddFromPlan(plan, isCategoryActive)}>
-                                {isCategoryActive ? "기록 추가" : "추가 (비활성)"}
-                              </Button>
-                          </td>
-                        </tr>
+                              <Button size="sm" onClick={() => onAddFromPlan(plan, isCategoryActive)} disabled={isAdded}>
+                                {isAdded ? "추가됨" : (isCategoryActive ? "기록 추가" : "추가 (비활성)")}
+                      </Button>
+                </td>
+              </tr>
                       )
                     })
-                  )}
-                </tbody>
-              </table>
-              {plans.length > 0 && (
+          )}
+        </tbody>
+      </table>
+      {plans.length > 0 && (
                 <div className="flex justify-end mt-4">
-                    <Button onClick={onAddAllFromPlans} disabled={isAddingAll}>
-                        {isAddingAll ? "처리 중..." : "모두 기록에 추가"}
-                    </Button>
-                </div>
-              )}
-            </div>
+                    <Button onClick={onAddAllFromPlans} disabled={isAddingAll || allPlansAdded}>
+            {isAddingAll ? "처리 중..." : (allPlansAdded ? "모두 추가됨" : "모두 기록에 추가")}
+          </Button>
+        </div>
+      )}
+    </div>
         </CollapsibleContent>
       </div>
     </Collapsible>
@@ -170,9 +174,9 @@ interface DailyPageProps {
 export default function DailyPage({ loaderData }: DailyPageProps) {
   const { today, records, dailyNotes, plansForBanner, markedDates, categories } = loaderData;
   const fetcher = useFetcher<typeof action>();
-  
+
   const [form, setForm] = useState<AddFormState>(() => {
-    const firstActiveCategory = categories.find(c => c.isActive);
+      const firstActiveCategory = categories.find(c => c.isActive);
     return {
         category_code: firstActiveCategory ? firstActiveCategory.code : "",
         duration: "",
@@ -200,23 +204,23 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
 
   useEffect(() => {
     if (fetcher.state === 'idle' && fetcher.data?.ok) {
-      const firstActiveCategory = categories.find(c => c.isActive);
+    const firstActiveCategory = categories.find(c => c.isActive);
       setForm({ category_code: firstActiveCategory?.code || "", duration: "", comment: "", is_public: false });
-      setIsEditing(false);
-      setSelectedRowId(null);
-      setEditingSubcodeForRecordId(null);
-      setShowMemoFormForRecordId(null);
+    setIsEditing(false);
+    setSelectedRowId(null);
+                setEditingSubcodeForRecordId(null);
+                setShowMemoFormForRecordId(null);
     }
   }, [fetcher.state, fetcher.data, categories]);
 
   function validateDuration(value: string): boolean {
     const num = Number(value);
     if (value.trim() === "" || (num >= 0 && num <= MAX_MINUTES_PER_DAY)) {
-      setDurationError(null);
-      return true;
+        setDurationError(null);
+        return true;
     }
-    setDurationError(`0에서 ${MAX_MINUTES_PER_DAY} 사이의 숫자를 입력해주세요.`);
-    return false;
+      setDurationError(`0에서 ${MAX_MINUTES_PER_DAY} 사이의 숫자를 입력해주세요.`);
+      return false;
   }
 
   function handleFormCategorySelect(code: string) {
@@ -227,17 +231,17 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
     if (selectedRowId === record.id) {
       handleCancelEdit();
     } else {
-      setSelectedRowId(record.id);
-      setIsEditing(true);
+    setSelectedRowId(record.id);
+    setIsEditing(true);
       setForm({
         category_code: record.category_code || "",
         duration: record.duration !== null && record.duration !== undefined ? String(record.duration) : "",
         comment: record.comment || "",
         is_public: record.is_public || false,
       });
-      setEditingSubcodeForRecordId(null);
-      setShowMemoFormForRecordId(null);
-    }
+    setEditingSubcodeForRecordId(null);
+    setShowMemoFormForRecordId(null);
+  }
   };
 
   const handleCancelEdit = () => {
@@ -279,16 +283,17 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
         </div>
         <div className="text-lg font-bold text-muted-foreground">
           {DateTime.fromISO(today).toFormat("yyyy-MM-dd (ccc)")}
-        </div>
+      </div>
         <Button asChild>
             <Link to="/plan/tomorrow"><Plus className="w-4 h-4 mr-1" />Tomorrow Plan</Link>
-        </Button>
-      </div>
+                </Button>
+              </div>
 
-      <PlanBanner 
-        plans={plansForBanner.filter(p => !records.some(r => r.linked_plan_id === p.id))} 
+              <PlanBanner
+        plans={plansForBanner}
+        records={records}
         date={today} 
-        categories={categories}
+                categories={categories}
         onAddFromPlan={(plan, isCategoryActive) => {
             if (!isCategoryActive) {
                 setPlanToActivate(plan);
@@ -307,6 +312,7 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
         }}
         onAddAllFromPlans={() => {
             const plansToAdd = plansForBanner.filter(p => !records.some(r => r.linked_plan_id === p.id));
+            if (plansToAdd.length === 0) return;
             const formData = new FormData();
             formData.append("intent", "addAllRecordsFromMultiplePlans");
             formData.append("date", today);
@@ -327,23 +333,23 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
         <div className="flex-1 space-y-6">
             <Card>
               <CardHeader><CardTitle>{isEditing ? "Edit Record" : "Add Daily Record"}</CardTitle></CardHeader>
-              <CardContent>
-                <fetcher.Form method="post" onSubmit={() => setDurationError(null)}>
+            <CardContent>
+              <fetcher.Form method="post" onSubmit={() => setDurationError(null)}>
                     <input type="hidden" name="intent" value={isEditing ? "updateRecord" : "addRecord"} />
                     {isEditing && <input type="hidden" name="recordId" value={selectedRowId || ''} />}
-                    <input type="hidden" name="date" value={today} />
-                    <CategorySelector
+                <input type="hidden" name="date" value={today} />
+                <CategorySelector
                         categories={activeCategories}
                         selectedCategoryCode={form.category_code}
-                        onSelectCategory={handleFormCategorySelect}
+                  onSelectCategory={handleFormCategorySelect}
                         disabled={isEditing && !!selectedRecord?.linked_plan_id}
                         instanceId="daily-page-form"
-                    />
+                />
                     <div className="flex items-center gap-2 mt-2">
                         <div className="relative">
                             <Input name="duration" type="number" placeholder="분" value={form.duration} onChange={e => { if(validateDuration(e.target.value)) setForm(f=>({...f, duration: e.target.value}))}} className={`w-24 ${durationError ? 'border-red-500' : ''}`} />
                             {durationError && <div className="absolute -bottom-6 left-0 text-xs text-red-500">{durationError}</div>}
-                        </div>
+                            </div>
                         <Input name="comment" placeholder="간단 메모" value={form.comment} onChange={e => setForm(f=>({...f, comment: e.target.value}))} className="flex-1" />
                         <input type="hidden" name="category_code" value={form.category_code} />
                         {isEditing && (
@@ -358,49 +364,49 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                         ) : (
                             <Button type="submit" disabled={fetcher.state !== 'idle' || !form.category_code}>Add</Button>
                         )}
-                    </div>
-                </fetcher.Form>
-              </CardContent>
-            </Card>
+                </div>
+              </fetcher.Form>
+            </CardContent>
+          </Card>
 
-            <Card>
+          <Card>
               <CardHeader><CardTitle>Records</CardTitle></CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full text-base">
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-base">
                         <thead><tr className="border-b"><th className="py-2 px-2 text-left">Category</th><th className="py-2 px-2 text-left">Subcode</th><th className="py-2 px-2 text-left">Duration</th><th className="py-2 px-2 text-left">Comment</th><th className="py-2 px-2 text-center">Action</th></tr></thead>
-                        <tbody>
+                  <tbody>
                             {records.map(rec => {
-                                const categoryInfo = categories.find(c => c.code === rec.category_code);
+                      const categoryInfo = categories.find(c => c.code === rec.category_code);
                                 return (<React.Fragment key={rec.id}>
                                     <tr className={`border-b cursor-pointer ${selectedRowId === rec.id ? 'bg-accent/30' : ''}`} onClick={() => handleRowClick(rec)}>
-                                        <td className="py-2 px-2 flex items-center gap-2">
+                            <td className="py-2 px-2 flex items-center gap-2">
                                             <span className="text-2xl">{categoryInfo?.icon}</span>
                                             <span className="font-medium">{categoryInfo?.label}</span>
-                                        </td>
+                            </td>
                                         <td>{rec.subcode || '-'}</td>
                                         <td>{rec.duration ? `${rec.duration}분` : (categoryInfo?.hasDuration ? "-" : "")}</td>
                                         <td>{rec.comment || '-'}</td>
                                         <td className="py-2 px-2 text-center flex gap-1 justify-center">
                                             <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setEditingSubcodeForRecordId(rec.id); setEditSubcodeValue(rec.subcode || ""); setShowMemoFormForRecordId(null); setSelectedRowId(rec.id); setIsEditing(false); }}>세부코드</Button>
                                             <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setShowMemoFormForRecordId(rec.id); setMemoTitle(''); setMemoContent(''); setEditingSubcodeForRecordId(null); setSelectedRowId(rec.id); setIsEditing(false); }}>메모</Button>
-                                        </td>
-                                    </tr>
+                            </td>
+                          </tr>
                                     {editingSubcodeForRecordId === rec.id && (<tr><td colSpan={5} className="bg-muted p-2"><fetcher.Form method="post" className="flex items-center gap-2" onSubmit={() => setEditingSubcodeForRecordId(null)}><input type="hidden" name="intent" value="updateSubcode" /><input type="hidden" name="recordId" value={rec.id} /><Input name="subcode" value={editSubcodeValue} onChange={e => setEditSubcodeValue(e.target.value)} className="flex-1" /><Button type="submit" size="sm">저장</Button><Button type="button" size="sm" variant="ghost" onClick={() => setEditingSubcodeForRecordId(null)}><X className="w-4 h-4"/></Button></fetcher.Form></td></tr>)}
                                     {showMemoFormForRecordId === rec.id && (<tr><td colSpan={5} className="bg-muted p-4"><h4 className="font-medium text-md mb-2">새 메모 작성</h4><fetcher.Form method="post" className="flex flex-col gap-3" onSubmit={() => setShowMemoFormForRecordId(null)}><input type="hidden" name="intent" value="addMemo" /><input type="hidden" name="recordId" value={rec.id} /><Input name="memoTitle" placeholder="제목" value={memoTitle} onChange={e => setMemoTitle(e.target.value)} /><Textarea name="memoContent" placeholder="내용" value={memoContent} onChange={e => setMemoContent(e.target.value)} required /><div className="flex justify-end gap-2"><Button type="submit" size="sm">저장</Button><Button type="button" size="sm" variant="outline" onClick={() => setShowMemoFormForRecordId(null)}>취소</Button></div></fetcher.Form></td></tr>)}
                                 </React.Fragment>)
-                            })}
+                    })}
                             {records.length === 0 && (<tr><td colSpan={5} className="text-center py-8 text-muted-foreground">No records yet.</td></tr>)}
-                        </tbody>
-                    </table>
-                </div>
-              </CardContent>
-            </Card>
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
 
-            <DailyNotesSection 
+          <DailyNotesSection 
                 currentDailyNotes={dailyNotes}
-                today={today}
-            />
+            today={today}
+          />
         </div>
 
         <div className="w-full lg:w-96 space-y-4">
@@ -411,20 +417,20 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                     <h4 className="font-medium text-sm flex items-center gap-1">
                         <span className="text-lg">{categories.find(c=>c.code === record.category_code)?.icon || '❓'}</span>
                         {record.comment || categories.find(c=>c.code === record.category_code)?.label}
-                    </h4>
-                    {record.memos.map(memo => (
+                 </h4>
+                {record.memos.map(memo => (
                         <Card key={memo.id} className="bg-muted/50">
                             <CardHeader className="p-3 flex flex-row items-center justify-between">
                                 <CardTitle className="text-sm font-semibold">{memo.title || '메모'}</CardTitle>
                                 <fetcher.Form method="post"><input type="hidden" name="intent" value="deleteMemo"/><input type="hidden" name="memoId" value={memo.id}/><Button variant="ghost" size="icon" className="h-6 w-6" type="submit"><X className="w-4 h-4"/></Button></fetcher.Form>
-                            </CardHeader>
+                    </CardHeader>
                             <CardContent className="p-3 pt-0">
                                 <p className="text-sm whitespace-pre-wrap">{memo.content}</p>
                                 <p className="text-xs text-muted-foreground mt-2">{DateTime.fromISO(memo.created_at!).toLocaleString(DateTime.DATETIME_SHORT)}</p>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             )))}
         </div>
       </div>
@@ -459,14 +465,14 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                             if (planToActivate) {
                                 const formData = new FormData();
                                 formData.append("intent", "activateCategoryAndAddRecordFromPlan");
-                                formData.append("planId", planToActivate.id);
+                                formData.append("planId", planToActivate.id); 
                                 formData.append("category_code_to_activate", planToActivate.category_code);
                                 const category = categories.find(c=>c.code === planToActivate.category_code);
                                 formData.append("isCustomCategory", String(!!category?.isCustom));
                                 formData.append("subcode", planToActivate.subcode || "");
                                 formData.append("duration", String(planToActivate.duration || ""));
                                 formData.append("comment", planToActivate.comment || "");
-                                formData.append("date", today);
+                                formData.append("date", today); 
                                 formData.append("linked_plan_id", planToActivate.id);
                                 fetcher.submit(formData, { method: "POST" });
                                 setShowActivateCategoryDialog(false);

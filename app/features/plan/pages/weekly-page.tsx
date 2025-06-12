@@ -1,14 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "~/common/components/ui/card";
 import { Button } from "~/common/components/ui/button";
 import { Input } from "~/common/components/ui/input";
 import { Textarea } from "~/common/components/ui/textarea";
 import { Label } from "~/common/components/ui/label";
-import { Link, Form, useFetcher } from "react-router";
-import { Calendar as CalendarIcon, PlusCircle, Trash2, Edit, Check, X, Save } from "lucide-react";
+import { Link, Form, useFetcher, redirect, useNavigate } from "react-router";
+import { Calendar as CalendarIcon, PlusCircle, Trash2, Edit, Check, X, Save, ChevronLeft, ChevronRight } from "lucide-react";
 import { DateTime } from "luxon";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { Switch } from "~/common/components/ui/switch";
+import { Popover, PopoverContent, PopoverTrigger } from "~/common/components/ui/popover";
+import { Calendar } from "~/common/components/ui/calendar";
 
 import * as planQueries from "~/features/plan/queries";
 import type { 
@@ -51,10 +53,6 @@ interface MonthlyGoalUI extends Pick<DbMonthlyGoal, 'id' | 'category_code' | 'ti
 }
 
 // --- Helper Functions ---
-// async function getProfileId(_request?: Request): Promise<string> {
-//   // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; 
-//   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
-// }
 async function getProfileId(request: Request): Promise<string> {
   const { client } = makeSSRClient(request);
   const { data: { user } } = await client.auth.getUser();
@@ -129,119 +127,133 @@ export interface WeeklyPageLoaderData {
   categories: UICategory[];
 }
 
-export const loader = async ({ request }: LoaderFunctionArgs): Promise<WeeklyPageLoaderData> => {
-  const { client } = makeSSRClient(request);
-  const profileId = await getProfileId(request);
-  const currentWeekStartDate = getCurrentWeekStartDateISO();
-  const currentWeekNumberInMonth = planQueries.getWeekOfMonth(currentWeekStartDate);
-
-  const [
-    dbWeeklyTasks, 
-    dbWeeklyNoteData, 
-    dbMonthlyGoals,
-    userCategoriesData,
-    userDefaultCodePreferencesData
-  ] = await Promise.all([
-    planQueries.getWeeklyTasksByWeek(client, { profileId, weekStartDate: currentWeekStartDate }),
-    planQueries.getWeeklyNoteByWeek(client, { profileId, weekStartDate: currentWeekStartDate }),
-    planQueries.getMonthlyGoalsForWeek(client, { profileId, dateInWeek: currentWeekStartDate }),
-    settingsQueries.getUserCategories(client, { profileId }),
-    settingsQueries.getUserDefaultCodePreferences(client, { profileId })
-  ]);
-
-  const weeklyTasks: WeeklyTaskUI[] = (dbWeeklyTasks || []).map((task: DbWeeklyTask): WeeklyTaskUI => ({
-    id: task.id,
-    category_code: task.category_code,
-    subcode: task.subcode ?? null,
-    comment: task.comment,
-    days: task.days as Record<string,boolean> ?? {},
-    is_locked: task.is_locked ?? false,
-    from_monthly_goal_id: task.from_monthly_goal_id ?? null,
-    created_at: task.created_at,
-    sort_order: task.sort_order,
-  }));
-
-  const weeklyNote: WeeklyNoteUI | null = dbWeeklyNoteData ? {
-    id: dbWeeklyNoteData.id,
-    critical_success_factor: dbWeeklyNoteData.critical_success_factor ?? "",
-    weekly_see: dbWeeklyNoteData.weekly_see ?? "",
-    words_of_praise: dbWeeklyNoteData.words_of_praise ?? "",
-    weekly_goal_note: dbWeeklyNoteData.weekly_goal_note ?? "",
-  } : null;
-
-  const monthlyGoalsForWeek: MonthlyGoalUI[] = (dbMonthlyGoals || []).map((goal: DbMonthlyGoal): MonthlyGoalUI => ({
-    id: goal.id,
-    category_code: goal.category_code,
-    title: goal.title,
-    weekly_breakdown: typeof goal.weekly_breakdown === 'string' 
-        ? JSON.parse(goal.weekly_breakdown) 
-        : goal.weekly_breakdown || {},
-  }));
-
-  const processedCategories: UICategory[] = [];
-  const defaultCategoryPreferences = new Map(
-    (userDefaultCodePreferencesData || []).map(pref => [pref.default_category_code, pref.is_active])
-  );
-
-  for (const catCodeKey in CATEGORIES) {
-    if (Object.prototype.hasOwnProperty.call(CATEGORIES, catCodeKey)) {
-      const baseCategory = CATEGORIES[catCodeKey as CategoryCode];
-      const isActivePreference = defaultCategoryPreferences.get(baseCategory.code);
-      const isActive = isActivePreference === undefined ? true : isActivePreference;
-
-      processedCategories.push({
-        code: baseCategory.code,
-        label: baseCategory.label,
-        icon: baseCategory.icon,
-        isCustom: false,
-        isActive: isActive,
-        hasDuration: baseCategory.hasDuration,
-        sort_order: baseCategory.sort_order !== undefined ? baseCategory.sort_order : 999,
-      });
+export const loader = async ({ request }: LoaderFunctionArgs): Promise<WeeklyPageLoaderData | Response> => {
+  try {
+    const url = new URL(request.url);
+    const weekParam = url.searchParams.get("week");
+    let baseDate = weekParam ? DateTime.fromISO(weekParam) : DateTime.now();
+    if (!baseDate.isValid) {
+      baseDate = DateTime.now();
     }
-  }
+    const currentWeekStartDate = baseDate.startOf('week').toISODate()!;
 
-  (userCategoriesData || []).forEach(userCat => {
-    const existingIndex = processedCategories.findIndex(c => c.code === userCat.code && !c.isCustom);
-    if (existingIndex !== -1) {
-        if(userCat.is_active) {
-            processedCategories.splice(existingIndex, 1);
-        } else {
-            return;
-        }
-    }
-    
-    if (!processedCategories.find(c => c.code === userCat.code && c.isCustom)) {
+    const { client } = makeSSRClient(request);
+    const profileId = await getProfileId(request);
+    const currentWeekNumberInMonth = planQueries.getWeekOfMonth(currentWeekStartDate);
+
+    const [
+      dbWeeklyTasks, 
+      dbWeeklyNoteData, 
+      dbMonthlyGoals,
+      userCategoriesData,
+      userDefaultCodePreferencesData
+    ] = await Promise.all([
+      planQueries.getWeeklyTasksByWeek(client, { profileId, weekStartDate: currentWeekStartDate }),
+      planQueries.getWeeklyNoteByWeek(client, { profileId, weekStartDate: currentWeekStartDate }),
+      planQueries.getMonthlyGoalsForWeek(client, { profileId, dateInWeek: currentWeekStartDate }),
+      settingsQueries.getUserCategories(client, { profileId }),
+      settingsQueries.getUserDefaultCodePreferences(client, { profileId })
+    ]);
+
+    const weeklyTasks: WeeklyTaskUI[] = (dbWeeklyTasks || []).map((task: DbWeeklyTask): WeeklyTaskUI => ({
+      id: task.id,
+      category_code: task.category_code,
+      subcode: task.subcode ?? null,
+      comment: task.comment,
+      days: task.days as Record<string,boolean> ?? {},
+      is_locked: task.is_locked ?? false,
+      from_monthly_goal_id: task.from_monthly_goal_id ?? null,
+      created_at: task.created_at,
+      sort_order: task.sort_order,
+    }));
+
+    const weeklyNote: WeeklyNoteUI | null = dbWeeklyNoteData ? {
+      id: dbWeeklyNoteData.id,
+      critical_success_factor: dbWeeklyNoteData.critical_success_factor ?? "",
+      weekly_see: dbWeeklyNoteData.weekly_see ?? "",
+      words_of_praise: dbWeeklyNoteData.words_of_praise ?? "",
+      weekly_goal_note: dbWeeklyNoteData.weekly_goal_note ?? "",
+    } : null;
+
+    const monthlyGoalsForWeek: MonthlyGoalUI[] = (dbMonthlyGoals || []).map((goal: DbMonthlyGoal): MonthlyGoalUI => ({
+      id: goal.id,
+      category_code: goal.category_code,
+      title: goal.title,
+      weekly_breakdown: typeof goal.weekly_breakdown === 'string' 
+          ? JSON.parse(goal.weekly_breakdown) 
+          : goal.weekly_breakdown || {},
+    }));
+
+    const processedCategories: UICategory[] = [];
+    const defaultCategoryPreferences = new Map(
+      (userDefaultCodePreferencesData || []).map(pref => [pref.default_category_code, pref.is_active])
+    );
+
+    for (const catCodeKey in CATEGORIES) {
+      if (Object.prototype.hasOwnProperty.call(CATEGORIES, catCodeKey)) {
+        const baseCategory = CATEGORIES[catCodeKey as CategoryCode];
+        const isActivePreference = defaultCategoryPreferences.get(baseCategory.code);
+        const isActive = isActivePreference === undefined ? true : isActivePreference;
+
         processedCategories.push({
-            code: userCat.code,
-            label: userCat.label,
-            icon: userCat.icon || '📝', 
-            color: userCat.color || undefined,
-            isCustom: true,
-            isActive: userCat.is_active,
-            hasDuration: true, 
-            sort_order: userCat.sort_order !== null && userCat.sort_order !== undefined ? userCat.sort_order : 1000,
+          code: baseCategory.code,
+          label: baseCategory.label,
+          icon: baseCategory.icon,
+          isCustom: false,
+          isActive: isActive,
+          hasDuration: baseCategory.hasDuration,
+          sort_order: baseCategory.sort_order !== undefined ? baseCategory.sort_order : 999,
         });
+      }
     }
-  });
-  
-  processedCategories.sort((a, b) => {
-    if (a.isActive && !b.isActive) return -1;
-    if (!a.isActive && b.isActive) return 1;
-    if (a.isCustom && !b.isCustom) return -1;
-    if (!a.isCustom && b.isCustom) return 1;
-    return (a.sort_order ?? 999) - (b.sort_order ?? 999);
-  });
 
-  return {
-    profileId,
-    currentWeekStartDate,
-    weeklyTasks,
-    weeklyNote,
-    monthlyGoalsForWeek,
-    currentWeekNumberInMonth,
-    categories: processedCategories,
-  };
+    (userCategoriesData || []).forEach(userCat => {
+      const existingIndex = processedCategories.findIndex(c => c.code === userCat.code && !c.isCustom);
+      if (existingIndex !== -1) {
+          if(userCat.is_active) {
+              processedCategories.splice(existingIndex, 1);
+          } else {
+              return;
+          }
+      }
+      
+      if (!processedCategories.find(c => c.code === userCat.code && c.isCustom)) {
+          processedCategories.push({
+              code: userCat.code,
+              label: userCat.label,
+              icon: userCat.icon || '📝', 
+              color: userCat.color || undefined,
+              isCustom: true,
+              isActive: userCat.is_active,
+              hasDuration: true, 
+              sort_order: userCat.sort_order !== null && userCat.sort_order !== undefined ? userCat.sort_order : 1000,
+          });
+      }
+    });
+    
+    processedCategories.sort((a, b) => {
+      if (a.isActive && !b.isActive) return -1;
+      if (!a.isActive && b.isActive) return 1;
+      if (a.isCustom && !b.isCustom) return -1;
+      if (!a.isCustom && b.isCustom) return 1;
+      return (a.sort_order ?? 999) - (b.sort_order ?? 999);
+    });
+
+    return {
+      profileId,
+      currentWeekStartDate,
+      weeklyTasks,
+      weeklyNote,
+      monthlyGoalsForWeek,
+      currentWeekNumberInMonth,
+      categories: processedCategories,
+    };
+  } catch (error: any) {
+    if (error.message === "User not authenticated") {
+      return redirect("/auth/login");
+    }
+    throw error;
+  }
 };
 
 // --- Action ---
@@ -261,10 +273,25 @@ function dbTaskToUiTask(dbTask: DbWeeklyTask): WeeklyTaskUI {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { client } = makeSSRClient(request);
-  const profileId = await getProfileId(request);
+  let profileId: string;
+  try {
+    profileId = await getProfileId(request);
+  } catch (error: any) {
+    if (error.message === "User not authenticated") {
+      return redirect("/auth/login");
+    }
+    throw error;
+  }
+  
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
-  const currentWeekStartDate = getCurrentWeekStartDateISO();
+  const url = new URL(request.url);
+  const weekParam = url.searchParams.get("week");
+  let baseDate = weekParam ? DateTime.fromISO(weekParam) : DateTime.now();
+  if (!baseDate.isValid) {
+    baseDate = DateTime.now();
+  }
+  const currentWeekStartDate = baseDate.startOf('week').toISODate()!;
 
   const activeCategoriesForAction = await (async () => {
     const [userCategoriesDb, defaultPreferencesDb] = await Promise.all([
@@ -515,8 +542,20 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
     categories
   } = loaderData;
 
-  const fetcher = useFetcher<typeof action>();
+  const editFetcher = useFetcher<Awaited<ReturnType<typeof action>>>();
+  const deleteFetcher = useFetcher<Awaited<ReturnType<typeof action>>>();
+  const dayToggleFetcher = useFetcher<Awaited<ReturnType<typeof action>>>();
+  const lockFetcher = useFetcher<Awaited<ReturnType<typeof action>>>();
+  const monthlyGoalFetcher = useFetcher<Awaited<ReturnType<typeof action>>>();
+  const notesFetcher = useFetcher<Awaited<ReturnType<typeof action>>>();
+  const navigate = useNavigate();
+
   const [weeklyTasks, setWeeklyTasks] = useState<WeeklyTaskUI[]>(() => sortWeeklyTasksArray(initialWeeklyTasks));
+  const weeklyTasksRef = useRef(weeklyTasks);
+  useEffect(() => {
+    weeklyTasksRef.current = weeklyTasks;
+  }, [weeklyTasks]);
+
   const [weeklyNote, setWeeklyNote] = useState<WeeklyNoteUI | null>(initialWeeklyNote);
   const [newTaskCategory, setNewTaskCategory] = useState<CategoryCode>(DEFAULT_TASK_CATEGORY);
   const [newTaskSubcode, setNewTaskSubcode] = useState("");
@@ -546,69 +585,145 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
     setIsMonthlyGoalsCollapsed(monthlyGoalsForWeek.length === 0);
   }, [initialWeeklyTasks, initialWeeklyNote, monthlyGoalsForWeek]);
 
+  // Edit/Add Fetcher Effect
   useEffect(() => {
-    if (fetcher.data && fetcher.state === "idle") {
-      const res = fetcher.data;
-      if (res.ok) {
-        if ((res.intent === "addWeeklyTask" || res.intent === "addWeeklyTaskFromMonthlyGoal") && res.newTask) {
-          const newTaskToAdd = res.newTask as WeeklyTaskUI;
-          setWeeklyTasks(prevTasks => {
-            if (prevTasks.some(t => t.id === newTaskToAdd.id)) {
-              return prevTasks; // Already exists, no change, no re-sort needed
+    if (editFetcher.data && editFetcher.state === "idle") {
+        const res = editFetcher.data;
+        if (res instanceof Response) return;
+        if (res.ok) {
+            if (res.intent === "addWeeklyTask" && res.newTask) {
+                const newTaskToAdd = res.newTask as WeeklyTaskUI;
+                setWeeklyTasks(prevTasks => {
+                    if (prevTasks.some(t => t.id === newTaskToAdd.id)) return prevTasks;
+                    return sortWeeklyTasksArray([newTaskToAdd, ...prevTasks]);
+                });
+                setNewTaskCategory(DEFAULT_TASK_CATEGORY);
+                setNewTaskSubcode("");
+                setNewTaskComment("");
+            } else if (res.intent === "updateWeeklyTask" && res.taskId && res.updatedTask) {
+                setWeeklyTasks(prev => sortWeeklyTasksArray(prev.map(t => t.id === res.taskId ? res.updatedTask as WeeklyTaskUI : t)));
+                setEditingTaskId(null);
+                setEditTaskData(null);
             }
-            return sortWeeklyTasksArray([newTaskToAdd, ...prevTasks]);
-          });
-
-          if (res.intent === "addWeeklyTask") {
-            setNewTaskCategory(DEFAULT_TASK_CATEGORY);
-    setNewTaskSubcode("");
-    setNewTaskComment("");
-          } else if (res.intent === "addWeeklyTaskFromMonthlyGoal" && res.linkedMonthlyGoalId) {
-             setAddedMonthlyGoalTaskIds(prev => new Set(prev).add(res.linkedMonthlyGoalId!));
-          }
-        } else if (res.intent === "updateWeeklyTask" && res.taskId) {
-          if (res.updatedTask) {
-            setWeeklyTasks(prev => sortWeeklyTasksArray(prev.map(t => t.id === res.taskId ? res.updatedTask as WeeklyTaskUI : t)));
-          } else {
-            console.log(`UI: Task ${res.taskId} was not updated in the list as it was not found or not changed in DB.`);
-          }
-          setEditingTaskId(null);
-          setEditTaskData(null);
-        } else if (res.intent === "deleteWeeklyTask" && res.deletedTaskId) {
-          setWeeklyTasks(prevWeeklyTasks => {
-            return sortWeeklyTasksArray(prevWeeklyTasks.filter(t => t.id !== res.deletedTaskId));
-          });
-          setAddedMonthlyGoalTaskIds(prevIds => {
-            const newSet = new Set(prevIds);
-            newSet.delete(res.deletedTaskId);
-            return newSet;
-          });
-        } else if (res.intent === "upsertWeeklyGoals" && res.upsertedNote) {
-          setWeeklyNote(res.upsertedNote as WeeklyNoteUI);
-        } else if (res.intent === "addAllWeeklyTasksFromMonthlyGoals" && res.newTasks) {
-          const newTasks = res.newTasks as WeeklyTaskUI[];
-          if (newTasks.length > 0) {
-            setWeeklyTasks(prevTasks => {
-              const newTaskIds = new Set(newTasks.map(t => t.id));
-              const filteredPrevTasks = prevTasks.filter(t => !newTaskIds.has(t.id));
-              return sortWeeklyTasksArray([...newTasks, ...filteredPrevTasks]);
-            });
-            setAddedMonthlyGoalTaskIds(prevIds => {
-              const newGoalIdsToAdd = new Set(newTasks.map(t => t.from_monthly_goal_id).filter((id): id is string => id !== null));
-              return new Set([...prevIds, ...newGoalIdsToAdd]);
-            });
-          }
-          if (res.partialErrors && res.partialErrors.length > 0) {
-            alert(`Some weekly tasks from monthly goals could not be added: ${res.partialErrors.join("; ")}`);
-          }
+        } else if (res.error) {
+            console.error("Edit/Add Task Error:", res.error, "Intent:", res.intent);
+            alert(`Error (${res.intent || 'Unknown'}): ${res.error}`);
         }
-      } else if (res.error) {
-        console.error("Weekly Page Action Error:", res.error, "Intent:", res.intent);
-        alert(`Error (${res.intent || 'Unknown'}): ${res.error}`);
-      }
     }
+  }, [editFetcher.data, editFetcher.state]);
+
+  // Delete Fetcher Effect
+  useEffect(() => {
+      if (deleteFetcher.data && deleteFetcher.state === "idle") {
+          const res = deleteFetcher.data;
+          if (res instanceof Response) return;
+          if (res.ok) {
+              if (res.intent === "deleteWeeklyTask" && res.deletedTaskId) {
+                  const taskToDelete = weeklyTasksRef.current.find(t => t.id === res.deletedTaskId);
+                  setWeeklyTasks(prev => sortWeeklyTasksArray(prev.filter(t => t.id !== res.deletedTaskId)));
+                  if (taskToDelete?.from_monthly_goal_id) {
+                      setAddedMonthlyGoalTaskIds(prev => {
+                          const newSet = new Set(prev);
+                          newSet.delete(taskToDelete.from_monthly_goal_id!);
+                          return newSet;
+                      });
+                  }
+              }
+          } else if (res.error) {
+              console.error("Delete Task Error:", res.error, "Intent:", res.intent);
+              alert(`Error (${res.intent || 'Unknown'}): ${res.error}`);
+          }
+      }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetcher.data, fetcher.state]);
+  }, [deleteFetcher.data, deleteFetcher.state]);
+
+  // Day Toggle Fetcher Effect
+  useEffect(() => {
+      if (dayToggleFetcher.data && dayToggleFetcher.state === "idle") {
+          const res = dayToggleFetcher.data;
+          if (res instanceof Response) return;
+          if (res.ok && res.intent === "updateWeeklyTask" && res.updatedTask) {
+              setWeeklyTasks(prev => sortWeeklyTasksArray(prev.map(t => t.id === res.taskId ? res.updatedTask as WeeklyTaskUI : t)));
+          } else if (res.error) {
+              console.error("Day Toggle Error:", res.error, "Intent:", res.intent);
+              alert(`Error (${res.intent || 'Unknown'}): ${res.error}`);
+          }
+      }
+  }, [dayToggleFetcher.data, dayToggleFetcher.state]);
+
+  // Lock Fetcher Effect
+  useEffect(() => {
+      if (lockFetcher.data && lockFetcher.state === "idle") {
+          const res = lockFetcher.data;
+          if (res instanceof Response) return;
+          if (res.ok && res.intent === "updateWeeklyTask" && res.updatedTask) {
+              setWeeklyTasks(prev => sortWeeklyTasksArray(prev.map(t => t.id === res.taskId ? res.updatedTask as WeeklyTaskUI : t)));
+          } else if (res.error) {
+              console.error("Lock Toggle Error:", res.error, "Intent:", res.intent);
+              alert(`Error (${res.intent || 'Unknown'}): ${res.error}`);
+          }
+      }
+  }, [lockFetcher.data, lockFetcher.state]);
+
+  // Monthly Goal Fetcher Effect
+  useEffect(() => {
+      if (monthlyGoalFetcher.data && monthlyGoalFetcher.state === "idle") {
+          const res = monthlyGoalFetcher.data;
+          if (res instanceof Response) return;
+          if (res.ok) {
+              if (res.intent === "addWeeklyTaskFromMonthlyGoal" && res.newTask && res.linkedMonthlyGoalId) {
+                  setWeeklyTasks(prev => sortWeeklyTasksArray([res.newTask as WeeklyTaskUI, ...prev.filter(t => t.id !== (res.newTask as WeeklyTaskUI).id)]));
+                  setAddedMonthlyGoalTaskIds(prev => new Set(prev).add(res.linkedMonthlyGoalId!));
+              } else if (res.intent === "addAllWeeklyTasksFromMonthlyGoals" && res.newTasks) {
+                  const newTasks = res.newTasks as WeeklyTaskUI[];
+                  if (newTasks.length > 0) {
+                      setWeeklyTasks(prevTasks => {
+                          const newTaskIds = new Set(newTasks.map(t => t.id));
+                          const filteredPrevTasks = prevTasks.filter(t => !newTaskIds.has(t.id));
+                          return sortWeeklyTasksArray([...newTasks, ...filteredPrevTasks]);
+                      });
+                      setAddedMonthlyGoalTaskIds(prevIds => {
+                          const newGoalIdsToAdd = new Set(newTasks.map(t => t.from_monthly_goal_id).filter((id): id is string => id !== null));
+                          return new Set([...prevIds, ...newGoalIdsToAdd]);
+                      });
+                  }
+                  if (res.partialErrors && res.partialErrors.length > 0) {
+                      alert(`Some weekly tasks could not be added: ${res.partialErrors.join("; ")}`);
+                  }
+              }
+          } else if (res.error) {
+              console.error("Monthly Goal Action Error:", res.error, "Intent:", res.intent);
+              alert(`Error (${res.intent || 'Unknown'}): ${res.error}`);
+          }
+      }
+  }, [monthlyGoalFetcher.data, monthlyGoalFetcher.state]);
+
+  // Notes Fetcher Effect
+  useEffect(() => {
+      if (notesFetcher.data && notesFetcher.state === "idle") {
+          const res = notesFetcher.data;
+          if (res instanceof Response) return;
+          if (res.ok && res.intent === "upsertWeeklyGoals" && res.upsertedNote) {
+              setWeeklyNote(res.upsertedNote as WeeklyNoteUI);
+          } else if (res.error) {
+              console.error("Notes Save Error:", res.error, "Intent:", res.intent);
+              alert(`Error (${res.intent || 'Unknown'}): ${res.error}`);
+          }
+      }
+  }, [notesFetcher.data, notesFetcher.state]);
+
+  const handleWeekNavigate = (direction: 'prev' | 'next') => {
+    const newDate = direction === 'prev' 
+        ? DateTime.fromISO(currentWeekStartDate).minus({ weeks: 1 }) 
+        : DateTime.fromISO(currentWeekStartDate).plus({ weeks: 1 });
+    navigate(`/plan/weekly?week=${newDate.toISODate()}`);
+  };
+
+  const handleDateSelect = (date: DateTime | undefined) => {
+      if (!date) return;
+      const newWeekStartDate = date.startOf('week').toISODate();
+      navigate(`/plan/weekly?week=${newWeekStartDate}`);
+  };
 
   function handleNewTaskCategorySelect(code: string) {
     const selectedCat = categories.find(c => c.code === code);
@@ -653,22 +768,22 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
     formData.append("comment", taskToUpdate.comment || "");
     if(taskToUpdate.subcode) formData.append("subcode", taskToUpdate.subcode);
 
-    fetcher.submit(formData, { method: "post" });
+    dayToggleFetcher.submit(formData, { method: "post" });
   }
 
-  function handleToggleTaskLock(taskId: string) {
+  function handleToggleTaskLock(taskId: string, newLockState: boolean) {
     const taskToUpdate = weeklyTasks.find(t => t.id === taskId);
     if (!taskToUpdate) return;
 
     const formData = new FormData();
     formData.append("intent", "updateWeeklyTask");
     formData.append("taskId", taskId);
-    formData.append("is_locked", String(!taskToUpdate.is_locked));
+    formData.append("is_locked", String(newLockState));
     formData.append("category_code", taskToUpdate.category_code);
     formData.append("comment", taskToUpdate.comment || ""); 
     if(taskToUpdate.subcode) formData.append("subcode", taskToUpdate.subcode);
     formData.append("days", JSON.stringify(taskToUpdate.days ?? {}));
-    fetcher.submit(formData, { method: "post" });
+    lockFetcher.submit(formData, { method: "post" });
   }
 
   function handleAddAllMonthlyTasks() {
@@ -697,16 +812,48 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
     const formData = new FormData();
     formData.append("intent", "addAllWeeklyTasksFromMonthlyGoals");
     formData.append("monthlyTasksToAdd", JSON.stringify(tasksToAddFromGoals));
-    fetcher.submit(formData, { method: "post" });
+    monthlyGoalFetcher.submit(formData, { method: "post" });
   }
   
   const allMonthlyTasksForTheWeekAdded = monthlyGoalsForWeek.length > 0 && monthlyGoalsForWeek.every(mg => addedMonthlyGoalTaskIds.has(mg.id));
+
+  const anyFetcherSubmitting =
+    editFetcher.state !== 'idle' ||
+    deleteFetcher.state !== 'idle' ||
+    dayToggleFetcher.state !== 'idle' ||
+    lockFetcher.state !== 'idle' ||
+    monthlyGoalFetcher.state !== 'idle' ||
+    notesFetcher.state !== 'idle';
 
   return (
     <div className="max-w-5xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-bold text-3xl">Weekly Plan</h1>
-        <div className="text-gray-500 text-lg">{getWeekRangeString(currentWeekStartDate)}</div>
+        <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => handleWeekNavigate('prev')}>
+                <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant={"outline"}
+                        className="w-[280px] justify-start text-left font-normal"
+                    >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {getWeekRangeString(currentWeekStartDate)}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                    <Calendar
+                        selectedDate={DateTime.fromISO(currentWeekStartDate)}
+                        onDateChange={handleDateSelect}
+                    />
+                </PopoverContent>
+            </Popover>
+            <Button variant="outline" size="icon" onClick={() => handleWeekNavigate('next')}>
+                <ChevronRight className="h-4 w-4" />
+            </Button>
+        </div>
         <Button asChild variant="ghost" size="sm">
             <Link to="/plan/tomorrow">To Tomorrow's Plan</Link>
         </Button>
@@ -749,7 +896,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                                     <div className="text-sm text-muted-foreground">{taskDescription}</div>
                         </div>
                       </div>
-                                <fetcher.Form method="post">
+                                <monthlyGoalFetcher.Form method="post">
                                     <input type="hidden" name="intent" value="addWeeklyTaskFromMonthlyGoal" />
                                     <input type="hidden" name="monthlyGoalId" value={goal.id} />
                                     <input type="hidden" name="category_code" value={goal.category_code} />
@@ -758,11 +905,11 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                                         type="submit"
                                         variant={isAdded ? "secondary" : "outline"}
                       size="sm"
-                                        disabled={isAdded || fetcher.state !== 'idle' || taskDescription === "N/A for this week" || !taskDescription.trim()}
+                                        disabled={isAdded || anyFetcherSubmitting || taskDescription === "N/A for this week" || !taskDescription.trim()}
                     >
-                                        {isAdded ? "Added" : (fetcher.state !== 'idle' && fetcher.formData?.get('monthlyGoalId') === goal.id ? "Adding..." : "Add as Weekly Task")}
+                                        {isAdded ? "Added" : (monthlyGoalFetcher.state !== 'idle' && monthlyGoalFetcher.formData?.get('monthlyGoalId') === goal.id ? "Adding..." : "Add as Weekly Task")}
                     </Button>
-                                </fetcher.Form>
+                                </monthlyGoalFetcher.Form>
                   </div>
                             );
                         })}
@@ -772,9 +919,9 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                     variant="outline"
                     size="sm"
                     onClick={handleAddAllMonthlyTasks}
-                                disabled={allMonthlyTasksForTheWeekAdded || fetcher.state !== 'idle'}
+                                disabled={allMonthlyTasksForTheWeekAdded || anyFetcherSubmitting}
                   >
-                                {fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'addWeeklyTaskFromMonthlyGoal' && !fetcher.formData?.has('monthlyGoalId') ? "Adding All..." : "Add All Relevant to Weekly Tasks"}
+                                {monthlyGoalFetcher.state !== 'idle' && monthlyGoalFetcher.formData?.get('intent') === 'addAllWeeklyTasksFromMonthlyGoals' ? "Adding All..." : "Add All Relevant to Weekly Tasks"}
                   </Button>
                         </CardFooter>
                     </>
@@ -792,7 +939,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
           <CardTitle>{editingTaskId ? "Edit Weekly Task" : "Add Weekly Task"}</CardTitle>
         </CardHeader>
           <CardContent>
-          <fetcher.Form method="post" onSubmit={(e) => {
+          <editFetcher.Form method="post" onSubmit={(e) => {
             if(editingTaskId && editTaskData) {
                 const formData = new FormData();
                 formData.set("intent", "updateWeeklyTask");
@@ -802,7 +949,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                 formData.set("comment", editTaskData.comment || "");
                 formData.set("is_locked", String(editTaskData.is_locked || false));
                 formData.set("days", JSON.stringify(editTaskData.days || {}));
-                fetcher.submit(formData, { method: "post" });
+                editFetcher.submit(formData, { method: "post" });
                 e.preventDefault(); 
             }
           }}>
@@ -813,7 +960,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
               categories={categories.filter(c => c.isActive)} 
               selectedCategoryCode={editingTaskId && editTaskData?.category_code ? editTaskData.category_code : newTaskCategory}
               onSelectCategory={editingTaskId ? handleEditTaskCategorySelect : handleNewTaskCategorySelect}
-              disabled={fetcher.state !== 'idle'}
+              disabled={anyFetcherSubmitting}
               instanceId="weekly-page-selector"
             />
             
@@ -826,7 +973,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                 value={editingTaskId && editTaskData ? (editTaskData.subcode || "") : newTaskSubcode}
                 onChange={e => editingTaskId && editTaskData ? setEditTaskData(d => ({...(d || {} as Partial<WeeklyTaskUI>), subcode: e.target.value})) : setNewTaskSubcode(e.target.value)}
                 className="sm:w-1/3"
-                disabled={fetcher.state !== 'idle'}
+                disabled={anyFetcherSubmitting}
                 />
                 <Input
                 name="comment"
@@ -835,24 +982,24 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                 onChange={e => editingTaskId && editTaskData ? setEditTaskData(d => ({...(d || {} as Partial<WeeklyTaskUI>), comment: e.target.value})) : setNewTaskComment(e.target.value)}
                   className="flex-1"
                 required
-                disabled={fetcher.state !== 'idle'}
+                disabled={anyFetcherSubmitting}
               />
               {editingTaskId && editTaskData ? (
                 <div className="flex gap-2">
-                    <Button type="submit" size="sm" disabled={fetcher.state !== 'idle' || !editTaskData.comment?.trim()}>
+                    <Button type="submit" size="sm" disabled={anyFetcherSubmitting || !editTaskData.comment?.trim()}>
                         <Save className="w-4 h-4 mr-1" /> Save Changes
                     </Button>
-                    <Button type="button" variant="outline" size="sm" onClick={handleCancelEdit} disabled={fetcher.state !== 'idle'}>
+                    <Button type="button" variant="outline" size="sm" onClick={handleCancelEdit} disabled={anyFetcherSubmitting}>
                         <X className="w-4 h-4 mr-1" /> Cancel
                     </Button>
                 </div>
               ) : (
-                <Button type="submit" disabled={fetcher.state !== 'idle' || !newTaskComment.trim()}>
-                    {fetcher.state !== 'idle' && fetcher.formData?.get("intent") === "addWeeklyTask" ? "Adding..." : <><PlusCircle className="w-4 h-4 mr-1" /> Add Task</>}
+                <Button type="submit" disabled={anyFetcherSubmitting || !newTaskComment.trim()}>
+                    {editFetcher.state !== 'idle' && editFetcher.formData?.get("intent") === "addWeeklyTask" ? "Adding..." : <><PlusCircle className="w-4 h-4 mr-1" /> Add Task</>}
                 </Button>
               )}
               </div>
-          </fetcher.Form>
+          </editFetcher.Form>
 
           <div className="mt-6 overflow-x-auto">
             {weeklyTasks.length === 0 ? (
@@ -891,30 +1038,30 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                             checked={task.days?.[day] || false}
                             onChange={() => handleToggleTaskDay(task.id, day)}
                             className={`form-checkbox h-4 w-4 text-primary rounded accent-primary ${task.is_locked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                            disabled={task.is_locked || fetcher.state !== 'idle'}
+                            disabled={task.is_locked || anyFetcherSubmitting}
                           />
                         </td>
                       ))}
                       <td className="py-2 px-1 text-center">
                         <Switch
                             checked={task.is_locked || false}
-                            onCheckedChange={() => handleToggleTaskLock(task.id)}
-                            disabled={fetcher.state !== 'idle'}
+                            onCheckedChange={(newCheckedState) => handleToggleTaskLock(task.id, newCheckedState)}
+                            disabled={anyFetcherSubmitting}
                             aria-label="Lock Task"
                         />
                       </td>
                       <td className="py-2 px-1 text-center">
                         <div className="flex gap-1 justify-center">
-                          <Button variant="outline" size="icon" onClick={() => handleStartEdit(task)} disabled={isEditingThis || fetcher.state !== 'idle'} className="h-7 w-7">
+                          <Button variant="outline" size="icon" onClick={() => handleStartEdit(task)} disabled={isEditingThis || anyFetcherSubmitting} className="h-7 w-7">
                             <Edit className="h-3.5 w-3.5" />
                               </Button>
-                          <fetcher.Form method="post" style={{display: 'inline-block'}}>
+                          <deleteFetcher.Form method="post" style={{display: 'inline-block'}}>
                             <input type="hidden" name="intent" value="deleteWeeklyTask" />
                             <input type="hidden" name="taskId" value={task.id} />
-                            <Button variant="destructive" size="icon" type="submit" disabled={fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'deleteWeeklyTask' && fetcher.formData?.get('taskId') === task.id } className="h-7 w-7">
+                            <Button variant="destructive" size="icon" type="submit" disabled={anyFetcherSubmitting} className="h-7 w-7">
                               <Trash2 className="h-3.5 w-3.5" />
                               </Button>
-                          </fetcher.Form>
+                          </deleteFetcher.Form>
                         </div>
                       </td>
                     </tr>
@@ -932,7 +1079,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
           <CardTitle>Weekly Reflections & Notes</CardTitle>
           <CardDescription>Set your focus and reflect on your week.</CardDescription>
             </CardHeader>
-        <fetcher.Form method="post">
+        <notesFetcher.Form method="post">
             <input type="hidden" name="intent" value="upsertWeeklyGoals" />
             {weeklyNote && weeklyNote.id && <input type="hidden" name="existingGoalId" value={weeklyNote.id} />}
             <CardContent className="space-y-6">
@@ -954,11 +1101,11 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                 </div>
             </CardContent>
             <CardFooter className="flex justify-end">
-                <Button type="submit" disabled={fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'upsertWeeklyGoals'}>
-                    {fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'upsertWeeklyGoals' ? "Saving Notes..." : <><Save className="w-4 h-4 mr-1" /> Save Weekly Notes</> }
+                <Button type="submit" disabled={anyFetcherSubmitting}>
+                    {notesFetcher.state !== 'idle' ? "Saving Notes..." : <><Save className="w-4 h-4 mr-1" /> Save Weekly Notes</> }
                 </Button>
             </CardFooter>
-        </fetcher.Form>
+        </notesFetcher.Form>
           </Card>
     </div>
   );

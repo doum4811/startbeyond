@@ -5,12 +5,14 @@ import { Input } from "~/common/components/ui/input";
 import { Textarea } from "~/common/components/ui/textarea";
 import { CATEGORIES, type CategoryCode, type UICategory } from "~/common/types/daily";
 // import type { Route } from "~/common/types";
-import { Link, Form, useFetcher } from "react-router";
-import { Calendar as CalendarIcon, Plus } from "lucide-react";
+import { Link, Form, useFetcher, redirect, useNavigate } from "react-router";
+import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { DateTime } from "luxon";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogCancel, AlertDialogAction } from "~/common/components/ui/alert-dialog";
 import { CategorySelector } from "~/common/components/ui/CategorySelector";
+import { Popover, PopoverContent, PopoverTrigger } from "~/common/components/ui/popover";
+import { Calendar } from "~/common/components/ui/calendar";
 
 import * as planQueries from "~/features/plan/queries";
 import type { DailyPlan as DbDailyPlan, DailyPlanInsert, DailyPlanUpdate, WeeklyTask as DbWeeklyTask } from "~/features/plan/queries";
@@ -55,7 +57,7 @@ async function getProfileId(request: Request): Promise<string> {
   return user.id;
 }
 function getTomorrowDateISO(): string {
-  return DateTime.now().plus({ days: 1 }).toISODate();
+  return DateTime.now().plus({ days: 1 }).toISODate()!;
 }
 
 // Returns '월', '화', ...
@@ -97,135 +99,166 @@ function getCategoryColor(category: UICategory | undefined, code?: string): stri
 
 // Loader
 export interface TomorrowPageLoaderData {
-  tomorrowDate: string;
+  planDate: string;
   tomorrowPlans: DailyPlanUI[];
   relevantWeeklyTasks: WeeklyTaskUI[];
   profileId: string;
   categories: UICategory[];
 }
 
-export const loader = async ({ request }: LoaderFunctionArgs): Promise<TomorrowPageLoaderData> => {
-  const { client } = makeSSRClient(request);
-  const profileId = await getProfileId(request);
-  const tomorrowDate = getTomorrowDateISO();
-  const tomorrowDateTime = DateTime.fromISO(tomorrowDate);
-  const currentWeekStartDate = tomorrowDateTime.startOf('week').toISODate();
-  const tomorrowDayString = getDayString(tomorrowDateTime);
+export const loader = async ({ request }: LoaderFunctionArgs): Promise<TomorrowPageLoaderData | Response> => {
+  try {
+    const { client } = makeSSRClient(request);
+    const profileId = await getProfileId(request);
 
-  const [
-    tomorrowPlansData, 
-    weeklyTasksData,
-    userCategoriesData,
-    userDefaultCodePreferencesData
-  ] = await Promise.all([
-    planQueries.getDailyPlansByDate(client, { profileId, date: tomorrowDate }),
-    planQueries.getWeeklyTasksByWeek(client, { profileId, weekStartDate: currentWeekStartDate! }),
-    settingsQueries.getUserCategories(client, { profileId }),
-    settingsQueries.getUserDefaultCodePreferences(client, { profileId })
-  ]);
+    const url = new URL(request.url);
+    const dateParam = url.searchParams.get("date");
+    let baseDate = dateParam ? DateTime.fromISO(dateParam) : DateTime.now().plus({ days: 1 });
+    if (!baseDate.isValid) {
+      baseDate = DateTime.now().plus({ days: 1 });
+    }
+    const planDate = baseDate.toISODate()!;
 
-  const tomorrowPlans: DailyPlanUI[] = (tomorrowPlansData || []).map(p => ({
-    id: p.id,
-    profile_id: p.profile_id,
-    date: p.plan_date,
-    duration: p.duration_minutes ?? undefined,
-    comment: p.comment ?? null,
-    subcode: p.subcode ?? null,
-    category_code: p.category_code, // Remains string
-    is_completed: p.is_completed ?? false,
-    linked_weekly_task_id: p.linked_weekly_task_id ?? null,
-    created_at: p.created_at,
-    updated_at: p.updated_at,
-  }));
+    const planDateTime = DateTime.fromISO(planDate);
+    const currentWeekStartDate = planDateTime.startOf('week').toISODate();
+    const planDayString = getDayString(planDateTime);
 
-  const relevantWeeklyTasks: WeeklyTaskUI[] = (weeklyTasksData || [])
-    .filter(task => {
-        const isScheduledForTomorrow = task.days && 
-                                     typeof task.days === 'object' && 
-                                     !Array.isArray(task.days) && 
-                                     (task.days as Record<string, boolean>)[tomorrowDayString];
-        return isScheduledForTomorrow && task.is_locked === true;
-    })
-    .map(task => ({
-      id: task.id,
-      comment: task.comment,
-      subcode: task.subcode ?? null,
-      category_code: task.category_code,
-      days: task.days as Record<string, boolean> ?? null, // Pass days through
+    const [
+      tomorrowPlansData, 
+      weeklyTasksData,
+      userCategoriesData,
+      userDefaultCodePreferencesData
+    ] = await Promise.all([
+      planQueries.getDailyPlansByDate(client, { profileId, date: planDate }),
+      planQueries.getWeeklyTasksByWeek(client, { profileId, weekStartDate: currentWeekStartDate! }),
+      settingsQueries.getUserCategories(client, { profileId }),
+      settingsQueries.getUserDefaultCodePreferences(client, { profileId })
+    ]);
+
+    const tomorrowPlans: DailyPlanUI[] = (tomorrowPlansData || []).map(p => ({
+      id: p.id,
+      profile_id: p.profile_id,
+      date: p.plan_date,
+      duration: p.duration_minutes ?? undefined,
+      comment: p.comment ?? null,
+      subcode: p.subcode ?? null,
+      category_code: p.category_code, // Remains string
+      is_completed: p.is_completed ?? false,
+      linked_weekly_task_id: p.linked_weekly_task_id ?? null,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
     }));
 
-  // Process categories (copied and adapted from daily-page.tsx loader)
-  const processedCategories: UICategory[] = [];
-  const defaultCategoryPreferences = new Map(
-    (userDefaultCodePreferencesData || []).map(pref => [pref.default_category_code, pref.is_active])
-  );
+    const relevantWeeklyTasks: WeeklyTaskUI[] = (weeklyTasksData || [])
+      .filter(task => {
+          const isScheduledForTomorrow = task.days && 
+                                       typeof task.days === 'object' && 
+                                       !Array.isArray(task.days) && 
+                                       (task.days as Record<string, boolean>)[planDayString];
+          return isScheduledForTomorrow && task.is_locked === true;
+      })
+      .map(task => ({
+        id: task.id,
+        comment: task.comment,
+        subcode: task.subcode ?? null,
+        category_code: task.category_code,
+        days: task.days as Record<string, boolean> ?? null, // Pass days through
+      }));
 
-  for (const catCodeKey in CATEGORIES) {
-    if (Object.prototype.hasOwnProperty.call(CATEGORIES, catCodeKey)) {
-      const baseCategory = CATEGORIES[catCodeKey as CategoryCode];
-      const isActivePreference = defaultCategoryPreferences.get(baseCategory.code);
-      const isActive = isActivePreference === undefined ? true : isActivePreference;
+    // Process categories (copied and adapted from daily-page.tsx loader)
+    const processedCategories: UICategory[] = [];
+    const defaultCategoryPreferences = new Map(
+      (userDefaultCodePreferencesData || []).map(pref => [pref.default_category_code, pref.is_active])
+    );
 
-      processedCategories.push({
-        code: baseCategory.code,
-        label: baseCategory.label,
-        icon: baseCategory.icon,
-        isCustom: false,
-        isActive: isActive,
-        hasDuration: baseCategory.hasDuration,
-        sort_order: baseCategory.sort_order !== undefined ? baseCategory.sort_order : 999,
-      });
-    }
-  }
+    for (const catCodeKey in CATEGORIES) {
+      if (Object.prototype.hasOwnProperty.call(CATEGORIES, catCodeKey)) {
+        const baseCategory = CATEGORIES[catCodeKey as CategoryCode];
+        const isActivePreference = defaultCategoryPreferences.get(baseCategory.code);
+        const isActive = isActivePreference === undefined ? true : isActivePreference;
 
-  (userCategoriesData || []).forEach(userCat => {
-    const existingIndex = processedCategories.findIndex(c => c.code === userCat.code && !c.isCustom);
-    if (existingIndex !== -1) {
-        if(userCat.is_active) {
-            processedCategories.splice(existingIndex, 1);
-        } else {
-            return;
-        }
-    }
-    
-    if (!processedCategories.find(c => c.code === userCat.code && c.isCustom)) {
         processedCategories.push({
-            code: userCat.code,
-            label: userCat.label,
-            icon: userCat.icon || '📝', 
-            color: userCat.color || undefined,
-            isCustom: true,
-            isActive: userCat.is_active,
-            hasDuration: true, 
-            sort_order: userCat.sort_order !== null && userCat.sort_order !== undefined ? userCat.sort_order : 1000,
+          code: baseCategory.code,
+          label: baseCategory.label,
+          icon: baseCategory.icon,
+          isCustom: false,
+          isActive: isActive,
+          hasDuration: baseCategory.hasDuration,
+          sort_order: baseCategory.sort_order !== undefined ? baseCategory.sort_order : 999,
         });
+      }
     }
-  });
-  
-  processedCategories.sort((a, b) => {
-    if (a.isActive && !b.isActive) return -1;
-    if (!a.isActive && b.isActive) return 1;
-    if (a.isCustom && !b.isCustom) return -1;
-    if (!a.isCustom && b.isCustom) return 1;
-    return (a.sort_order ?? 999) - (b.sort_order ?? 999);
-  });
 
-  return {
-    tomorrowDate,
-    tomorrowPlans,
-    relevantWeeklyTasks,
-    profileId,
-    categories: processedCategories, // Use processedCategories
-  };
+    (userCategoriesData || []).forEach(userCat => {
+      const existingIndex = processedCategories.findIndex(c => c.code === userCat.code && !c.isCustom);
+      if (existingIndex !== -1) {
+          if(userCat.is_active) {
+              processedCategories.splice(existingIndex, 1);
+          } else {
+              return;
+          }
+      }
+      
+      if (!processedCategories.find(c => c.code === userCat.code && c.isCustom)) {
+          processedCategories.push({
+              code: userCat.code,
+              label: userCat.label,
+              icon: userCat.icon || '📝', 
+              color: userCat.color || undefined,
+              isCustom: true,
+              isActive: userCat.is_active,
+              hasDuration: true, 
+              sort_order: userCat.sort_order !== null && userCat.sort_order !== undefined ? userCat.sort_order : 1000,
+          });
+      }
+    });
+    
+    processedCategories.sort((a, b) => {
+      if (a.isActive && !b.isActive) return -1;
+      if (!a.isActive && b.isActive) return 1;
+      if (a.isCustom && !b.isCustom) return -1;
+      if (!a.isCustom && b.isCustom) return 1;
+      return (a.sort_order ?? 999) - (b.sort_order ?? 999);
+    });
+
+    return {
+      planDate,
+      tomorrowPlans,
+      relevantWeeklyTasks,
+      profileId,
+      categories: processedCategories, // Use processedCategories
+    };
+  } catch (error: any) {
+    if (error.message === "User not authenticated") {
+      return redirect("/auth/login");
+    }
+    throw error;
+  }
 };
 
 // Action
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { client } = makeSSRClient(request);
-  const profileId = await getProfileId(request);
+  let profileId: string;
+  try {
+    profileId = await getProfileId(request);
+  } catch (error: any) {
+    if (error.message === "User not authenticated") {
+      return redirect("/auth/login");
+    }
+    throw error;
+  }
+
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
-  const tomorrowDate = getTomorrowDateISO();
+  
+  const url = new URL(request.url);
+  const dateParam = url.searchParams.get("date");
+  let baseDate = dateParam ? DateTime.fromISO(dateParam) : DateTime.now().plus({ days: 1 });
+  if (!baseDate.isValid) {
+      baseDate = DateTime.now().plus({ days: 1 });
+  }
+  const planDate = baseDate.toISODate()!;
 
   const activeCategoriesForAction = await (async () => {
     const [userCategoriesDb, defaultPreferencesDb] = await Promise.all([
@@ -292,7 +325,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         
         const planData: DailyPlanInsert = {
           profile_id: profileId,
-          plan_date: tomorrowDate,
+          plan_date: planDate,
           category_code: categoryCodeStr,
           duration_minutes: durationMinutes,
           comment: comment,
@@ -340,7 +373,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         
         const planData: DailyPlanInsert = {
           profile_id: profileId,
-          plan_date: tomorrowDate,
+          plan_date: planDate,
           category_code: categoryCodeStr,
           duration_minutes: durationMinutes,
           comment: comment,
@@ -438,7 +471,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
             const planData: DailyPlanInsert = {
               profile_id: profileId,
-              plan_date: tomorrowDate,
+              plan_date: planDate,
               category_code: task.category_code,
               duration_minutes: undefined, // Assuming duration is not part of weekly task for this action
               comment: task.comment,
@@ -536,7 +569,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           // 2. Create the plan
           const planData: DailyPlanInsert = {
             profile_id: profileId,
-            plan_date: tomorrowDate,
+            plan_date: planDate,
             category_code: category_code,
             duration_minutes: undefined, // Assuming no duration from weekly task for now
             comment: comment,
@@ -582,7 +615,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // Meta
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   const pageData = data as TomorrowPageLoaderData | undefined;
-  const dateStr = pageData?.tomorrowDate ? DateTime.fromISO(pageData.tomorrowDate).toFormat("yyyy-MM-dd") : "Tomorrow";
+  const dateStr = pageData?.planDate ? DateTime.fromISO(pageData.planDate).toFormat("yyyy-MM-dd") : "Tomorrow";
   return [
     { title: `Plan for ${dateStr} - StartBeyond` },
     { name: "description", content: `Plan your activities for ${dateStr}.` },
@@ -645,9 +678,10 @@ interface TomorrowPlanPageProps {
 }
 
 export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) {
-  const { tomorrowDate, tomorrowPlans: initialTomorrowPlans, relevantWeeklyTasks, profileId, categories } = loaderData;
+  const { planDate, tomorrowPlans: initialTomorrowPlans, relevantWeeklyTasks, profileId, categories } = loaderData;
   
-  const fetcher = useFetcher<typeof action>();
+  const fetcher = useFetcher<Awaited<ReturnType<typeof action>>>();
+  const navigate = useNavigate();
   // Form state for adding a new plan
   const [addForm, setAddForm] = useState<AddPlanForm>(() => {
     const firstActiveCategory = categories.find(c => c.isActive);
@@ -697,7 +731,10 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
 
   useEffect(() => {
     if (fetcher.data && fetcher.state === "idle") {
-        const actionData = fetcher.data as {
+        const res = fetcher.data;
+        if (res instanceof Response) return;
+
+        const actionData = res as {
             ok: boolean;
             intent: string; 
             error?: string;
@@ -955,7 +992,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
 
   const allWeeklyTasksAdded = relevantWeeklyTasks.length > 0 && relevantWeeklyTasks.every(task => addedWeeklyTaskIds.has(task.id));
 
-  const currentWeekRange = `${DateTime.fromISO(tomorrowDate).startOf('week').toFormat('yyyy.MM.dd (ccc)')} ~ ${DateTime.fromISO(tomorrowDate).endOf('week').toFormat('yyyy.MM.dd (ccc)')}`;
+  const currentWeekRange = `${DateTime.fromISO(planDate).startOf('week').toFormat('yyyy.MM.dd (ccc)')} ~ ${DateTime.fromISO(planDate).endOf('week').toFormat('yyyy.MM.dd (ccc)')}`;
   
   const selectedPlanForEdit = isEditingPlan ? tomorrowPlans.find(p => p.id === selectedPlanId) : null;
   const currentFormCategory = isEditingPlan ? editPlanCategory : addForm.category;
@@ -964,15 +1001,49 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
   const currentFormSubcode = isEditingPlan ? editPlanSubcode : addForm.subcode;
   const isCategoryDisabledForEdit = isEditingPlan && !!selectedPlanForEdit?.linked_weekly_task_id;
 
+  const handleDateNavigate = (direction: 'prev' | 'next') => {
+    const newDate = direction === 'prev' 
+        ? DateTime.fromISO(planDate).minus({ days: 1 }) 
+        : DateTime.fromISO(planDate).plus({ days: 1 });
+    navigate(`/plan/tomorrow?date=${newDate.toISODate()}`);
+  };
+
+  const handleDateSelect = (date: DateTime | undefined) => {
+      if (!date) return;
+      navigate(`/plan/tomorrow?date=${date.toISODate()}`);
+  };
+
   return (
     <div className="max-w-4xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
       <div className="flex items-center justify-between mb-6">
+        <h1 className="font-bold text-3xl">Tomorrow's Plan</h1>
         <div className="flex items-center gap-2">
-          <h1 className="font-bold text-3xl">Tomorrow's Plan</h1>
+            <Button variant="outline" size="icon" onClick={() => handleDateNavigate('prev')}>
+                <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant={"outline"}
+                        className="w-[200px] justify-start text-left font-normal"
+                    >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {DateTime.fromISO(planDate).toFormat("yyyy-MM-dd (ccc)")}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                    <Calendar
+                        selectedDate={DateTime.fromISO(planDate)}
+                        onDateChange={handleDateSelect}
+                    />
+                </PopoverContent>
+            </Popover>
+            <Button variant="outline" size="icon" onClick={() => handleDateNavigate('next')}>
+                <ChevronRight className="h-4 w-4" />
+            </Button>
         </div>
-        <div className="text-gray-500 text-lg">{DateTime.fromISO(tomorrowDate).toFormat("yyyy-MM-dd (ccc)")}</div>
         <Button asChild className="ml-2" variant="ghost" size="sm">
-          <Link to="/daily">To Daily Page</Link>
+          <Link to="/plan/weekly">To Weekly Plan</Link>
         </Button>
       </div>
 
@@ -1065,7 +1136,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
       {/* Add/Edit Plan Form */}
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle>{isEditingPlan ? "Edit Plan" : "Add New Plan for Tomorrow"}</CardTitle>
+          <CardTitle>{isEditingPlan ? "Edit Plan" : "Add New Plan"}</CardTitle>
         </CardHeader>
         <CardContent>
           <fetcher.Form method="post" className="flex flex-col gap-4" onSubmit={() => setDurationError(null)}>
@@ -1139,11 +1210,11 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
       {/* Planned Activities List */}
       <Card>
         <CardHeader>
-          <CardTitle>Tomorrow's Planned Activities</CardTitle>
+          <CardTitle>Planned Activities</CardTitle>
         </CardHeader>
         <CardContent>
           {tomorrowPlans.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No plans yet for tomorrow. Add some!</p>
+            <p className="text-muted-foreground text-center py-8">No plans yet for {DateTime.fromISO(planDate).toFormat("yyyy-MM-dd")}. Add some!</p>
           ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-base">

@@ -63,7 +63,7 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPage
     id: note.id!,
     date: note.date || selectedDate,
     content: note.content,
-    profile_id: profileId,
+    profile_id: note.profile_id,
     created_at: note.created_at,
     updated_at: note.updated_at
   }));
@@ -85,7 +85,7 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPage
     ...r,
     memos: memos.filter((m) => m.record_id === r.id)
   }));
-  
+
   const plansForBanner: DailyPlanUI[] = (plansForBannerData || []).map((p) => ({
     id: p.id,
     plan_date: p.plan_date || selectedDate,

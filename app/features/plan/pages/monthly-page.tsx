@@ -6,7 +6,7 @@ import { Textarea } from "~/common/components/ui/textarea";
 import { Label } from "~/common/components/ui/label";
 import { CATEGORIES } from "~/common/types/daily";
 import type { CategoryCode, UICategory } from "~/common/types/daily";
-import { Link, Form, useFetcher } from "react-router";
+import { Link, Form, useFetcher, useNavigate } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { Calendar as CalendarIcon, PlusCircle, Trash2, Edit, Save, CheckSquare, XSquare } from "lucide-react";
 import { DateTime } from "luxon";
@@ -532,6 +532,7 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
   } = loaderData;
 
   const fetcher = useFetcher<typeof action>();
+  const navigate = useNavigate();
   
   const [selectedMonth, setSelectedMonth] = useState<string>(initialSelectedMonth);
   const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoalUI[]>(initialMonthlyGoals);
@@ -643,8 +644,6 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
     fetcher.submit(formData, { method: "post" });
   };
   
-  const navigateMonth = useFetcher().submit;
-
   return (
     <div className="max-w-5xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
       <div className="flex items-center justify-between mb-6">
@@ -653,7 +652,7 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
           <MonthlyCalendarPopover 
             currentMonthISO={selectedMonth} 
             onMonthChange={(newMonthISO) => {
-                navigateMonth({ month: newMonthISO }, { method: "get", action: "/plan/monthly" });
+                navigate(`/plan/monthly?month=${newMonthISO}`);
             }}
           />
         </div>
