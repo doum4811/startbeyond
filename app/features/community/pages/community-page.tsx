@@ -7,6 +7,7 @@ import { getCommunityPosts, type CommunityPostWithAuthor } from "~/features/comm
 import { DateTime } from "luxon";
 import { Plus } from "lucide-react";
 import { makeSSRClient } from "~/supa-client";
+import { useTranslation } from "react-i18next";
 
 export interface CommunityPageLoaderData {
   posts: CommunityPostWithAuthor[];
@@ -28,7 +29,8 @@ async function getProfileId(request: Request): Promise<string> {
   return user.id;
 }
 
-export const meta: MetaFunction = () => {
+export const meta: MetaFunction = ({ data }) => {
+  // Note: t function is not available in meta function directly
   return [
     { title: "Community - StartBeyond" },
     { name: "description", content: "Share your goals and tips with the community." },
@@ -44,16 +46,17 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<Community
 }
 
 function PostCard({ post }: { post: CommunityPostWithAuthor }) {
+  const { t } = useTranslation();
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center gap-3 mb-2">
           <Avatar className="h-10 w-10">
-            <AvatarImage src={post.author_avatar_url || undefined} alt={post.author_name || "User"} />
-            <AvatarFallback>{post.author_name?.charAt(0) || "U"}</AvatarFallback>
+            <AvatarImage src={post.author_avatar_url || undefined} alt={post.author_name || t('community.anonymous')} />
+            <AvatarFallback>{post.author_name?.charAt(0) || "A"}</AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-semibold">{post.author_name || "Anonymous"}</p>
+            <p className="font-semibold">{post.author_name || t('community.anonymous')}</p>
             <p className="text-xs text-muted-foreground">
               {DateTime.fromISO(post.created_at).toRelative() || ""}
             </p>
@@ -69,7 +72,7 @@ function PostCard({ post }: { post: CommunityPostWithAuthor }) {
       </CardContent>
       <CardFooter>
         <Button variant="link" asChild className="p-0 h-auto">
-          <Link to={`/community/${post.id}`}>Read more</Link>
+          <Link to={`/community/${post.id}`}>{t('community.read_more')}</Link>
         </Button>
       </CardFooter>
     </Card>
@@ -78,22 +81,27 @@ function PostCard({ post }: { post: CommunityPostWithAuthor }) {
 
 export default function CommunityPage({ loaderData }: { loaderData: CommunityPageLoaderData }) {
   const { posts } = loaderData;
+  const { t, i18n } = useTranslation();
+
+  if (!i18n.isInitialized) {
+    return null; // Or a loading spinner
+  }
 
   return (
     <div className="max-w-4xl mx-auto py-12 px-4 pt-16">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="font-bold text-3xl">Community</h1>
+        <h1 className="font-bold text-3xl">{t('community.title')}</h1>
         <Button asChild>
           <Link to="/community/new">
-            <Plus className="mr-2 h-4 w-4" /> New Post
+            <Plus className="mr-2 h-4 w-4" /> {t('community.new_post')}
           </Link>
         </Button>
       </div>
 
       {posts.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-xl text-muted-foreground">No posts yet.</p>
-          <p className="text-muted-foreground">Be the first to share something!</p>
+          <p className="text-xl text-muted-foreground">{t('community.no_posts_yet')}</p>
+          <p className="text-muted-foreground">{t('community.be_the_first')}</p>
         </div>
       ) : (
         <div className="space-y-6">

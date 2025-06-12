@@ -3,6 +3,7 @@ import { Switch } from "~/common/components/ui/switch";
 import { Label } from "~/common/components/ui/label";
 import type { CategoryPageShareSettings } from "../types";
 import type { CategoryCode } from "~/common/types/daily";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   open: boolean;
@@ -13,15 +14,16 @@ interface Props {
 }
 
 export function ShareDialog({ open, onOpenChange, settings, onSettingsChange, categoryCode }: Props) {
+  const { t } = useTranslation();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>'{categoryCode}' 카테고리 공유 설정</DialogTitle>
+          <DialogTitle>{t("share_dialog.title", { categoryCode })}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div className="flex items-center justify-between">
-            <Label htmlFor="showSummary">주요 통계</Label>
+            <Label htmlFor="showSummary">{t("share_dialog.show_summary")}</Label>
             <Switch
               id="showSummary"
               checked={settings.showSummary}
@@ -29,7 +31,7 @@ export function ShareDialog({ open, onOpenChange, settings, onSettingsChange, ca
             />
           </div>
           <div className="flex items-center justify-between">
-            <Label htmlFor="showActivityTrend">활동 트렌드 (차트)</Label>
+            <Label htmlFor="showActivityTrend">{t("share_dialog.show_activity_trend")}</Label>
             <Switch
               id="showActivityTrend"
               checked={settings.showActivityTrend}
@@ -37,7 +39,7 @@ export function ShareDialog({ open, onOpenChange, settings, onSettingsChange, ca
             />
           </div>
           <div className="flex items-center justify-between">
-            <Label htmlFor="showGoalProgress">목표 진행 상황</Label>
+            <Label htmlFor="showGoalProgress">{t("share_dialog.show_goal_progress")}</Label>
             <Switch
               id="showGoalProgress"
               checked={settings.showGoalProgress}

@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFoo
 import { CategorySelector } from "~/common/components/ui/CategorySelector";
 import { Popover, PopoverContent, PopoverTrigger } from "~/common/components/ui/popover";
 import { Calendar } from "~/common/components/ui/calendar";
+import { useTranslation } from "react-i18next";
 
 import * as planQueries from "~/features/plan/queries";
 import type { DailyPlan as DbDailyPlan, DailyPlanInsert, DailyPlanUpdate, WeeklyTask as DbWeeklyTask } from "~/features/plan/queries";
@@ -679,6 +680,11 @@ interface TomorrowPlanPageProps {
 
 export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) {
   const { planDate, tomorrowPlans: initialTomorrowPlans, relevantWeeklyTasks, profileId, categories } = loaderData;
+  const { t, i18n } = useTranslation();
+  
+  if (!i18n.isInitialized) {
+    return null; // Or a loading spinner
+  }
   
   const fetcher = useFetcher<Awaited<ReturnType<typeof action>>>();
   const navigate = useNavigate();
@@ -1016,7 +1022,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
   return (
     <div className="max-w-4xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="font-bold text-3xl">Tomorrow's Plan</h1>
+        <h1 className="font-bold text-3xl">{t('tomorrow_page.title')}</h1>
         <div className="flex items-center gap-2">
             <Button variant="outline" size="icon" onClick={() => handleDateNavigate('prev')}>
                 <ChevronLeft className="h-4 w-4" />
@@ -1043,7 +1049,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
             </Button>
         </div>
         <Button asChild className="ml-2" variant="ghost" size="sm">
-          <Link to="/plan/weekly">To Weekly Plan</Link>
+          <Link to="/plan/weekly">{t('tomorrow_page.to_weekly_plan')}</Link>
         </Button>
       </div>
 
@@ -1053,8 +1059,8 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
             <Card>
                 <CardHeader className="cursor-pointer py-4" onClick={() => setIsWeeklyTasksCollapsed(false)}>
                     <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">Relevant Weekly Tasks ({relevantWeeklyTasks.length})</CardTitle>
-                        <Button variant="ghost" size="sm">펴기</Button>
+                        <CardTitle className="text-lg">{t('tomorrow_page.relevant_weekly_tasks')} ({relevantWeeklyTasks.length})</CardTitle>
+                        <Button variant="ghost" size="sm">{t('tomorrow_page.expand')}</Button>
                     </div>
                 </CardHeader>
             </Card>
@@ -1063,10 +1069,10 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                            <CardTitle>Relevant Weekly Tasks</CardTitle>
+                            <CardTitle>{t('tomorrow_page.relevant_weekly_tasks')}</CardTitle>
                             <div className="text-sm text-muted-foreground">{currentWeekRange}</div>
               </div>
-                        <Button variant="ghost" size="sm" onClick={() => setIsWeeklyTasksCollapsed(true)}>접기</Button>
+                        <Button variant="ghost" size="sm" onClick={() => setIsWeeklyTasksCollapsed(true)}>{t('tomorrow_page.collapse')}</Button>
             </div>
           </CardHeader>
                 {relevantWeeklyTasks.length > 0 ? (
@@ -1090,7 +1096,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
                     <div>
                       <div className="font-medium">{task.comment}</div>
                                         {task.subcode && <div className="text-sm text-muted-foreground">Subcode: {task.subcode}</div>}
-                                        <div className="text-xs text-muted-foreground">Weekly Schedule: {scheduledDays}</div>
+                                        <div className="text-xs text-muted-foreground">{t('tomorrow_page.weekly_schedule')}: {scheduledDays}</div>
                       </div>
                     </div>
                                     <fetcher.Form method="post">
@@ -1105,7 +1111,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
                     size="sm"
                                         disabled={isAdded || (fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'addPlanFromWeeklyTask' && fetcher.formData?.get('weeklyTaskId') === task.id)}
                   >
-                                        {isAdded ? "Added" : "Add"}
+                                        {isAdded ? t('tomorrow_page.added') : t('tomorrow_page.add')}
                   </Button>
                                     </fetcher.Form>
                 </div>
@@ -1120,13 +1126,13 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
                   onClick={handleAddAllWeeklyTasks}
                                 disabled={allWeeklyTasksAdded || fetcher.state !== 'idle'}
                 >
-                                {fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'addPlanFromWeeklyTask' && !fetcher.formData?.has('weeklyTaskId') ? "Adding All..." : "Add All to Tomorrow"}
+                                {fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'addPlanFromWeeklyTask' && !fetcher.formData?.has('weeklyTaskId') ? t('tomorrow_page.adding_all') : t('tomorrow_page.add_all_to_tomorrow')}
                 </Button>
                         </CardFooter>
                     </>
                 ) : (
                     <CardContent>
-                        <p className="text-muted-foreground text-center py-4">No weekly tasks scheduled for tomorrow.</p>
+                        <p className="text-muted-foreground text-center py-4">{t('tomorrow_page.no_weekly_tasks')}</p>
           </CardContent>
                 )}
         </Card>
@@ -1136,7 +1142,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
       {/* Add/Edit Plan Form */}
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle>{isEditingPlan ? "Edit Plan" : "Add New Plan"}</CardTitle>
+          <CardTitle>{isEditingPlan ? t('tomorrow_page.edit_plan') : t('tomorrow_page.add_new_plan')}</CardTitle>
         </CardHeader>
         <CardContent>
           <fetcher.Form method="post" className="flex flex-col gap-4" onSubmit={() => setDurationError(null)}>
@@ -1155,7 +1161,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
             <div className="flex flex-col sm:flex-row gap-2 mt-2">
               <Input
                 name="subcode"
-                placeholder="Subcode (optional)"
+                placeholder={t('tomorrow_page.subcode_optional')}
                 value={currentFormSubcode}
                 onChange={isEditingPlan ? handleEditFormChange : handleAddFormChange}
                 className="sm:w-1/3"
@@ -1166,7 +1172,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
                   name="duration"
                 type="number"
                 min={0}
-                  placeholder="Minutes (optional)"
+                  placeholder={t('tomorrow_page.minutes_optional')}
                   value={currentFormDuration}
                   onChange={isEditingPlan ? handleEditFormChange : handleAddFormChange}
                   className={`${durationError ? 'border-red-500' : ''}`}
@@ -1180,7 +1186,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
               </div>
               <Input
                 name="comment"
-                placeholder="Plan details / comment"
+                placeholder={t('tomorrow_page.plan_details_comment')}
                 value={currentFormComment}
                 onChange={isEditingPlan ? handleEditFormChange : handleAddFormChange}
                 className="flex-1"
@@ -1189,17 +1195,17 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
               />
               {isEditingPlan ? (
                 <div className="flex gap-1 flex-shrink-0">
-                    <Button type="submit" size="sm" disabled={fetcher.state !== 'idle' || !currentFormComment.trim()}>Save</Button>
-                    <Button type="button" size="sm" variant="outline" onClick={handleEditPlanCancel} disabled={fetcher.state !== 'idle'}>Cancel</Button>
+                    <Button type="submit" size="sm" disabled={fetcher.state !== 'idle' || !currentFormComment.trim()}>{t('tomorrow_page.save')}</Button>
+                    <Button type="button" size="sm" variant="outline" onClick={handleEditPlanCancel} disabled={fetcher.state !== 'idle'}>{t('tomorrow_page.cancel')}</Button>
                     <fetcher.Form method="post" style={{ display: 'inline-block' }}>
                         <input type="hidden" name="intent" value="deletePlan" />
                         {selectedPlanId && <input type="hidden" name="planId" value={selectedPlanId} />}
-                        <Button variant="destructive" size="sm" type="submit" disabled={fetcher.state !== 'idle'}>Delete</Button>
+                        <Button variant="destructive" size="sm" type="submit" disabled={fetcher.state !== 'idle'}>{t('tomorrow_page.delete')}</Button>
                     </fetcher.Form>
                 </div>
               ) : (
                 <Button type="submit" className="ml-0 sm:ml-2" disabled={fetcher.state !== 'idle' || !addForm.comment.trim()}>
-                  {fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'addPlan' ? "Adding..." : <><Plus className="w-4 h-4 mr-1" /> Add Plan</>}
+                  {fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'addPlan' ? t('tomorrow_page.adding') : <><Plus className="w-4 h-4 mr-1" /> {t('tomorrow_page.add_plan')}</>}
                 </Button>
               )}
             </div>
@@ -1210,21 +1216,21 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
       {/* Planned Activities List */}
       <Card>
         <CardHeader>
-          <CardTitle>Planned Activities</CardTitle>
+          <CardTitle>{t('tomorrow_page.planned_activities')}</CardTitle>
         </CardHeader>
         <CardContent>
           {tomorrowPlans.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No plans yet for {DateTime.fromISO(planDate).toFormat("yyyy-MM-dd")}. Add some!</p>
+            <p className="text-muted-foreground text-center py-8">{t('tomorrow_page.no_plans_yet', { date: DateTime.fromISO(planDate).toFormat("yyyy-MM-dd") })}</p>
           ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-base">
               <thead>
                 <tr className="border-b">
-                    <th className="py-2 px-2 text-left">Category</th>
-                  <th className="py-2 px-2 text-left">Subcode</th>
-                  <th className="py-2 px-2 text-left">Duration</th>
-                  <th className="py-2 px-2 text-left">Comment</th>
-                  <th className="py-2 px-2 text-center">Action</th>
+                    <th className="py-2 px-2 text-left">{t('tomorrow_page.category')}</th>
+                  <th className="py-2 px-2 text-left">{t('tomorrow_page.subcode')}</th>
+                  <th className="py-2 px-2 text-left">{t('tomorrow_page.duration')}</th>
+                  <th className="py-2 px-2 text-left">{t('tomorrow_page.comment')}</th>
+                  <th className="py-2 px-2 text-center">{t('tomorrow_page.action')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1241,9 +1247,9 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
                         <td className="py-2 px-2">{plan.comment || <span className="text-muted-foreground">N/A</span>}</td>
                       <td className="py-2 px-2 text-center">
                           {isEditingPlan && selectedPlanId === plan.id ? (
-                            <span className="text-sm text-muted-foreground">Editing...</span>
+                            <span className="text-sm text-muted-foreground">{t('tomorrow_page.editing')}</span>
                           ) : (
-                            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handlePlanRowClick(plan); }} disabled={isEditingPlan}>Edit</Button>
+                            <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handlePlanRowClick(plan); }} disabled={isEditingPlan}>{t('tomorrow_page.edit')}</Button>
                           )}
                       </td>
                     </tr>
@@ -1261,12 +1267,9 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
         <AlertDialog open={showActivatePlanDialog} onOpenChange={setShowActivatePlanDialog}>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>비활성 카테고리</AlertDialogTitle>
+                    <AlertDialogTitle>{t('tomorrow_page.inactive_category_dialog_title')}</AlertDialogTitle>
                     <AlertDialogDescription>
-                        선택한 계획의 카테고리
-                        '{categories.find(c => c.code === planForActivation.category_code)?.label || planForActivation.category_code}'
-                        는 현재 비활성 상태입니다.
-                        이 기록을 추가하려면 카테고리를 활성화해야 합니다. 활성화하고 기록을 추가하시겠습니까?
+                        {t('tomorrow_page.inactive_category_dialog_description', { categoryLabel: categories.find(c => c.code === planForActivation.category_code)?.label || planForActivation.category_code })}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -1284,7 +1287,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
                                 // processNextPendingPlanForActivation(nextQueue); // 다음 단계에서 정의
                             }
                         }
-                    }}>취소</AlertDialogCancel>
+                    }}>{t('tomorrow_page.cancel')}</AlertDialogCancel>
                     <AlertDialogAction
                         type="button"
                         onClick={() => {
@@ -1303,7 +1306,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
                             }
                         }}
                     >
-                        활성화하고 추가
+                        {t('tomorrow_page.activate_and_add')}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

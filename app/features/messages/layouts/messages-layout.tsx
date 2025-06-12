@@ -6,6 +6,7 @@ import { Link, NavLink, Outlet, useLoaderData } from "react-router";
 import { cn } from "~/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "~/common/components/ui/avatar";
 import { timeAgo } from "~/lib/utils";
+import { useTranslation } from "react-i18next";
 
 export async function loader({ request }: LoaderFunctionArgs) {
     const { client } = makeSSRClient(request);
@@ -16,13 +17,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export default function MessagesLayout() {
     const { conversations } = useLoaderData<typeof loader>();
+    const { t } = useTranslation();
 
     return (
         <div className="max-w-7xl mx-auto py-12 px-4 pt-24 min-h-screen">
-            <h1 className="text-3xl font-bold mb-8">Messages</h1>
+            <h1 className="text-3xl font-bold mb-8">{t('messages.title')}</h1>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                 <div className="md:col-span-1 border-r pr-6">
-                    <h2 className="text-xl font-semibold mb-4">Conversations</h2>
+                    <h2 className="text-xl font-semibold mb-4">{t('messages.conversations')}</h2>
                     <div className="flex flex-col gap-2">
                         {conversations.map((conv) => (
                             <NavLink
@@ -45,7 +47,7 @@ export default function MessagesLayout() {
                                         </p>
                                     </div>
                                     <p className="text-sm text-muted-foreground truncate">
-                                        {conv.last_message?.content ?? "No messages yet."}
+                                        {conv.last_message?.content ?? t('messages.no_messages_yet')}
                                     </p>
                                     {!conv.last_message?.is_read && conv.last_message?.sender_id !== "ME" && ( // Assuming we get current user id
                                         <div className="w-2 h-2 bg-primary rounded-full mt-1"></div>
@@ -54,7 +56,7 @@ export default function MessagesLayout() {
                             </NavLink>
                         ))}
                          {conversations.length === 0 && (
-                            <p className="text-muted-foreground">No conversations yet.</p>
+                            <p className="text-muted-foreground">{t('messages.no_conversations_yet')}</p>
                         )}
                     </div>
                 </div>

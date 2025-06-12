@@ -9,93 +9,46 @@ import { BarChart3Icon, BellIcon, LogOutIcon, MessageCircleIcon, SettingsIcon, U
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 import { Sheet, SheetTrigger, SheetContent, SheetClose, SheetFooter } from "./ui/sheet";
+import { LanguageSwitcher } from "./language-switcher";
+import { useTranslation } from "react-i18next";
 
-const menus = [
+const menuKeys = [
     {
-        name: "Daily",
+        name: "daily",
         to: "/daily",
         icon: HomeIcon,
     },
     {
-        name: "Plan",
+        name: "plan",
         to: "/plan",
         icon: CalendarDaysIcon,
         items: [
-            {
-                name: "Tomorrow",
-                description: "Plan for tomorrow",
-                to: "/plan/tomorrow"
-            },
-            {
-                name: "Weekly",
-                description: "Plan for weekly",
-                to: "/plan/weekly"
-            },
-            {
-                name: "Monthly",
-                description: "Plan for monthly",
-                to: "/plan/monthly"
-            },
-            // {
-            //     name: "Quarterly",
-            //     description: "Plan for quarterly",
-            //     to: "/plan-quarterly"
-            // },
-            // {
-            //     name: "Wishlist",
-            //     description: "Plan for wishlist",
-            //     to: "/wishlist"
-            // }
-            // {
-            //     name: "Routine",
-            //     description: "Plan for routine",
-            //     to: "/routine"
-            // }        
+            { name: "plan_tomorrow", to: "/plan/tomorrow" },
+            { name: "plan_weekly", to: "/plan/weekly" },
+            { name: "plan_monthly", to: "/plan/monthly" },
         ]
     },
-    // {
-    //     name: "Stats-old",
-    //     to: "/stats-old",
-    //     icon: LineChartIcon,
-    // },
     {
-        name: "Stats",
+        name: "stats",
         to: "/stats/summary",
         icon: LineChartIcon,
         items: [
-            {
-                name: "summary",
-                description: "월간 요약 통계",
-                to: "/stats/summary"
-            },
-            {
-                name: "records",
-                description: "기록 검색",
-                to: "/stats/records"
-            },
-            {
-                name: "category",
-                description: "카테고리별 상세 통계",
-                to: "/stats/category"
-            },
-            {
-                name: "advanced",
-                description: "히트맵, 시간대별 분석 등",
-                to: "/stats/advanced"
-            }, 
+            { name: "stats_summary", to: "/stats/summary" },
+            { name: "stats_records", to: "/stats/records" },
+            { name: "stats_category", to: "/stats/category" },
+            { name: "stats_advanced", to: "/stats/advanced" }, 
         ]
     },
-    {
-        name: "Community",
-        to: "/community",
-        icon: MessageCircleIcon,
-    },
-    {
-        name: "Settings",
-        to: "/settings",
-        icon: SettingsIcon,
-    },
-]
+    { name: "community", to: "/community", icon: MessageCircleIcon },
+    { name: "settings", to: "/settings", icon: SettingsIcon },
+];
+
+const profileMenuKeys = [
+    { name: "profile", to: (username?: string) => `/users/${username}`, icon: UserIcon },
+    { name: "settings", to: () => `/settings`, icon: SettingsIcon },
+    { name: "logout", to: () => "/auth/logout", icon: LogOutIcon },
+];
+
 export default function Navigation({    
     isLoggedIn,
     hasNotifications,
@@ -109,8 +62,23 @@ export default function Navigation({
             username?: string;
             avatar?: string | null;
             name?: string;
-        } 
-) { return (
+        }) { 
+    const { t } = useTranslation();
+    const menus = menuKeys.map(menu => ({
+        ...menu,
+        name: t(`nav.${menu.name}`),
+        items: menu.items?.map(item => ({
+            ...item,
+            name: t(`nav.${item.name}`),
+            description: t(`nav.${item.name}_desc`)
+        }))
+    }));
+    const profileMenus = profileMenuKeys.map(item => ({
+        ...item,
+        name: t(`nav.${item.name}`),
+    }));
+
+    return (
     <Sheet>
       {/* Mobile Navbar */}
       <nav className="flex md:hidden px-5 h-16 items-center justify-between fixed top-0 left-0 right-0 bg-background/70 backdrop-blur z-50">
@@ -173,18 +141,17 @@ export default function Navigation({
         </div>
         {isLoggedIn? 
         <div className="flex items-center gap-2">
+            <LanguageSwitcher />
             <Button variant="ghost" size="icon" asChild className="relative">
                 <Link to="/notifications">
-                <BellIcon className="size-4" />
-                {/* {hasNotifications && <div className="absolute top-1.5 right-1.5 bg-red-500 text-white rounded-full text-xs w-4 h-4 flex items-center justify-center">1</div>} */}
+                    <BellIcon className="h-5 w-5" />
                 {hasNotifications && <div className="absolute top-1.5 right-1.5 size-2 bg-red-500 rounded-full"></div>}
                 </Link>
             </Button>
             <Button variant="ghost" size="icon" asChild className="relative">
                 <Link to="/messages">
-                <MessageCircleIcon className="size-4" />
+                    <MessageCircleIcon className="h-5 w-5" />
                 {hasMessages && <div className="absolute top-1.5 right-1.5 size-2 bg-red-500 rounded-full"></div>}
- 
                 </Link>
            </Button>
                     <DropdownMenu> 
@@ -211,94 +178,92 @@ export default function Navigation({
                     </span> 
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {/* <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link to="/my/dashboard">
-                    <BarChart3Icon className="size-4 mr-2" />
-                    Dashboard</Link>
-                </DropdownMenuItem> */}
-                <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link to={`/users/${username}`}>
-                    <UserIcon className="size-4 mr-2" />
-                    Profile</Link>
+                {profileMenus.map((item) => (
+                    <DropdownMenuItem key={item.name} asChild className="cursor-pointer">
+                        <Link to={item.to(username)}>
+                            <item.icon className="size-4 mr-2" />
+                            {item.name}
+                        </Link>
                 </DropdownMenuItem>
-                {/* <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link to="/my/settings">
-                    <SettingsIcon className="size-4 mr-2" />
-                    Settings</Link>
-                </DropdownMenuItem> */}
-
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link to="/auth/logout">
-                    <LogOutIcon className="size-4 mr-2" />
-                    Logout</Link>
-                </DropdownMenuItem>
+                ))}
 
             </DropdownMenuContent>
         </DropdownMenu>
         </div>
         :<div className="flex items-center gap-4">
+                <LanguageSwitcher />
                 <Button asChild variant="secondary">
-                    <Link to="/auth/login">Login</Link>
+                    <Link to="/auth/login">{t('nav.login')}</Link>
                 </Button>
                 <Button asChild>
-                    <Link to="/auth/join">Join</Link>
+                    <Link to="/auth/join">{t('nav.join')}</Link>
                 </Button>
             </div>} 
     </nav>
 
       {/* Mobile Sheet Menu */}
-      <SheetContent className="mt-16 p-4 flex flex-col justify-between h-[calc(100vh-4rem)]">
-        {/* <SheetClose asChild>
-          <Button variant="ghost" size="icon" className="self-end">
-            <CloseIcon className="h-6 w-6" />
-          </Button>
-        </SheetClose> */}
-        <div className="space-y-2">
-          {menus.map((menu) =>
+      <SheetContent side="right" className="w-full max-w-sm flex flex-col">
+        <SheetClose asChild>
+            <Link to="/" className="text-lg font-bold">StartBeyond</Link>
+        </SheetClose>
+        <div className="mt-8 overflow-y-auto flex-grow">
+            <Accordion type="single" collapsible className="w-full">
+                {menus.map((menu) => (
             menu.items ? (
-              <Accordion key={menu.name} type="single" collapsible>
-                <AccordionItem value={menu.name}>
-                  <AccordionTrigger className="py-2 text-base font-medium">{menu.name}</AccordionTrigger>
-                  <AccordionContent className="pl-4">
-                    {menu.items.map((item) => (
-                      <Link key={item.name} to={item.to} className="block py-2 text-sm hover:underline">
-                        {item.name} →
+                        <AccordionItem value={menu.name} key={menu.name}>
+                            <AccordionTrigger className="text-base font-medium py-3">
+                                <Link to={menu.to} className="flex items-center">
+                                    {menu.icon && <menu.icon className="mr-3 h-5 w-5" />}
+                                    {menu.name}
                       </Link>
+                            </AccordionTrigger>
+                            <AccordionContent>
+                                <ul className="pl-8 space-y-2 py-2">
+                                    {menu.items.map(item => (
+                                        <li key={item.name}>
+                                            <SheetClose asChild>
+                                                <Link to={item.to} className="text-muted-foreground hover:text-foreground block">{item.name}</Link>
+                                            </SheetClose>
+                                        </li>
                     ))}
+                                </ul>
                   </AccordionContent>
                 </AccordionItem>
-              </Accordion>
             ) : (
-              <Link key={menu.name} to={menu.to} className="block py-3 text-base font-medium hover:underline">
-                {menu.name} →
+                        <SheetClose asChild key={menu.name}>
+                            <Link to={menu.to} className="flex items-center text-base font-medium py-3 border-b">
+                                {menu.icon && <menu.icon className="mr-3 h-5 w-5" />}
+                                {menu.name}
               </Link>
+                        </SheetClose>
             )
-          )}
+                ))}
+            </Accordion>
         </div>
-        <SheetFooter className="border-t pt-4 flex justify-around">
+        <SheetFooter className="mt-auto pt-4 border-t">
+            <div className="flex justify-between w-full items-center">
           {isLoggedIn ? (
-            <>
-              <Link to="/notifications" className="relative">
-                <BellIcon className="h-5 w-5" />
-                {hasNotifications && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500" />}
-              </Link>
-              <Link to="/messages" className="relative">
-                <MessageCircleIcon className="h-5 w-5" />
-                {hasMessages && <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500" />}
-              </Link>
-              <Link to={`/users/${username}`}>
+                    <div className="flex items-center gap-2">
                 <Avatar>
                   {avatar ? <AvatarImage src={avatar} /> : <AvatarFallback>{name?.[0]}</AvatarFallback>}
                 </Avatar>
-              </Link>
-            </>
-          ) : (
-            <>
-              <Link to="/auth/login" className="text-sm font-medium">Login</Link>
-              <Link to="/auth/join" className="text-sm font-medium">Join</Link>
-            </>
+                        <div>
+                            <div className="font-medium">{name}</div>
+                            <div className="text-sm text-muted-foreground">@{username}</div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-2">
+                         <Button asChild variant="secondary">
+                            <Link to="/auth/login">{t('nav.login')}</Link>
+                        </Button>
+                        <Button asChild>
+                            <Link to="/auth/join">{t('nav.join')}</Link>
+                        </Button>
+                    </div>
           )}
+                <LanguageSwitcher />
+            </div>
         </SheetFooter>
       </SheetContent>
     </Sheet>

@@ -8,6 +8,8 @@ import {
   useLocation,
   useNavigation,
 } from "react-router";
+import "./i18n";
+import { useTranslation } from "react-i18next";
 
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
@@ -34,11 +36,12 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const { i18n } = useTranslation();
   Settings.defaultLocale = "ko";
   Settings.defaultZone = "Asia/Seoul";
   return (
     // <html lang="en" className="">
-    <html lang="en" className="dark" >
+    <html lang={i18n.language} className="dark" >
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />

@@ -14,6 +14,7 @@ import { Calendar } from "~/common/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "~/common/components/ui/popover";
 import { Switch } from "~/common/components/ui/switch";
 import { CategorySelector } from "~/common/components/ui/CategorySelector";
+import { useTranslation } from "react-i18next";
 
 import * as planQueries from "~/features/plan/queries";
 import type { 
@@ -84,8 +85,12 @@ function getCurrentMonthStartDateISO(dateParam?: string | null): string {
   return DateTime.now().startOf('month').toISODate();
 }
 
-function getMonthName(dateISO: string): string {
-  return DateTime.fromISO(dateISO).toFormat("yyyy년 M월");
+function getMonthName(dateISO: string, t: any, i18n: any): string {
+    const dt = DateTime.fromISO(dateISO);
+    if (i18n.language === 'ko') {
+        return dt.toFormat("yyyy년 M월");
+    }
+    return dt.toFormat("MMMM yyyy");
 }
 
 interface WeekInfo {
@@ -484,7 +489,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 // --- Meta ---
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   const pageData = data as MonthlyPageLoaderData | undefined;
-  const monthStr = pageData?.selectedMonth ? getMonthName(pageData.selectedMonth) : "Monthly";
+  const monthStr = pageData?.selectedMonth ? getMonthName(pageData.selectedMonth, {}, {}) : "Monthly";
   return [
     { title: `${monthStr} Plan - StartBeyond` },
     { name: "description", content: `Plan your goals and reflections for ${monthStr}.` },
@@ -533,6 +538,11 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
 
   const fetcher = useFetcher<typeof action>();
   const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  
+  if (!i18n.isInitialized) {
+    return null; // Or a loading spinner
+  }
   
   const [selectedMonth, setSelectedMonth] = useState<string>(initialSelectedMonth);
   const [monthlyGoals, setMonthlyGoals] = useState<MonthlyGoalUI[]>(initialMonthlyGoals);
@@ -648,7 +658,7 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
     <div className="max-w-5xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <h1 className="font-bold text-3xl">Monthly Plan</h1>
+          <h1 className="font-bold text-3xl">{t('monthly_page.title')}</h1>
           <MonthlyCalendarPopover 
             currentMonthISO={selectedMonth} 
             onMonthChange={(newMonthISO) => {
@@ -656,9 +666,9 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
             }}
           />
         </div>
-        <div className="text-gray-500 text-lg">{getMonthName(selectedMonth)}</div>
+        <div className="text-gray-500 text-lg">{getMonthName(selectedMonth, t, i18n)}</div>
         <Button asChild className="ml-2" variant="ghost" size="sm">
-            <Link to="/plan/weekly">To Weekly Plan</Link>
+            <Link to="/plan/weekly">{t('monthly_page.to_weekly_plan')}</Link>
         </Button>
       </div>
 
@@ -666,12 +676,12 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
       <Card className="mb-8">
         <CardHeader className="cursor-pointer" onClick={() => { if (!isGoalsInputSectionOpen) handleOpenGoalForm(); else handleCancelGoalForm(); }}>
             <div className="flex items-center justify-between">
-                <CardTitle>{isGoalsInputSectionOpen ? (isEditingGoal ? "Edit Monthly Goal" : "Add Monthly Goal") : `Monthly Goals (${monthlyGoals.length})`}</CardTitle>
+                <CardTitle>{isGoalsInputSectionOpen ? (isEditingGoal ? t('monthly_page.edit_goal') : t('monthly_page.add_goal')) : t('monthly_page.monthly_goals_count', { count: monthlyGoals.length })}</CardTitle>
                 <Button variant="ghost" size="sm">
-                    {isGoalsInputSectionOpen ? "Cancel" : (monthlyGoals.length === 0 ? "Add Goal" : "Show/Add Goal")}
+                    {isGoalsInputSectionOpen ? t('monthly_page.cancel') : (monthlyGoals.length === 0 ? t('monthly_page.add_goal') : t('monthly_page.show_add_goal'))}
                 </Button>
             </div>
-            {!isGoalsInputSectionOpen && <CardDescription>Click to add a new goal or view existing goals.</CardDescription>}
+            {!isGoalsInputSectionOpen && <CardDescription>{t('monthly_page.click_to_add_goal')}</CardDescription>}
           </CardHeader>
         {isGoalsInputSectionOpen && (
             <CardContent className="pt-4">
@@ -689,7 +699,7 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
                     ))}
 
                   <div>
-                        <Label htmlFor="goal-category">Category</Label>
+                        <Label htmlFor="goal-category">{t('monthly_page.category')}</Label>
                         <CategorySelector
                           categories={categories.filter(c => c.isActive)}
                           selectedCategoryCode={goalForm.category_code}
@@ -700,31 +710,31 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
                         <input type="hidden" name="category_code" value={goalForm.category_code} />
                   </div>
                   <div>
-                        <Label htmlFor="goal-title">Title</Label>
+                        <Label htmlFor="goal-title">{t('monthly_page.goal_title')}</Label>
                         <Input id="goal-title" name="title" value={goalForm.title} onChange={e => handleGoalFormChange('title', e.target.value)} required />
                     </div>
                     <div>
-                        <Label htmlFor="goal-description">Description (Optional)</Label>
+                        <Label htmlFor="goal-description">{t('monthly_page.description_optional')}</Label>
                         <Textarea id="goal-description" name="description" value={goalForm.description} onChange={e => handleGoalFormChange('description', e.target.value)} />
                     </div>
                     <div>
-                        <Label htmlFor="goal-success-criteria">Success Criteria (one per line)</Label>
-                        <Textarea id="goal-success-criteria" name="success_criteria" value={goalForm.success_criteria} onChange={e => handleGoalFormChange('success_criteria', e.target.value)} placeholder="e.g., Complete Chapter 1\nDeploy to staging" className="min-h-[80px]" />
+                        <Label htmlFor="goal-success-criteria">{t('monthly_page.success_criteria')}</Label>
+                        <Textarea id="goal-success-criteria" name="success_criteria" value={goalForm.success_criteria} onChange={e => handleGoalFormChange('success_criteria', e.target.value)} placeholder={t('monthly_page.success_criteria_placeholder')} className="min-h-[80px]" />
                     </div>
                     <div>
-                        <Label>Weekly Breakdown</Label>
+                        <Label>{t('monthly_page.weekly_breakdown')}</Label>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-1">
                             {weeksInSelectedMonth.map(weekInfo => (
                                 <div key={`wb-week${weekInfo.weekNumber}`}>
                                     <Label htmlFor={`wb-week${weekInfo.weekNumber}`} className="text-sm font-normal text-muted-foreground">
-                                        Week {weekInfo.weekNumber} <span className="text-xs">({DateTime.fromISO(weekInfo.startDate).toFormat('MM/dd')}~{DateTime.fromISO(weekInfo.endDate).toFormat('MM/dd')})</span>
+                                        {t('monthly_page.week_with_range', { week: weekInfo.weekNumber, startDate: DateTime.fromISO(weekInfo.startDate).toFormat('MM/dd'), endDate: DateTime.fromISO(weekInfo.endDate).toFormat('MM/dd') })}
                                     </Label>
                                     <Textarea 
                                         id={`wb-week${weekInfo.weekNumber}`} 
                                         name={`weekly_breakdown_week${weekInfo.weekNumber}`}
                                         value={goalForm.weekly_breakdown[`week${weekInfo.weekNumber}`] || ""} 
                                         onChange={e => handleWeeklyBreakdownChange(weekInfo.weekNumber, e.target.value)}
-                                        placeholder={`Plan for Week ${weekInfo.weekNumber}`}
+                                        placeholder={t('monthly_page.plan_for_week', { week: weekInfo.weekNumber })}
                                         className="min-h-[60px]"
                                     />
                           </div>
@@ -732,9 +742,9 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
                       </div>
                     </div>
                     <div className="flex justify-end gap-2 pt-4">
-                        <Button type="button" variant="outline" onClick={handleCancelGoalForm}>Cancel</Button>
+                        <Button type="button" variant="outline" onClick={handleCancelGoalForm}>{t('monthly_page.cancel')}</Button>
                         <Button type="submit" disabled={fetcher.state !== 'idle' || !goalForm.title.trim()}>
-                        {fetcher.state !== 'idle' && (fetcher.formData?.get('intent') === 'addMonthlyGoal' || fetcher.formData?.get('intent') === 'updateMonthlyGoal') ? "Saving..." : (isEditingGoal ? "Save Changes" : "Add Goal")}
+                        {fetcher.state !== 'idle' && (fetcher.formData?.get('intent') === 'addMonthlyGoal' || fetcher.formData?.get('intent') === 'updateMonthlyGoal') ? t('monthly_page.saving') : (isEditingGoal ? t('monthly_page.save_changes') : t('monthly_page.add_goal'))}
                       </Button>
                     </div>
                 </fetcher.Form>
@@ -747,13 +757,13 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
         <Card className="mb-8">
             {isGoalsInputSectionOpen && (
                  <CardHeader>
-                    <CardTitle>Existing Monthly Goals ({monthlyGoals.length})</CardTitle>
-                     <CardDescription>Scroll down to see your currently set goals.</CardDescription>
+                    <CardTitle>{t('monthly_page.monthly_goals_count', { count: monthlyGoals.length })}</CardTitle>
+                     <CardDescription>{t('monthly_page.click_to_add_goal')}</CardDescription>
                 </CardHeader>
             )}
             {!isGoalsInputSectionOpen && monthlyGoals.length === 0 && (
                 <CardContent className="py-6">
-                    <p className="text-muted-foreground text-center">No goals set for this month yet. Click above to add one!</p>
+                    <p className="text-muted-foreground text-center">{t('monthly_page.no_goals_yet')}</p>
                 </CardContent>
             )}
             {monthlyGoals.length > 0 && (
@@ -765,7 +775,7 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
                                     <div className="flex items-center gap-3">
                                         <span className={`text-3xl ${isValidCategoryCode(goal.category_code, categories) ? getCategoryColor(categories.find(c=>c.code === goal.category_code), goal.category_code) : 'text-gray-500'}`}>{categories.find(c=>c.code === goal.category_code)?.icon || '🎯'}</span>
                                         <h3 className="text-lg font-semibold">{goal.title}</h3>
-                                        {goal.is_completed && <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">COMPLETED</span>}
+                                        {goal.is_completed && <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">{t('monthly_page.completed_badge')}</span>}
                                     </div>
                                     <div className="flex gap-1.5">
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenGoalForm(goal)}><Edit className="h-4 w-4" /></Button>
@@ -782,7 +792,7 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
                                 {goal.description && <p className="text-sm text-muted-foreground whitespace-pre-line">{goal.description}</p>}
                                 {goal.success_criteria.length > 0 && (
                                     <div>
-                                        <h4 className="text-sm font-medium mb-1.5">Success Criteria:</h4>
+                                        <h4 className="text-sm font-medium mb-1.5">{t('monthly_page.success_criteria_heading')}</h4>
                                         <ul className="space-y-1.5">
                                             {goal.success_criteria.map(sc => (
                                                 <li key={sc.id} className="flex items-center gap-2 text-sm">
@@ -797,10 +807,10 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
               )}
                                 {Object.keys(goal.weekly_breakdown).length > 0 && (
                                     <div>
-                                        <h4 className="text-sm font-medium mb-1.5">Weekly Breakdown:</h4>
+                                        <h4 className="text-sm font-medium mb-1.5">{t('monthly_page.weekly_breakdown_heading')}</h4>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
                                         {Object.entries(goal.weekly_breakdown).map(([weekKey, breakdownText]) => (
-                                            breakdownText && <p key={weekKey}><strong className="capitalize">{weekKey.replace('week','Week ')}:</strong> {breakdownText}</p>
+                                            breakdownText && <p key={weekKey}><strong className="capitalize">{t('monthly_page.week_label', { week: weekKey.replace('week', '') })}:</strong> {breakdownText}</p>
                                         ))}
                                         </div>
             </div>
@@ -818,9 +828,9 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
         <Card>
           <CardHeader>
                     <div className="flex items-center justify-between">
-                      <CardTitle>Monthly Reflection & Notes</CardTitle>
+                      <CardTitle>{t('monthly_page.reflection_title')}</CardTitle>
                     </div>
-                    <CardDescription>Reflect on your month and jot down any thoughts.</CardDescription>
+                    <CardDescription>{t('monthly_page.reflection_description')}</CardDescription>
           </CardHeader>
                 <fetcher.Form method="post" key={monthlyReflection?.id || 'new-reflection-form'}>
                     <input type="hidden" name="intent" value="upsertMonthlyReflection" />
@@ -831,7 +841,7 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
                             name="content"
                             value={reflectionFormContent}
                             onChange={e => setReflectionFormContent(e.target.value)}
-                            placeholder="How was your month? What did you learn? What are you grateful for?"
+                            placeholder={t('monthly_page.reflection_placeholder')}
                             className="min-h-[150px]"
                         />
           </CardContent>
@@ -839,12 +849,12 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
                         <div>
                           {monthlyReflection && (monthlyReflection.updated_at || monthlyReflection.created_at) && (
                             <p className="text-xs text-muted-foreground">
-                              Last saved: {DateTime.fromISO(monthlyReflection.updated_at || monthlyReflection.created_at!).toLocaleString(DateTime.DATETIME_SHORT)}
+                              {t('monthly_page.last_saved')}: {DateTime.fromISO(monthlyReflection.updated_at || monthlyReflection.created_at!).toLocaleString(DateTime.DATETIME_SHORT)}
                             </p>
                           )}
                         </div>
                         <Button type="submit" disabled={fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'upsertMonthlyReflection'}>
-                            {fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'upsertMonthlyReflection' ? "Saving..." : <><Save className="w-4 h-4 mr-1.5" /> Save Reflection</>}
+                            {fetcher.state !== 'idle' && fetcher.formData?.get('intent') === 'upsertMonthlyReflection' ? t('monthly_page.saving') : <><Save className="w-4 h-4 mr-1.5" /> {t('monthly_page.save_reflection')}</>}
                         </Button>
                     </CardFooter>
                 </fetcher.Form>

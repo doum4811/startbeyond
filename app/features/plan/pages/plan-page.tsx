@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "~/com
 import { Button } from "~/common/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import { DateTime } from "luxon";
+import { useTranslation } from "react-i18next";
 
 import * as planQueries from "~/features/plan/queries";
 import * as dailyQueries from "~/features/daily/queries";
@@ -41,9 +42,9 @@ export interface PlanOverviewLoaderData {
   latestMonthlyReflectionSummary?: string | null;
 }
 
-export const meta: MetaFunction = () => {
+export const meta: MetaFunction<typeof loader> = ({ data }) => {
   return [
-    { title: "Plan Overview - StartBeyond" },
+    { title: "Planning Hub - StartBeyond" },
     { name: "description", content: "Overview of your daily, weekly, and monthly plans." },
   ];
 };
@@ -87,9 +88,9 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<PlanOverv
     lockedWeeklyTaskSummaries,
     currentMonthlyGoalsCount: monthlyGoals.length,
     monthlyGoalTitles,
-    latestDailyNoteSummary: latestDailyNote?.content ? latestDailyNote.content.substring(0, 70) + (latestDailyNote.content.length > 70 ? "..." : "") : "No note for today.",
-    latestWeeklyNoteSummary: weeklyNote?.critical_success_factor ? weeklyNote.critical_success_factor.substring(0,70) + (weeklyNote.critical_success_factor.length > 70 ? "..." : "") : (weeklyNote?.weekly_goal_note ? weeklyNote.weekly_goal_note.substring(0,70) + (weeklyNote.weekly_goal_note.length > 70 ? "..." : "") : "No weekly notes."),
-    latestMonthlyReflectionSummary: monthlyReflection?.monthly_reflection ? monthlyReflection.monthly_reflection.substring(0,70) + (monthlyReflection.monthly_reflection.length > 70 ? "..." : "") : "No reflection this month."
+    latestDailyNoteSummary: latestDailyNote?.content ? latestDailyNote.content.substring(0, 70) + (latestDailyNote.content.length > 70 ? "..." : "") : null,
+    latestWeeklyNoteSummary: weeklyNote?.critical_success_factor ? weeklyNote.critical_success_factor.substring(0,70) + (weeklyNote.critical_success_factor.length > 70 ? "..." : "") : (weeklyNote?.weekly_goal_note ? weeklyNote.weekly_goal_note.substring(0,70) + (weeklyNote.weekly_goal_note.length > 70 ? "..." : "") : null),
+    latestMonthlyReflectionSummary: monthlyReflection?.monthly_reflection ? monthlyReflection.monthly_reflection.substring(0,70) + (monthlyReflection.monthly_reflection.length > 70 ? "..." : "") : null
   };
 }
 
@@ -98,23 +99,29 @@ interface PlanOverviewPageProps {
 }
 
 export default function PlanOverviewPage({ loaderData }: PlanOverviewPageProps) {
+  const { t, i18n } = useTranslation();
+
+  if (!i18n.isInitialized) {
+    return null; // Or a loading spinner
+  }
+  
   return (
     <div className="max-w-4xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
       <div className="mb-8">
-        <h1 className="font-bold text-4xl mb-2">Planning Hub</h1>
+        <h1 className="font-bold text-4xl mb-2">{t('plan_hub.title')}</h1>
         <p className="text-lg text-muted-foreground">
-          Manage your daily activities, weekly tasks, and long-term monthly goals.
+          {t('plan_hub.description')}
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <Card>
           <CardHeader>
-            <CardTitle>Tomorrow's Plan</CardTitle>
+            <CardTitle>{t('plan_hub.tomorrows_plan_title')}</CardTitle>
             <CardDescription>
               {loaderData.tomorrowsPlanCount > 0 
-                ? `${loaderData.tomorrowsPlanCount} tasks planned` 
-                : "No tasks planned for tomorrow."}
+                ? t('plan_hub.tasks_planned_count', { count: loaderData.tomorrowsPlanCount }) 
+                : t('plan_hub.no_tasks_planned')}
             </CardDescription>
             {loaderData.tomorrowsTopPlans && loaderData.tomorrowsTopPlans.length > 0 && (
               <ul className="text-sm text-muted-foreground list-disc list-inside pl-2 pt-1 mt-1">
@@ -125,7 +132,7 @@ export default function PlanOverviewPage({ loaderData }: PlanOverviewPageProps) 
           <CardContent className="pt-2">
             <Button asChild variant="outline" className="w-full">
               <Link to="/plan/tomorrow">
-                View Tomorrow's Plan <ArrowRight className="ml-2 h-4 w-4" />
+                {t('plan_hub.view_tomorrows_plan')} <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
           </CardContent>
@@ -133,11 +140,11 @@ export default function PlanOverviewPage({ loaderData }: PlanOverviewPageProps) 
 
         <Card>
           <CardHeader>
-            <CardTitle>Weekly Plan</CardTitle>
+            <CardTitle>{t('plan_hub.weekly_plan_title')}</CardTitle>
             <CardDescription>
               {loaderData.currentWeeklyTasksCount > 0 
-                ? `${loaderData.currentWeeklyTasksCount} tasks this week (${loaderData.lockedWeeklyTasksCount} locked).`
-                : "No weekly tasks found."}
+                ? t('plan_hub.weekly_tasks_summary', { count: loaderData.currentWeeklyTasksCount, lockedCount: loaderData.lockedWeeklyTasksCount})
+                : t('plan_hub.no_weekly_tasks')}
             </CardDescription>
             {loaderData.lockedWeeklyTaskSummaries && loaderData.lockedWeeklyTaskSummaries.length > 0 && (
               <ul className="text-sm text-muted-foreground list-disc list-inside pl-2 pt-1 mt-1">
@@ -148,7 +155,7 @@ export default function PlanOverviewPage({ loaderData }: PlanOverviewPageProps) 
           <CardContent className="pt-2">
             <Button asChild variant="outline" className="w-full">
               <Link to="/plan/weekly">
-                View Weekly Plan <ArrowRight className="ml-2 h-4 w-4" />
+                {t('plan_hub.view_weekly_plan')} <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
           </CardContent>
@@ -156,11 +163,11 @@ export default function PlanOverviewPage({ loaderData }: PlanOverviewPageProps) 
 
         <Card>
           <CardHeader>
-            <CardTitle>Monthly Goals</CardTitle>
+            <CardTitle>{t('plan_hub.monthly_goals_title')}</CardTitle>
             <CardDescription>
               {loaderData.currentMonthlyGoalsCount > 0
-                ? `${loaderData.currentMonthlyGoalsCount} goals this month.`
-                : "No monthly goals set."}
+                ? t('plan_hub.monthly_goals_summary', { count: loaderData.currentMonthlyGoalsCount })
+                : t('plan_hub.no_monthly_goals')}
             </CardDescription>
             {loaderData.monthlyGoalTitles && loaderData.monthlyGoalTitles.length > 0 && (
               <ul className="text-sm text-muted-foreground list-disc list-inside pl-2 pt-1 mt-1">
@@ -171,7 +178,7 @@ export default function PlanOverviewPage({ loaderData }: PlanOverviewPageProps) 
           <CardContent className="pt-2">
             <Button asChild variant="outline" className="w-full">
               <Link to="/plan/monthly">
-                View Monthly Goals <ArrowRight className="ml-2 h-4 w-4" />
+                {t('plan_hub.view_monthly_goals')} <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
           </CardContent>
@@ -179,13 +186,13 @@ export default function PlanOverviewPage({ loaderData }: PlanOverviewPageProps) 
         
         <Card>
           <CardHeader>
-            <CardTitle>Daily Records</CardTitle>
-            <CardDescription>Log your daily activities and notes.</CardDescription>
+            <CardTitle>{t('plan_hub.daily_records_title')}</CardTitle>
+            <CardDescription>{t('plan_hub.daily_records_description')}</CardDescription>
           </CardHeader>
           <CardContent className="pt-4"> {/* Adjusted padding for consistency if no list */} 
             <Button asChild variant="outline" className="w-full">
               <Link to="/daily">
-                View Daily Records <ArrowRight className="ml-2 h-4 w-4" />
+                {t('plan_hub.view_daily_records')} <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
           </CardContent>
@@ -193,29 +200,29 @@ export default function PlanOverviewPage({ loaderData }: PlanOverviewPageProps) 
       </div>
       
       <div>
-        <h2 className="text-2xl font-semibold mb-4">Recent Reflections & Notes</h2>
+        <h2 className="text-2xl font-semibold mb-4">{t('plan_hub.recent_notes_title')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="md:col-span-1 flex flex-col">
-                <CardHeader><CardTitle className="text-lg">Today's Note</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-lg">{t('plan_hub.todays_note_title')}</CardTitle></CardHeader>
                 <CardContent className="flex-grow">
                     <p className="text-sm text-muted-foreground whitespace-normal line-clamp-3 min-h-[3em]">
-                        {loaderData.latestDailyNoteSummary}
+                        {loaderData.latestDailyNoteSummary || t('plan_hub.no_note_today')}
                     </p>
                 </CardContent>
             </Card>
             <Card className="md:col-span-1 flex flex-col">
-                <CardHeader><CardTitle className="text-lg">This Week's Focus</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-lg">{t('plan_hub.this_weeks_focus_title')}</CardTitle></CardHeader>
                 <CardContent className="flex-grow">
                      <p className="text-sm text-muted-foreground whitespace-normal line-clamp-3 min-h-[3em]">
-                        {loaderData.latestWeeklyNoteSummary}
+                        {loaderData.latestWeeklyNoteSummary || t('plan_hub.no_weekly_notes')}
                     </p>
                 </CardContent>
             </Card>
             <Card className="md:col-span-1 flex flex-col">
-                <CardHeader><CardTitle className="text-lg">This Month's Reflection</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-lg">{t('plan_hub.this_months_reflection_title')}</CardTitle></CardHeader>
                 <CardContent className="flex-grow">
                      <p className="text-sm text-muted-foreground whitespace-normal line-clamp-3 min-h-[3em]">
-                        {loaderData.latestMonthlyReflectionSummary}
+                        {loaderData.latestMonthlyReflectionSummary || t('plan_hub.no_monthly_reflection')}
                     </p>
                 </CardContent>
             </Card>

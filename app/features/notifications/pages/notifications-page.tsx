@@ -8,6 +8,7 @@ import { Button } from "~/common/components/ui/button";
 import { timeAgo } from "~/lib/utils";
 import { cn } from "~/lib/utils";
 import { Bell, UserPlus, MessageSquare } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { client } = makeSSRClient(request);
@@ -23,15 +24,15 @@ export async function action({ request }: ActionFunctionArgs) {
     return { ok: true };
 }
 
-function getNotificationMessage(notification: notificationQueries.Notification) {
-    const actorUsername = notification.actor?.username ?? 'Someone';
+function getNotificationMessage(notification: notificationQueries.Notification, t: any) {
+    const actorUsername = notification.actor?.username ?? t('notifications.anonymous');
     switch (notification.type) {
         case 'new_follower':
-            return <p><span className="font-semibold">{actorUsername}</span> started following you.</p>;
+            return <p dangerouslySetInnerHTML={{ __html: t('notifications.new_follower', { actor: actorUsername }) }} />;
         case 'new_comment':
-            return <p><span className="font-semibold">{actorUsername}</span> commented on your post.</p>;
+            return <p dangerouslySetInnerHTML={{ __html: t('notifications.new_comment', { actor: actorUsername }) }} />;
         default:
-            return <p>You have a new notification.</p>;
+            return <p>{t('notifications.default')}</p>;
     }
 }
 
@@ -48,14 +49,15 @@ function getNotificationIcon(notification: notificationQueries.Notification) {
 
 export default function NotificationsPage() {
   const { notifications } = useLoaderData<typeof loader>();
+  const { t } = useTranslation();
 
   return (
     <div className="max-w-2xl mx-auto py-12 px-4 pt-24 min-h-screen">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Notifications</h1>
+        <h1 className="text-3xl font-bold">{t('notifications.title')}</h1>
         {notifications.some(n => !n.is_read) && (
             <Form method="post">
-                <Button type="submit" variant="outline" size="sm">Mark all as read</Button>
+                <Button type="submit" variant="outline" size="sm">{t('notifications.mark_all_read')}</Button>
             </Form>
         )}
       </div>
@@ -81,7 +83,7 @@ export default function NotificationsPage() {
                       <AvatarImage src={notification.actor?.avatar_url ?? undefined} />
                       <AvatarFallback>{notification.actor?.username?.[0]}</AvatarFallback>
                     </Avatar>
-                    <div className="text-sm">{getNotificationMessage(notification)}</div>
+                    <div className="text-sm">{getNotificationMessage(notification, t)}</div>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">{timeAgo(notification.created_at)}</p>
                 </div>
@@ -91,7 +93,7 @@ export default function NotificationsPage() {
         ) : (
           <div className="text-center py-16 text-muted-foreground">
             <Bell className="mx-auto h-12 w-12 mb-4" />
-            <p>You have no notifications.</p>
+            <p>{t('notifications.no_notifications')}</p>
           </div>
         )}
       </div>

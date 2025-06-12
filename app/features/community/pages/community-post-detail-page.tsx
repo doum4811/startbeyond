@@ -1,4 +1,4 @@
-import { Link, Form, useParams, useNavigate, redirect } from "react-router";
+import { Link, Form, useParams, useNavigate, redirect, useActionData, useFetcher } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { Button } from "~/common/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "~/common/components/ui/card";
@@ -11,6 +11,7 @@ import { DateTime } from "luxon";
 import { useState, useEffect } from "react";
 import { Trash2 } from "lucide-react";
 import { makeSSRClient } from "~/supa-client";
+import { useTranslation } from "react-i18next";
 
 export interface CommunityPostDetailPageLoaderData {
   post: CommunityPostWithAuthor | null;
@@ -20,7 +21,7 @@ export interface CommunityPostDetailPageLoaderData {
 
 interface ActionResponse {
   ok: boolean;
-  error?: string;
+  errorKey?: string;
   commentId?: string;
   intent?: string;
 }
@@ -71,13 +72,13 @@ export async function action({ request, params }: ActionFunctionArgs): Promise<R
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
 
-  if (!postId) return { ok: false, error: "Post ID is missing." };
+  if (!postId) return { ok: false, errorKey: "Post ID is missing." }; // This error is internal
 
   try {
     if (intent === "addComment") {
       const content = formData.get("commentContent") as string;
       if (!content || content.trim() === "") {
-        return { ok: false, error: "Comment content cannot be empty.", intent };
+        return { ok: false, errorKey: "community.post_detail_page.error_comment_empty", intent };
       }
       const commentData: CommunityCommentInsert = {
         post_id: postId,
@@ -86,53 +87,70 @@ export async function action({ request, params }: ActionFunctionArgs): Promise<R
       };
       const newComment = await createCommunityComment(client, commentData);
       if (!newComment || !newComment.id) {
-        return { ok: false, error: "Failed to create comment.", intent };
+        return { ok: false, errorKey: "community.post_detail_page.error_comment_failed", intent };
       }
       return { ok: true, commentId: newComment.id, intent };
     } else if (intent === "deleteComment") {
       const commentId = formData.get("commentId") as string;
-      if (!commentId) return { ok: false, error: "Comment ID is missing for deletion.", intent };
+      if (!commentId) return { ok: false, errorKey: "Comment ID is missing for deletion.", intent };
       await deleteCommunityComment(client, { commentId, profileId });
       return { ok: true, commentId, intent };
     } else if (intent === "deletePost") {
       const post = await getCommunityPostById(client, { postId });
       if (post?.profile_id !== profileId) {
-        return { ok: false, error: "You are not authorized to delete this post.", intent };
+        return { ok: false, errorKey: "community.post_detail_page.error_unauthorized_delete", intent };
       }
       await deleteCommunityPost(client, { postId, profileId });
       return redirect("/community");
     }
-    return { ok: false, error: "Unknown intent.", intent };
+    return { ok: false, errorKey: "Unknown intent.", intent };
   } catch (error: any) {
     console.error("Action error:", error);
-    return { ok: false, error: error.message || "An unexpected error occurred.", intent };
+    return { ok: false, errorKey: error.message || "An unexpected error occurred.", intent };
   }
 }
 
 
 export default function CommunityPostDetailPage({ loaderData }: { loaderData: CommunityPostDetailPageLoaderData }) {
   const { post, comments: initialComments, profileId } = loaderData;
+  const { t, i18n } = useTranslation();
+  const fetcher = useFetcher<ActionResponse>();
   const navigate = useNavigate();
-  // const actionData = useActionData<ActionData>(); // For handling form responses
+  
   const [commentContent, setCommentContent] = useState("");
   const [comments, setComments] = useState(initialComments);
-  const [formError, setFormError] = useState<string | null>(null);
-
+  
   useEffect(() => {
     setComments(initialComments);
   }, [initialComments]);
+
+  useEffect(() => {
+    if (fetcher.data && fetcher.state === 'idle') {
+      if (fetcher.data.ok) {
+        if (fetcher.data.intent === 'addComment') {
+          setCommentContent('');
+          // Re-fetch data to get new comment
+          navigate('.', { replace: true }); 
+        } else if (fetcher.data.intent === 'deleteComment') {
+          setComments(prev => prev.filter(c => c.id !== fetcher.data?.commentId));
+        }
+      }
+    }
+  }, [fetcher.data, fetcher.state, navigate]);
   
-  // This useEffect handles navigation after post deletion
-  // It needs to access actionData from the Form component for this to work correctly with Remix v2 actions.
-  // A more robust way might be to use fetcher for deletions if not navigating away.
+  if (!i18n.isInitialized) {
+    return null; // Or a loading spinner
+  }
+
+  const actionError = fetcher.data?.errorKey ? t(fetcher.data.errorKey) : null;
 
   if (!post) {
     return (
       <div className="max-w-2xl mx-auto py-12 px-4 pt-16 text-center">
-        <h1 className="text-2xl font-semibold mb-4">Post Not Found</h1>
-        <p className="text-muted-foreground mb-6">The post you are looking for does not exist or has been removed.</p>
+        <h1 className="text-2xl font-semibold mb-4">{t('community.post_detail_page.post_not_found_title')}</h1>
+        <p className="text-muted-foreground mb-6">{t('community.post_detail_page.post_not_found_description')}</p>
         <Button asChild>
-          <Link to="/community">← Back to Community</Link>
+          <Link to="/community">{t('community.new_post_page.back_to_community')}</Link>
         </Button>
       </div>
     );
@@ -144,7 +162,7 @@ export default function CommunityPostDetailPage({ loaderData }: { loaderData: Co
     <div className="max-w-3xl mx-auto py-12 px-4 pt-16">
       <div className="mb-6">
         <Button variant="outline" size="sm" asChild>
-          <Link to="/community">← Back to Community</Link>
+          <Link to="/community">{t('community.new_post_page.back_to_community')}</Link>
         </Button>
       </div>
 
@@ -152,18 +170,18 @@ export default function CommunityPostDetailPage({ loaderData }: { loaderData: Co
         <CardHeader>
           <div className="flex items-center gap-3 mb-3">
             <Avatar className="h-12 w-12">
-              <AvatarImage src={post.author_avatar_url || undefined} alt={post.author_name || "User"} />
-              <AvatarFallback>{post.author_name?.charAt(0) || "U"}</AvatarFallback>
+              <AvatarImage src={post.author_avatar_url || undefined} alt={post.author_name || t('community.anonymous')} />
+              <AvatarFallback>{post.author_name?.charAt(0) || "A"}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="text-lg font-semibold">{post.author_name || "Anonymous"}</p>
+              <p className="text-lg font-semibold">{post.author_name || t('community.anonymous')}</p>
               <p className="text-sm text-muted-foreground">
                 {DateTime.fromISO(post.created_at).toLocaleString(DateTime.DATETIME_MED) || ""}
               </p>
             </div>
           </div>
           <CardTitle className="text-3xl font-bold mb-1">{post.title}</CardTitle>
-          {post.category && <CardDescription className="text-md text-primary font-medium">{post.category}</CardDescription>}
+          {post.category && <CardDescription className="text-md text-primary font-medium">{t(`community.new_post_page.categories.${post.category}`)}</CardDescription>}
         </CardHeader>
         <CardContent>
           <div className="prose dark:prose-invert max-w-none whitespace-pre-line">
@@ -172,62 +190,41 @@ export default function CommunityPostDetailPage({ loaderData }: { loaderData: Co
         </CardContent>
         {isOwner && (
           <CardFooter className="flex justify-end gap-2">
-            {/* <Button variant="outline" asChild>
-              <Link to={`/community/${post.id}/edit`}>Edit</Link> 
-            </Button> */}
-            <Form method="post" onChange={(e) => {
-                const formData = new FormData(e.currentTarget);
-                // actionData cannot be reliably read this way in Remix v2 form patterns.
-                // const actionData = JSON.parse(formData.get("actionData") as string) as ActionData;
-                // if (actionData?.ok && actionData.intent === "deletePost") {
-                //     navigate("/community");
-                // }
-                // For navigation on delete, it's better to handle in useEffect based on actionData from useActionData or navigate from action itself if appropriate.
-            }}>
+            <Form method="post">
               <input type="hidden" name="intent" value="deletePost" />
-              <Button variant="destructive" type="submit" onClick={(event) => !confirm("Are you sure you want to delete this post?") && event.preventDefault() } >
-                <Trash2 className="mr-2 h-4 w-4" /> Delete Post
+              <Button variant="destructive" type="submit" onClick={(event) => !confirm(t('community.post_detail_page.delete_post_confirm')) && event.preventDefault() } >
+                <Trash2 className="mr-2 h-4 w-4" /> {t('community.post_detail_page.delete_post_button')}
               </Button>
             </Form>
           </CardFooter>
         )}
       </Card>
 
-      <h2 className="text-2xl font-semibold mb-4 mt-10">Comments ({comments.length})</h2>
+      <h2 className="text-2xl font-semibold mb-4 mt-10">{t('community.post_detail_page.comments_count', { count: comments.length })}</h2>
       <Card className="mb-6">
         <CardContent className="pt-6">
-          <Form method="post" className="space-y-3" onSubmit={() => setFormError(null)}
-           onChange={(e) => {
-            const formData = new FormData(e.currentTarget);
-            const actionData = JSON.parse(formData.get("actionData") as string) as ActionResponse;
-            if(actionData?.ok && actionData.intent === "addComment"){
-                setCommentContent("");
-                // Optimistically add comment or refetch
-                // For now, relying on page reload or manual re-fetch via loader
-                // Ideally, update comments state here.
-            } else if (actionData?.error) {
-                setFormError(actionData.error)
-            }
-           }}
-          >
+          <fetcher.Form method="post" className="space-y-3">
             <input type="hidden" name="intent" value="addComment" />
             <div>
-              <Label htmlFor="commentContent" className="sr-only">Your Comment</Label>
+              <Label htmlFor="commentContent" className="sr-only">{t('community.post_detail_page.comments_title')}</Label>
               <Textarea 
                 id="commentContent" 
                 name="commentContent" 
                 rows={3} 
-                placeholder="Write a comment..." 
+                placeholder={t('community.post_detail_page.comment_form_placeholder')} 
                 value={commentContent}
                 onChange={(e) => setCommentContent(e.target.value)}
                 required
+                disabled={fetcher.state !== 'idle'}
               />
             </div>
-            {formError && <p className="text-sm text-red-500">{formError}</p>}
+            {fetcher.data && !fetcher.data.ok && fetcher.data.errorKey && (
+              <p className="text-sm text-red-500">{t(fetcher.data.errorKey)}</p>
+            )}
             <div className="flex justify-end">
-              <Button type="submit">Post Comment</Button>
+              <Button type="submit" disabled={fetcher.state !== 'idle'}>{t('community.post_detail_page.comment_form_submit')}</Button>
             </div>
-          </Form>
+          </fetcher.Form>
         </CardContent>
       </Card>
 
@@ -238,30 +235,30 @@ export default function CommunityPostDetailPage({ loaderData }: { loaderData: Co
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={comment.author_avatar_url || undefined} alt={comment.author_name || "User"} />
-                    <AvatarFallback className="text-xs">{comment.author_name?.charAt(0) || "U"}</AvatarFallback>
+                    <AvatarImage src={comment.author_avatar_url || undefined} alt={comment.author_name || t('community.anonymous')} />
+                    <AvatarFallback className="text-xs">{comment.author_name?.charAt(0) || "A"}</AvatarFallback>
                   </Avatar>
-                  <p className="font-semibold text-sm">{comment.author_name || "Anonymous"}</p>
+                  <p className="font-semibold text-sm">{comment.author_name || t('community.anonymous')}</p>
                 </div>
                 <div className="flex items-center gap-1">
                     <p className="text-xs text-muted-foreground">
                     {DateTime.fromISO(comment.created_at).toRelative() || ""}
                     </p>
                     {comment.profile_id === profileId && (
-                         <Form method="post" onChange={(e) => {
-                            const formData = new FormData(e.currentTarget);
-                            // Similar to above, actionData is not reliably read here.
-                            // const actionData = JSON.parse(formData.get("actionData") as string) as ActionData;
-                            // if (actionData?.ok && actionData.intent === "deleteComment") {
-                            //     setComments(prev => prev.filter(c => c.id !== actionData.commentId));
-                            // }
-                         }}>
-                            <input type="hidden" name="intent" value="deleteComment" />
-                            <input type="hidden" name="commentId" value={comment.id} />
-                            <Button variant="ghost" size="icon" type="submit" className="h-7 w-7" onClick={(event) => !confirm("Delete this comment?") && event.preventDefault() }>
-                                <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-                            </Button>
-                        </Form>
+                      <fetcher.Form method="post">
+                        <input type="hidden" name="intent" value="deleteComment" />
+                        <input type="hidden" name="commentId" value={comment.id} />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                          type="submit"
+                          onClick={(event) => !confirm(t('community.post_detail_page.delete_comment_confirm')) && event.preventDefault()}
+                          disabled={fetcher.state !== 'idle'}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </fetcher.Form>
                     )}
                 </div>
               </div>
@@ -271,7 +268,7 @@ export default function CommunityPostDetailPage({ loaderData }: { loaderData: Co
             </CardContent>
           </Card>
         )) : (
-          <p className="text-muted-foreground text-center py-4">No comments yet. Be the first to comment!</p>
+          <p className="text-center text-muted-foreground py-4">{t('community.post_detail_page.no_comments_yet')}</p>
         )}
       </div>
     </div>

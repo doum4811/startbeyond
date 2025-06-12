@@ -1,6 +1,6 @@
 // import { AppSidebar } from "../common/components/app-sidebar";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '~/common/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '~/common/components/ui/card';
 import { Input } from '~/common/components/ui/input';
@@ -35,6 +35,7 @@ import type {
     UserDefaultCodePreferenceInsert,
     UserCodeSettingInsert
 } from "~/features/settings/queries";
+import { useTranslation } from "react-i18next";
 
 // Helper to get profileId (replace with actual implementation if available)
 // async function getProfileId(request: Request): Promise<string> {
@@ -65,10 +66,11 @@ export interface SettingsPageLoaderData {
   profileId: string;
 }
 
-export const meta: MetaFunction = () => {
+export const meta: MetaFunction<typeof loader> = ({ data }) => {
+    const { t } = useTranslation();
   return [
-    { title: "Code Settings - StartBeyond" },
-    { name: "description", content: "Manage your custom categories, subcodes, and default code preferences." },
+      { title: t('settings.categories.meta_title') },
+      { name: "description", content: t('settings.categories.meta_description') },
   ];
 };
 
@@ -252,6 +254,7 @@ function UserCategoryForm({ category, onSave, onCancel, profileId }: {
   onCancel: () => void;
   profileId: string; 
 }) {
+  const { t } = useTranslation();
   const [code, setCode] = useState(category?.code || '');
   const [label, setLabel] = useState(category?.label || '');
   const [icon, setIcon] = useState(category?.icon || ICON_POOL[0]?.icon || '📝');
@@ -312,16 +315,16 @@ function UserCategoryForm({ category, onSave, onCancel, profileId }: {
     // Form structure remains largely the same, ensure names match FormData keys
     <div className="space-y-4 py-2">
       <div>
-        <Label htmlFor="category-code">코드 (영문 대문자, 숫자, _, 최대 10자)</Label>
+        <Label htmlFor="category-code">{t('settings.categories.category_code')}</Label>
         <Input id="category-code" name="code" value={code} onChange={(e) => { setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 10)); setCodeError(''); }} placeholder="예: MY_STUDY" />
         {codeError && <p className="text-sm text-red-500 pt-1">{codeError}</p>}
       </div>
       <div>
-        <Label htmlFor="category-label">레이블 (화면에 표시될 이름)</Label>
+        <Label htmlFor="category-label">{t('settings.categories.category_label')}</Label>
         <Input id="category-label" name="label" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="예: 영어 공부" />
       </div>
       <div>
-        <Label>아이콘</Label>
+        <Label>{t('settings.categories.icon_and_color')}</Label>
         {/* Icon selection logic is complex for FormData, hidden input for icon might be needed or process in action */}
         <input type="hidden" name="icon_type" value={isTextIcon ? "text" : "select"} />
         <input type="hidden" name="icon_value" value={isTextIcon ? customIconText.slice(0,3) : icon} />
@@ -331,7 +334,7 @@ function UserCategoryForm({ category, onSave, onCancel, profileId }: {
             setIsTextIcon(checked);
             if (!checked) setIcon(ICON_POOL[0]?.icon || '📝'); else setCustomIconText('');
           }} />
-          <Label htmlFor="text-icon-switch">텍스트/이모지로 아이콘 표현 (최대 3자)</Label>
+          <Label htmlFor="text-icon-switch">{t('settings.categories.text_icon')}</Label>
         </div>
         {isTextIcon ? (
           <Input value={customIconText} onChange={(e) => setCustomIconText(e.target.value)} placeholder="예: PJT, 💡" maxLength={5}/>
@@ -345,7 +348,7 @@ function UserCategoryForm({ category, onSave, onCancel, profileId }: {
         )}
       </div>
       <div>
-        <Label htmlFor="category-color">색상</Label>
+        <Label htmlFor="category-color">{t('settings.categories.color')}</Label>
         <div className="flex items-center gap-2">
           <Input id="category-color" name="color" type="color" value={color || '#cccccc'} onChange={(e) => setColor(e.target.value)} className="w-16 h-10 p-1" />
           <span className="px-2 py-1 rounded text-sm text-white" style={{ backgroundColor: color || '#cccccc' }}>{color || '#cccccc'}</span>
@@ -353,11 +356,11 @@ function UserCategoryForm({ category, onSave, onCancel, profileId }: {
       </div>
       <div className="flex items-center space-x-2 pt-2">
         <Switch name="is_active" id="category-active" checked={isActive} onCheckedChange={setIsActive} /> 
-        <Label htmlFor="category-active">활성화 (앱 전체에서 사용)</Label>
+        <Label htmlFor="category-active">{t('settings.categories.active')}</Label>
       </div>
       <DialogFooter className="pt-6">
-        <Button variant="outline" onClick={onCancel}>취소</Button>
-        <Button onClick={handleSubmit}>{category ? '수정 완료' : '추가'}</Button>
+        <Button variant="outline" onClick={onCancel}>{t('cancel')}</Button>
+        <Button onClick={handleSubmit}>{t('save')}</Button>
       </DialogFooter>
     </div>
   );
@@ -371,6 +374,7 @@ function UserSubcodeForm({ subcode, selectedCategoryCode, allCategories, onSave,
     onCancel: () => void;
     profileId: string;
 }) {
+    const { t } = useTranslation();
     const [parentCode, setParentCode] = useState(subcode?.parent_category_code || selectedCategoryCode);
     const [currentSubcodeVal, setCurrentSubcodeVal] = useState(subcode?.subcode || '');
     const [description, setDescription] = useState(subcode?.description || '');
@@ -421,7 +425,7 @@ function UserSubcodeForm({ subcode, selectedCategoryCode, allCategories, onSave,
         // Form structure remains largely the same, ensure names match FormData keys
         <div className="space-y-4 py-2">
             <div>
-                <Label htmlFor="subcode-category">상위 코드</Label>
+                <Label htmlFor="subcode-category">{t('settings.categories.parent_category')}</Label>
                 <Select name="parent_category_code" value={parentCode} onValueChange={setParentCode} disabled={!!subcode}> 
                     <SelectTrigger id="subcode-category"><SelectValue placeholder="상위 코드 선택" /></SelectTrigger>
                     <SelectContent>
@@ -430,27 +434,28 @@ function UserSubcodeForm({ subcode, selectedCategoryCode, allCategories, onSave,
                 </Select>
             </div>
             <div>
-                <Label htmlFor="subcode-code">세부코드 명칭</Label>
+                <Label htmlFor="subcode-code">{t('settings.categories.subcode')}</Label>
                 <Input id="subcode-code" name="subcode" value={currentSubcodeVal} onChange={(e) => {setCurrentSubcodeVal(e.target.value); setSubcodeError('');}} placeholder="예: React 강의" />
                 {subcodeError && <p className="text-sm text-red-500 pt-1">{subcodeError}</p>}
         </div>
         <div>
-                <Label htmlFor="subcode-description">설명 (선택)</Label>
+                <Label htmlFor="subcode-description">{t('settings.categories.subcode_description')}</Label>
                 <Input id="subcode-description" name="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="예: Udemy 강의 시청" />
             </div>
             <div className="flex items-center space-x-2 pt-2">
                 <Switch name="is_favorite" id="subcode-favorite" checked={isFavorite} onCheckedChange={setIsFavorite} />
-                <Label htmlFor="subcode-favorite">즐겨찾기 (입력 시 우선 추천)</Label>
+                <Label htmlFor="subcode-favorite">{t('settings.categories.favorite')}</Label>
             </div>
             <DialogFooter className="pt-6">
-                <Button variant="outline" onClick={onCancel}>취소</Button>
-                <Button onClick={handleSubmit}>{subcode ? '수정 완료' : '추가'}</Button>
+                <Button variant="outline" onClick={onCancel}>{t('cancel')}</Button>
+                <Button onClick={handleSubmit}>{t('save')}</Button>
             </DialogFooter>
         </div>
     );
 }
 
 export default function SettingsPage({ loaderData }: { loaderData: SettingsPageLoaderData }) {
+  const { t } = useTranslation();
   const fetcher = useFetcher<typeof action>();
   const { 
     userCategories: initialUserCategories, 
@@ -499,6 +504,18 @@ export default function SettingsPage({ loaderData }: { loaderData: SettingsPageL
   const [enableAutocomplete, setEnableAutocomplete] = useState(initialUserCodeSettings?.enable_autocomplete ?? true);
   const [enableRecommendation, setEnableRecommendation] = useState(initialUserCodeSettings?.enable_recommendation ?? true);
   const [recommendationSource, setRecommendationSource] = useState(initialUserCodeSettings?.recommendation_source ?? 'frequency');
+
+  const [inputSettings, setInputSettings] = useState(
+    initialUserCodeSettings ?? { enable_autocomplete: true, enable_recommendation: true, recommendation_source: 'frequency' }
+  );
+
+  const allCategoriesForSelect = useMemo(() => {
+    const defaultCats = Object.values(DEFAULT_CATEGORIES).map(c => ({ code: c.code, label: c.label }));
+    const customCats = userCategories.map(c => ({ code: c.code, label: c.label }));
+    // Avoid duplicates, prefer custom labels if codes overlap
+    const combined = [...customCats, ...defaultCats.filter(dc => !customCats.some(cc => cc.code === dc.code))];
+    return combined.sort((a,b) => a.label.localeCompare(b.label));
+  }, [userCategories]);
 
   useEffect(() => {
     setUserCategories(initialUserCategories);
@@ -703,25 +720,25 @@ export default function SettingsPage({ loaderData }: { loaderData: SettingsPageL
 
   return (
     <div className="max-w-5xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
-      <h1 className="text-3xl font-bold mb-8">설정</h1>
+      <h1 className="text-3xl font-bold mb-8">{t('settings.categories.page_title')}</h1>
 
-      <Tabs defaultValue="my-codes" className="w-full">
+      <Tabs defaultValue="categories" className="w-full">
         <TabsList className="grid w-full grid-cols-3 mb-6">
-          <TabsTrigger value="my-codes">내 코드 관리</TabsTrigger>
-          <TabsTrigger value="my-subcodes">내 세부코드 관리</TabsTrigger>
-          <TabsTrigger value="input-support">입력 지원</TabsTrigger>
+          <TabsTrigger value="categories">{t('settings.categories.tabs.categories')}</TabsTrigger>
+          <TabsTrigger value="subcodes">{t('settings.categories.tabs.subcodes')}</TabsTrigger>
+          <TabsTrigger value="input_settings">{t('settings.categories.tabs.input_settings')}</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="my-codes">
+        <TabsContent value="categories">
           <Card className="mb-6">
             <CardHeader className="cursor-pointer" onClick={() => setIsDefaultCategoriesCollapsed(!isDefaultCategoriesCollapsed)}>
               <div className="flex justify-between items-center">
-                <CardTitle>기본 코드</CardTitle>
+                <CardTitle>{t('settings.categories.default_categories_title')}</CardTitle>
                 <Button variant="ghost" size="sm">
-                  {isDefaultCategoriesCollapsed ? '펴기' : '접기'}
+                  {isDefaultCategoriesCollapsed ? '접기' : '펴기'}
                 </Button>
               </div>
-              <CardDescription>앱에서 기본으로 제공하는 코드입니다. 활성/비활성 상태를 변경하여 앱 내 표시 여부를 제어합니다. (데이터는 보존됨)</CardDescription>
+              <CardDescription>{t('settings.categories.default_categories_description')}</CardDescription>
             </CardHeader>
             {!isDefaultCategoriesCollapsed && (
               <CardContent>
@@ -747,8 +764,8 @@ export default function SettingsPage({ loaderData }: { loaderData: SettingsPageL
 
           <Card>
             <CardHeader>
-              <CardTitle>사용자 정의 코드 관리</CardTitle>
-              <CardDescription>새로운 코드를 추가, 수정, 삭제하고 순서를 변경할 수 있습니다.</CardDescription>
+              <CardTitle>{t('settings.categories.custom_categories_title')}</CardTitle>
+              <CardDescription>{t('settings.categories.custom_categories_description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Dialog open={isCategoryFormOpen} onOpenChange={(isOpen) => {
@@ -757,12 +774,12 @@ export default function SettingsPage({ loaderData }: { loaderData: SettingsPageL
               }}>
                 <DialogTrigger asChild>
                   <Button onClick={() => { setEditingCategory(null); setIsCategoryFormOpen(true); }}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> 새 사용자 코드 추가
+                    <PlusCircle className="mr-2 h-4 w-4" /> {t('settings.categories.add_category')}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-[480px]">
                   <DialogHeader>
-                    <DialogTitle>{editingCategory ? '사용자 코드 수정' : '새 사용자 코드 추가'}</DialogTitle>
+                    <DialogTitle>{editingCategory ? t('settings.categories.edit_category') : t('settings.categories.add_category')}</DialogTitle>
                   </DialogHeader>
                   <UserCategoryForm
                     category={editingCategory}
@@ -801,11 +818,11 @@ export default function SettingsPage({ loaderData }: { loaderData: SettingsPageL
           </Card>
         </TabsContent>
 
-        <TabsContent value="my-subcodes">
+        <TabsContent value="subcodes">
           <Card>
             <CardHeader>
-              <CardTitle>내 세부코드 관리</CardTitle>
-              <CardDescription>자주 사용하는 세부코드를 코드별로 관리합니다. 여기서 즐겨찾기한 세부코드는 입력 시 우선 추천됩니다.</CardDescription>
+              <CardTitle>{t('settings.categories.subcodes_title')}</CardTitle>
+              <CardDescription>{t('settings.categories.subcodes_description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="flex items-center gap-4 mb-4">
@@ -826,14 +843,14 @@ export default function SettingsPage({ loaderData }: { loaderData: SettingsPageL
                     }}>
                         <DialogTrigger asChild>
                             <Button disabled={!selectedCategoryForSubcode || selectedCategoryForSubcode.startsWith('ALL_')} onClick={() => { setEditingSubcode(null); setIsSubcodeFormOpen(true);}}>
-                                <PlusCircle className="mr-2 h-4 w-4" /> 새 세부코드 추가
+                                <PlusCircle className="mr-2 h-4 w-4" /> {t('settings.categories.add_subcode')}
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-[480px]">
                         <DialogHeader>
-                            <DialogTitle>{editingSubcode ? '세부코드 수정' : '새 세부코드 추가'}</DialogTitle>
+                            <DialogTitle>{editingSubcode ? t('settings.categories.edit_subcode') : t('settings.categories.add_subcode')}</DialogTitle>
                             <DialogDescription>
-                                {selectedCategoryForSubcode && !selectedCategoryForSubcode.startsWith('ALL_') && allManageableCategories.find(c => c.code === selectedCategoryForSubcode)?.label} 코드에 대한 세부코드입니다.
+                                {selectedCategoryForSubcode && !selectedCategoryForSubcode.startsWith('ALL_') && allManageableCategories.find(c => c.code === selectedCategoryForSubcode)?.label} {t('settings.categories.subcode_form_description')}
                             </DialogDescription>
                         </DialogHeader>
                         <UserSubcodeForm
@@ -872,53 +889,53 @@ export default function SettingsPage({ loaderData }: { loaderData: SettingsPageL
                 ))}
                 {filteredSubcodes.length === 0 && selectedCategoryForSubcode && !selectedCategoryForSubcode.startsWith('ALL_') && (
                   <p className="p-4 text-center text-muted-foreground">
-                    '{allManageableCategories.find(c=>c.code === selectedCategoryForSubcode)?.label}' 코드에 등록된 세부코드가 없습니다.
+                    '{allManageableCategories.find(c=>c.code === selectedCategoryForSubcode)?.label}' {t('settings.categories.no_subcodes')}
                   </p>
                 )}
                  {(!selectedCategoryForSubcode || selectedCategoryForSubcode.startsWith('ALL_')) && (
-                     <p className="p-4 text-center text-muted-foreground">세부코드를 보거나 추가하려면 먼저 상위 코드를 선택해주세요.</p>
+                     <p className="p-4 text-center text-muted-foreground">{t('settings.categories.select_parent_category')}</p>
                  )}
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="input-support">
+        <TabsContent value="input_settings">
           <Card>
             <CardHeader>
-              <CardTitle>입력 지원 설정</CardTitle>
-              <CardDescription>세부코드 입력 시 자동완성 및 추천 기능을 설정합니다.</CardDescription>
+              <CardTitle>{t('settings.categories.input_settings_title')}</CardTitle>
+              <CardDescription>{t('settings.categories.input_settings_description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 <Form method="post" onSubmit={(e) => { e.preventDefault(); handleSaveInputSettings();}}>
                     <input type="hidden" name="intent" value="upsertUserCodeSettings" />
                     <div className="flex items-center justify-between p-4 border rounded-md">
-                        <Label htmlFor="enable-subcode-autocomplete" className="text-base">세부코드 자동완성 기능 사용</Label>
+                        <Label htmlFor="enable-subcode-autocomplete" className="text-base">{t('settings.categories.enable_autocomplete')}</Label>
                         <Switch name="enable_autocomplete" id="enable-subcode-autocomplete" checked={enableAutocomplete} onCheckedChange={setEnableAutocomplete} />
                     </div>
                     <div className="p-4 border rounded-md space-y-4 mt-4">
                         <div className="flex items-center justify-between">
-                        <Label htmlFor="enable-subcode-recommendation" className="text-base">입력 시 세부코드 추천 사용</Label>
+                        <Label htmlFor="enable-subcode-recommendation" className="text-base">{t('settings.categories.enable_recommendations')}</Label>
                         <Switch name="enable_recommendation" id="enable-subcode-recommendation" checked={enableRecommendation} onCheckedChange={setEnableRecommendation} />
                         </div>
                         {enableRecommendation && (
                         <div>
-                            <Label htmlFor="recommendation-source">세부코드 추천 기준</Label>
+                            <Label htmlFor="recommendation-source">{t('settings.categories.recommendation_source')}</Label>
                             <Select name="recommendation_source" value={recommendationSource} onValueChange={setRecommendationSource}>
                             <SelectTrigger id="recommendation-source" className="w-[280px]">
                                 <SelectValue placeholder="추천 기준 선택" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="frequency">자주 사용한 순서</SelectItem>
-                                <SelectItem value="favorite">즐겨찾기 한 순서</SelectItem>
-                                <SelectItem value="recent">최근 사용 순서</SelectItem>
+                                <SelectItem value="frequency">{t('settings.categories.recommendation_source_options.frequency')}</SelectItem>
+                                <SelectItem value="recency">{t('settings.categories.recommendation_source_options.recency')}</SelectItem>
+                                {/* <SelectItem value="ai_magic" disabled>AI Magic (Coming Soon)</SelectItem> */}
                             </SelectContent>
                             </Select>
                         </div>
                         )}
                     </div>
                     <CardFooter className="mt-6">
-                        <Button type="submit">입력 지원 설정 저장</Button>
+                        <Button type="submit">{t('settings.categories.save_changes')}</Button>
                     </CardFooter>
                 </Form>
             </CardContent>
@@ -929,14 +946,13 @@ export default function SettingsPage({ loaderData }: { loaderData: SettingsPageL
       <AlertDialog open={showDeactivationAlert} onOpenChange={setShowDeactivationAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>기본 코드 비활성화 경고</AlertDialogTitle>
+            <AlertDialogTitle>{t('settings.categories.toggle_default_category_confirm_title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              '{codeToDeactivate?.label}' ({codeToDeactivate?.default_category_code}) 코드를 비활성화하시겠습니까? 
-              이 코드에 연결된 사용자 정의 세부코드는 삭제되지 않지만, 이 기본 코드가 비활성화되어 있는 동안에는 숨겨지고 새 항목에 사용할 수 없게 됩니다.
+              {t('settings.categories.toggle_default_category_confirm_description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => {setShowDeactivationAlert(false); setCodeToDeactivate(null);}}>취소</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => {setShowDeactivationAlert(false); setCodeToDeactivate(null);}}>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={() => codeToDeactivate && proceedToggleDefaultCategoryActive(codeToDeactivate.default_category_code)}>
               비활성화 진행
             </AlertDialogAction>

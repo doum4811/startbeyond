@@ -1,5 +1,6 @@
 // app/features/stats/pages/summary-page.tsx
 import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "~/common/components/ui/card";
 import { Button } from "~/common/components/ui/button";
 import { Calendar as CalendarIcon, Share2, Copy, Check, ChevronLeft, ChevronRight, Download, BarChart2, Calendar, Sun, Moon, Clock, CheckSquare } from "lucide-react";
@@ -13,9 +14,11 @@ import * as settingsQueries from "~/features/settings/queries";
 import type { CategoryCode, UICategory } from "~/common/types/daily";
 import { CATEGORIES } from "~/common/types/daily";
 import { makeSSRClient } from "~/supa-client";
-import type { CategoryDistribution, TimeOfDayDistribution, SubcodeDistribution } from "../types";
+import type { CategoryDistribution, TimeOfDayDistribution, SubcodeDistribution, SummaryInsights } from "../types";
 import { StatsPageHeader } from "~/common/components/stats/stats-page-header";
 import { SubcodeDistributionChart } from "~/common/components/stats/subcode-distribution-chart";
+import { CategoryDistributionList } from "../components/CategoryDistributionList";
+import { SubcodeDistributionList } from "../components/SubcodeDistributionList";
 import type { SummaryPageLoaderData } from '../types';
 
 // Register a font for PDF (Optional, but good for Korean characters)
@@ -59,11 +62,13 @@ const pdfStyles = StyleSheet.create({
 const SummaryReportPDF = ({ 
     data, 
     categories, 
-    month 
+    month,
+    t
 }: { 
     data: CategoryDistribution[], 
     categories: UICategory[], 
-    month: string 
+    month: string,
+    t: (key: string, options?: any) => string;
 }) => {
     const getCategoryLabel = (code: CategoryCode) => categories.find(c => c.code === code)?.label || code;
     const totalRecords = data.reduce((sum, cat) => sum + cat.count, 0);
@@ -73,23 +78,23 @@ const SummaryReportPDF = ({
   <Document>
     <Page size="A4" style={pdfStyles.page}>
       <View style={pdfStyles.header}>
-            <Text style={pdfStyles.title}>월간 활동 요약 보고서</Text>
-            <Text style={pdfStyles.date}>{month}</Text>
+            <Text style={pdfStyles.title}>{t('stats_summary_page.pdf_report_title')}</Text>
+            <Text style={pdfStyles.date}>{t('stats_summary_page.pdf_date', { month })}</Text>
           </View>
           
           <View style={pdfStyles.section}>
-            <Text style={pdfStyles.sectionTitle}>종합 요약</Text>
-            <Text style={pdfStyles.summaryText}>총 기록 수: {totalRecords}건</Text>
-            <Text style={pdfStyles.summaryText}>총 활동 시간: {(totalDurationMinutes / 60).toFixed(1)}시간 ({totalDurationMinutes}분)</Text>
+            <Text style={pdfStyles.sectionTitle}>{t('stats_summary_page.pdf_total_summary_title')}</Text>
+            <Text style={pdfStyles.summaryText}>{t('stats_summary_page.pdf_total_records', { count: totalRecords })}</Text>
+            <Text style={pdfStyles.summaryText}>{t('stats_summary_page.pdf_total_duration', { hours: (totalDurationMinutes / 60).toFixed(1), minutes: totalDurationMinutes })}</Text>
       </View>
     
       <View style={pdfStyles.section}>
-            <Text style={pdfStyles.sectionTitle}>카테고리별 분포</Text>
+            <Text style={pdfStyles.sectionTitle}>{t('stats_summary_page.pdf_category_distribution_title')}</Text>
             {data.map((item) => (
               <View key={item.category} style={pdfStyles.categoryItem}>
                 <Text style={pdfStyles.categoryName}>{getCategoryLabel(item.category)}</Text>
-                <Text style={pdfStyles.categoryValue}>{item.count}회</Text>
-                <Text style={pdfStyles.categoryValue}>{(item.duration / 60).toFixed(1)}시간</Text>
+                <Text style={pdfStyles.categoryValue}>{item.count}{t('category_distribution_list.count_unit')}</Text>
+                <Text style={pdfStyles.categoryValue}>{(item.duration / 60).toFixed(1)}{t('category_distribution_list.time_unit_hours')}</Text>
                 <Text style={pdfStyles.categoryValue}>{item.percentage}%</Text>
               </View>
             ))}
@@ -126,6 +131,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<SummaryPa
       prevMonthCategoryDistribution,
       currentMonthGoalStats,
       prevMonthGoalStats,
+      summaryInsights,
   ] = await Promise.all([
     statsQueries.getStatsCache(client, { profileId, monthDate: monthParam }),
     settingsQueries.getUserCategories(client, { profileId }),
@@ -154,6 +160,11 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<SummaryPa
         profileId,
         startDate: prevMonthStart.toISODate()!,
         endDate: prevMonthEnd.toISODate()!,
+    }),
+    statsQueries.calculateSummaryInsights(client, {
+        profileId,
+        startDate: selectedMonthStart.toISODate()!,
+        endDate: selectedMonthEnd.toISODate()!,
     }),
   ]);
 
@@ -218,12 +229,15 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<SummaryPa
     prevMonthCategoryDistribution,
     currentMonthGoalStats,
     prevMonthGoalStats,
+    summaryInsights,
   };
 };
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   const pageData = data as SummaryPageLoaderData | undefined;
   const monthName = pageData?.selectedMonthISO ? DateTime.fromFormat(pageData.selectedMonthISO, "yyyy-MM").toFormat("MMMM yyyy") : "Stats";
+  // Translation in meta function is tricky. For now, keeping it static Korean.
+  // A better approach would involve passing locale from the loader.
   return [
     { title: `월간 요약 ${monthName} - StartBeyond` },
     { name: "description", content: `${monthName} 활동 요약입니다.` },
@@ -231,6 +245,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
 };
 
 export default function SummaryStatsPage() {
+  const { t, i18n } = useTranslation();
   const { 
       selectedMonthISO, 
       categoryDistribution, 
@@ -240,16 +255,17 @@ export default function SummaryStatsPage() {
       prevMonthCategoryDistribution,
       currentMonthGoalStats,
       prevMonthGoalStats,
+      summaryInsights,
   } = useLoaderData<typeof loader>();
   
   const [shareSettings, setShareSettings] = useState<CustomShareSettings>(initialCustomShareSettings);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
-
+  
   const currentMonth = DateTime.fromFormat(selectedMonthISO, "yyyy-MM");
   const prevMonthISO = currentMonth.minus({ months: 1 }).toFormat("yyyy-MM");
   const nextMonthISO = currentMonth.plus({ months: 1 }).toFormat("yyyy-MM");
-  const monthNameForPdf = currentMonth.toFormat("yyyy년 M월");
+  const monthNameForDisplay = i18n.language === 'ko' ? currentMonth.toFormat("yyyy년 M월") : currentMonth.toFormat("MMMM yyyy");
 
   const totalRecords = categoryDistribution.reduce((sum, cat) => sum + cat.count, 0);
   const totalDurationMinutes = categoryDistribution.reduce((sum, cat) => sum + cat.duration, 0);
@@ -257,13 +273,13 @@ export default function SummaryStatsPage() {
   
   const prevMonthTotalRecords = prevMonthCategoryDistribution.reduce((sum, cat) => sum + cat.count, 0);
   const prevMonthTotalDurationMinutes = prevMonthCategoryDistribution.reduce((sum, cat) => sum + cat.duration, 0);
-  
+
   function getPercentageChange(current: number, previous: number): string {
     if (previous === 0) {
-      return current > 0 ? "새 활동" : "변화 없음";
+      return current > 0 ? t('stats_summary_page.vs_last_month_new') : t('stats_summary_page.vs_last_month_no_change');
     }
     const change = ((current - previous) / previous) * 100;
-    if (Math.abs(change) < 0.1) return "변화 없음";
+    if (Math.abs(change) < 0.1) return t('stats_summary_page.vs_last_month_no_change');
     if (change > 0) return `+${change.toFixed(0)}%`;
     return `${change.toFixed(0)}%`;
   }
@@ -290,15 +306,14 @@ export default function SummaryStatsPage() {
   }
 
   function handleCopyLink() {
-    const mockLink = "https://startbeyond.com/share/summary/" + selectedMonthISO;
-    navigator.clipboard.writeText(mockLink);
-    // toast.success("링크가 복사되었습니다"); // Assuming sonner is available
-    alert("링크가 복사되었습니다!"); // Fallback if toast is not set up
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
+    const url = `https://startbeyond.com/share/summary/${selectedMonthISO}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    });
   }
 
-  const pdfDocument = <SummaryReportPDF data={categoryDistribution} categories={categories} month={monthNameForPdf} />;
+  const pdfDocument = <SummaryReportPDF data={categoryDistribution} categories={categories} month={monthNameForDisplay} t={t} />;
 
   const periodControl = (
     <div className="flex items-center gap-1">
@@ -308,7 +323,7 @@ export default function SummaryStatsPage() {
             </Link>
         </Button>
         <span className="text-lg font-medium w-32 text-center">
-            {currentMonth.toFormat("yyyy년 MMMM")}
+            {monthNameForDisplay}
         </span>
         <Button asChild variant="outline" size="icon">
             <Link to={`?month=${nextMonthISO}`} preventScrollReset>
@@ -318,11 +333,15 @@ export default function SummaryStatsPage() {
     </div>
   );
 
+  if (!i18n.isInitialized) {
+    return null; // or a loading spinner
+  }
+
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 pt-8 sm:pt-12 md:pt-16 bg-background min-h-screen">
       <StatsPageHeader
-        title="월간 요약"
-        description="이 페이지는 무료 플랜 사용자에게 제공되는 기본 통계 요약입니다."
+        title={t('stats_summary_page.page_title')}
+        description={t('stats_summary_page.page_description_free')}
         shareSettings={shareSettings as any} // Cast for simplicity with generic StatsPageHeader
         onShareSettingsChange={handleShareSettingsChange as any}
         isShareDialogOpen={isShareDialogOpen}
@@ -338,44 +357,44 @@ export default function SummaryStatsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 mt-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">총 기록 수</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('stats_summary_page.total_records')}</CardTitle>
             <BarChart2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalRecords}회</div>
-            <p className="text-xs text-muted-foreground">지난 달 대비 {recordsChangeText}</p>
+            <div className="text-2xl font-bold">{totalRecords}{t('category_distribution_list.count_unit')}</div>
+            <p className="text-xs text-muted-foreground">{t('stats_summary_page.vs_last_month')} {recordsChangeText}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">총 활동 시간</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('stats_summary_page.total_hours')}</CardTitle>
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalDurationHours}시간</div>
-            <p className="text-xs text-muted-foreground">지난 달 대비 {durationChangeText}</p>
+            <div className="text-2xl font-bold">{totalDurationHours}{t('category_distribution_list.time_unit_hours')}</div>
+            <p className="text-xs text-muted-foreground">{t('stats_summary_page.vs_last_month')} {durationChangeText}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">목표 달성률</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('stats_summary_page.goal_achievement_rate')}</CardTitle>
             <CheckSquare className="h-4 w-4 text-muted-foreground"/>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{currentMonthGoalStats.completionRate}%</div>
             <p className="text-xs text-muted-foreground">
-                지난 달 대비 {goalRateChangeText}
+                {t('stats_summary_page.vs_last_month')} {goalRateChangeText}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">가장 많은 활동</CardTitle>
+            <CardTitle className="text-sm font-medium">{t('stats_summary_page.most_active_category_title')}</CardTitle>
             <BarChart2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{mostActiveCategoryLabel}</div>
-            <p className="text-xs text-muted-foreground">총 시간의 {mostActiveCategoryPercentage}%</p>
+            <p className="text-xs text-muted-foreground">{t('stats_summary_page.most_active_category_desc', { percentage: mostActiveCategoryPercentage })}</p>
           </CardContent>
         </Card>
       </div>
@@ -383,25 +402,25 @@ export default function SummaryStatsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>카테고리별 분포</CardTitle>
+            <CardTitle>{t('stats_summary_page.category_distribution')}</CardTitle>
           </CardHeader>
-          <CardContent className="h-[350px]">
+          <CardContent>
           {categoryDistribution && categoryDistribution.length > 0 ? (
-              <CategoryDistributionChart data={categoryDistribution} categories={categories} selectedMonthISO={selectedMonthISO} />
+              <CategoryDistributionList data={categoryDistribution} categories={categories} />
           ) : (
-              <p className="text-center text-muted-foreground pt-12">이번 달 활동 데이터가 없습니다.</p>
+              <p className="text-center text-muted-foreground pt-12">{t('stats_summary_page.no_data')}</p>
           )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-          <CardTitle>세부코드별 분포 (상위 15개)</CardTitle>
+          <CardTitle>{t('stats_summary_page.subcode_distribution_title')}</CardTitle>
           </CardHeader>
-          <CardContent className="h-[350px]">
+          <CardContent>
           {subcodeDistribution && subcodeDistribution.length > 0 ? (
-              <SubcodeDistributionChart data={subcodeDistribution} categories={categories} />
+              <SubcodeDistributionList data={subcodeDistribution} categories={categories} />
           ) : (
-              <p className="text-center text-muted-foreground pt-12">세부코드 기록이 없습니다.</p>
+              <p className="text-center text-muted-foreground pt-12">{t('subcode_distribution_list.no_data')}</p>
           )}
         </CardContent>
        </Card>
@@ -409,15 +428,21 @@ export default function SummaryStatsPage() {
 
        <Card className="mt-4">
         <CardHeader>
-            <CardTitle>월간 요약</CardTitle>
+            <CardTitle>{t('stats_summary_page.monthly_summary_title')}</CardTitle>
         </CardHeader>
         <CardContent>
             <div className="text-sm text-muted-foreground space-y-2">
-                <p>이번 달 가장 많이 언급된 키워드: 운동, 독서, 명상 (기능 구현 예정)</p>
-                <p>주요 성취: 러닝 100km 달성, 독서 5권 완료 (기능 구현 예정)</p>
+                {summaryInsights?.mostActiveWeekday ? (
+                    <p dangerouslySetInnerHTML={{ __html: t('stats_summary_page.most_active_weekday', { day: summaryInsights.mostActiveWeekday.day, count: summaryInsights.mostActiveWeekday.count }) }} />
+                ) : (
+                    <p>{t('stats_summary_page.not_enough_data')}</p>
+                )}
+                {summaryInsights && (
+                    <p dangerouslySetInnerHTML={{ __html: t('stats_summary_page.weekday_vs_weekend', { weekday: summaryInsights.weekdayVsWeekend.weekday, weekend: summaryInsights.weekdayVsWeekend.weekend }) }} />
+                )}
             </div>
         </CardContent>
-      </Card>
+       </Card>
     </div>
   );
 }

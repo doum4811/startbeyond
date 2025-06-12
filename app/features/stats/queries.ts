@@ -11,6 +11,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CategoryCode } from "~/common/types/daily";
 import { getUserCategories, getUserDefaultCodePreferences } from "~/features/settings/queries";
 import * as planQueries from "~/features/plan/queries";
+import type { MonthlyGoalRow as DbMonthlyGoal } from "~/features/plan/queries";
 import * as dailyQueries from "~/features/daily/queries";
 
 // Types from database.types.ts used directly
@@ -49,12 +50,15 @@ export interface GoalCompletionStats {
   totalPlans: number;
   completedPlans: number;
   completionRate: number;
+  total_goals: number;
+  completed_goals: number;
 }
 
 // Structure of the 'stats' object stored in the stats_cache table's JSONB columns
 export interface StatsCache {
   category_distribution: CategoryDistribution[];
   activity_heatmap?: ActivityHeatmap[] | null;
+  weekdayVsWeekend?: { weekday: number, weekend: number };
 }
 
 export const getShareSettings = async (
@@ -341,6 +345,9 @@ export const calculateCategorySummary = async (
 export interface SummaryInsights {
   mostActiveWeekday: { day: string, count: number } | null;
   weekdayVsWeekend: { weekday: number, weekend: number };
+  most_active_category: { category: CategoryCode, count: number } | null;
+  longest_duration_category: { category: CategoryCode, duration_minutes: number } | null;
+  most_active_time_slot: { time_of_day: 'morning' | 'afternoon' | 'evening' | 'night', count: number } | null;
 }
 
 export const calculateSummaryInsights = async (
@@ -349,61 +356,77 @@ export const calculateSummaryInsights = async (
 ): Promise<SummaryInsights> => {
     const { data, error } = await client
     .from("daily_records")
-    .select("date")
+    .select("date, category_code, duration_minutes")
     .eq("profile_id", profileId)
     .gte("date", startDate)
     .lte("date", endDate);
   
   if (error) {
-    console.error("Error in calculateSummaryInsights:", error);
+    console.error("Error fetching data for summary insights:", error);
     throw error;
   }
-  
-  if (!data || data.length === 0) {
+  if (!data) {
     return {
       mostActiveWeekday: null,
       weekdayVsWeekend: { weekday: 0, weekend: 0 },
+      most_active_category: null,
+      longest_duration_category: null,
+      most_active_time_slot: null,
     };
   }
 
-  const weekdayCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
-  const weekdayLabels: Record<number, string> = { 1: "월요일", 2: "화요일", 3: "수요일", 4: "목요일", 5: "금요일", 6: "토요일", 7: "일요일" };
-  let weekdayTotal = 0;
-  let weekendTotal = 0;
+  const weekdayCounts: { [key: number]: number } = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
+  let weekdayRecords = 0;
+  let weekendRecords = 0;
+
+  const categoryCounts: Record<string, number> = {};
+  const categoryDurations: Record<string, number> = {};
+  const timeSlotCounts: Record<'morning' | 'afternoon' | 'evening' | 'night', number> = { morning: 0, afternoon: 0, evening: 0, night: 0 };
 
   for (const record of data) {
     const dt = DateTime.fromISO(record.date);
-    if(dt.isValid) {
-      const weekday = dt.weekday; // Luxon: 1 for Mon, 7 for Sun
-      weekdayCounts[weekday]++;
-      if (weekday >= 1 && weekday <= 5) {
-        weekdayTotal++;
-      } else {
-        weekendTotal++;
-      }
+    weekdayCounts[dt.weekday]++;
+    if (dt.weekday >= 1 && dt.weekday <= 5) {
+      weekdayRecords++;
+    } else {
+      weekendRecords++;
     }
+
+    if (record.category_code) {
+        categoryCounts[record.category_code] = (categoryCounts[record.category_code] || 0) + 1;
+        categoryDurations[record.category_code] = (categoryDurations[record.category_code] || 0) + (record.duration_minutes || 0);
+    }
+    
+    const hour = dt.hour;
+    if (hour >= 6 && hour < 12) timeSlotCounts.morning++;
+    else if (hour >= 12 && hour < 18) timeSlotCounts.afternoon++;
+    else if (hour >= 18 && hour < 22) timeSlotCounts.evening++;
+    else timeSlotCounts.night++;
   }
 
-  const mostActiveDayEntry = Object.entries(weekdayCounts)
-    .filter(([, count]) => count > 0)
-    .sort((a, b) => b[1] - a[1])[0];
-
-  const mostActiveWeekday = mostActiveDayEntry 
-    ? { day: weekdayLabels[parseInt(mostActiveDayEntry[0])], count: mostActiveDayEntry[1] } 
-    : null;
+  const mostActiveWeekdayEntry = Object.entries(weekdayCounts).sort((a, b) => b[1] - a[1])[0];
+  const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  
+  const mostActiveCategoryEntry = Object.entries(categoryCounts).sort((a,b) => b[1] - a[1])[0];
+  const longestDurationCategoryEntry = Object.entries(categoryDurations).sort((a,b) => b[1] - a[1])[0];
+  const mostActiveTimeSlotEntry = Object.entries(timeSlotCounts).sort((a,b) => b[1] - a[1])[0];
 
   return {
-    mostActiveWeekday,
-    weekdayVsWeekend: { weekday: weekdayTotal, weekend: weekendTotal },
+    mostActiveWeekday: mostActiveWeekdayEntry && mostActiveWeekdayEntry[1] > 0
+      ? { day: dayNames[parseInt(mostActiveWeekdayEntry[0]) - 1], count: mostActiveWeekdayEntry[1] }
+      : null,
+    weekdayVsWeekend: { weekday: weekdayRecords, weekend: weekendRecords },
+    most_active_category: mostActiveCategoryEntry ? { category: mostActiveCategoryEntry[0] as CategoryCode, count: mostActiveCategoryEntry[1] } : null,
+    longest_duration_category: longestDurationCategoryEntry ? { category: longestDurationCategoryEntry[0] as CategoryCode, duration_minutes: longestDurationCategoryEntry[1] } : null,
+    most_active_time_slot: mostActiveTimeSlotEntry && mostActiveTimeSlotEntry[1] > 0 ? { time_of_day: mostActiveTimeSlotEntry[0] as 'morning' | 'afternoon' | 'evening' | 'night', count: mostActiveTimeSlotEntry[1] } : null,
   };
 };
 
-export interface TimeOfDayDistribution {
-  morning: number;
-  afternoon: number;
-  evening: number;
-  night: number;
-}
+export type TimeOfDayDistribution = {
+    time_of_day: "morning" | "afternoon" | "evening" | "night";
+    count: number;
+    duration_minutes: number;
+}[];
 
 export const calculateTimeOfDayDistribution = async (
   client: pkg.SupabaseClient<Database>,
@@ -411,31 +434,54 @@ export const calculateTimeOfDayDistribution = async (
 ): Promise<TimeOfDayDistribution> => {
   const { data, error } = await client
     .from("daily_records")
-    .select("created_at")
+    .select("date, duration_minutes")
     .eq("profile_id", profileId)
     .gte("date", startDate)
     .lte("date", endDate);
 
-  if (error) {
-    console.error("Error in calculateTimeOfDayDistribution:", error);
-    throw error;
-  }
-
-  const distribution: TimeOfDayDistribution = { morning: 0, afternoon: 0, evening: 0, night: 0 };
-  if (!data) return distribution;
+    if (error) {
+        console.error("Error in calculateTimeOfDayDistribution:", error);
+        throw error;
+    }
+    if (!data) return [];
+  
+  const distribution: { 
+      [key in 'morning' | 'afternoon' | 'evening' | 'night']: { count: number; duration_minutes: number } 
+  } = {
+    morning: { count: 0, duration_minutes: 0 },
+    afternoon: { count: 0, duration_minutes: 0 },
+    evening: { count: 0, duration_minutes: 0 },
+    night: { count: 0, duration_minutes: 0 },
+  };
 
   for (const record of data) {
-    if (record.created_at) {
-      const hour = DateTime.fromISO(record.created_at).hour;
-      if (hour >= 5 && hour < 12) distribution.morning++;
-      else if (hour >= 12 && hour < 17) distribution.afternoon++;
-      else if (hour >= 17 && hour < 21) distribution.evening++;
-      else distribution.night++;
+    const hour = DateTime.fromISO(record.date).hour;
+    const duration = record.duration_minutes || 0;
+    if (hour >= 6 && hour < 12) {
+      distribution.morning.count++;
+      distribution.morning.duration_minutes += duration;
+    } else if (hour >= 12 && hour < 18) {
+      distribution.afternoon.count++;
+      distribution.afternoon.duration_minutes += duration;
+    } else if (hour >= 18 && hour < 22) {
+      distribution.evening.count++;
+      distribution.evening.duration_minutes += duration;
+    } else {
+      distribution.night.count++;
+      distribution.night.duration_minutes += duration;
     }
   }
 
-  return distribution;
-}
+  return (Object.entries(distribution) as [['morning' | 'afternoon' | 'evening' | 'night', { count: number; duration_minutes: number }]])
+    .map(([time_of_day, values]) => ({
+        time_of_day,
+        ...values
+    }))
+    .sort((a, b) => { // A fixed order is probably better than sorting by count
+        const order = { morning: 1, afternoon: 2, evening: 3, night: 4 };
+        return order[a.time_of_day] - order[b.time_of_day];
+    });
+};
 
 export interface SubcodeDistribution {
   subcode: string;
@@ -573,23 +619,27 @@ export const calculateGoalCompletionStats = async (
   client: pkg.SupabaseClient<Database>,
   { profileId, startDate, endDate }: { profileId: string; startDate: string; endDate: string; }
 ): Promise<GoalCompletionStats> => {
-  const [plans, records] = await Promise.all([
-    planQueries.getDailyPlansByPeriod(client, { profileId, startDate, endDate }),
-    dailyQueries.getDailyRecordsByPeriod(client, { profileId, startDate, endDate }),
-  ]);
+  try {
+    const data = await planQueries.getMonthlyGoalsByMonth(client, { profileId, monthDate: startDate });
 
-  if (!plans || plans.length === 0) {
-    return { totalPlans: 0, completedPlans: 0, completionRate: 0 };
+    if (!data || data.length === 0) {
+      return { total_goals: 0, completed_goals: 0, completionRate: 0, totalPlans: 0, completedPlans: 0 };
+    }
+    const total_goals = data.length;
+    const completed_goals = data.filter((g: DbMonthlyGoal) => g.is_completed).length;
+    const completionRate = total_goals > 0 ? Math.round((completed_goals / total_goals) * 100) : 0;
+    
+    return {
+      totalPlans: total_goals,
+      completedPlans: completed_goals,
+      completionRate,
+      total_goals,
+      completed_goals,
+    };
+  } catch (error) {
+    console.error("Error fetching monthly goals for stats:", error);
+    return { total_goals: 0, completed_goals: 0, completionRate: 0, totalPlans: 0, completedPlans: 0 };
   }
-
-  const completedPlanIds = new Set(records.map(r => r.linked_plan_id).filter((id): id is string => !!id));
-
-  const totalPlans = plans.length;
-  const completedPlansInPeriod = plans.filter(p => completedPlanIds.has(p.id)).length;
-
-  const completionRate = totalPlans > 0 ? Math.round((completedPlansInPeriod / totalPlans) * 100) : 0;
-
-  return { totalPlans, completedPlans: completedPlansInPeriod, completionRate };
 };
 
 export const statsQueries = {

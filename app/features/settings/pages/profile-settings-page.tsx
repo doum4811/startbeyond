@@ -1,4 +1,5 @@
 import { Form, useFetcher, useLoaderData, redirect } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Button } from "~/common/components/ui/button";
 import { Input } from "~/common/components/ui/input";
 import { Label } from "~/common/components/ui/label";
@@ -44,34 +45,35 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function ProfileSettingsPage() {
   const { user } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
+  const { t } = useTranslation();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-h-screen">
        <Card>
         <fetcher.Form method="post">
             <CardHeader>
-                <CardTitle>Public Profile</CardTitle>
+                <CardTitle>{t('settings.profile.title')}</CardTitle>
                 <CardDescription>
-                This is how others will see you on the site.
+                {t('settings.profile.description')}
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">
-                    <Label htmlFor="full_name">Name</Label>
+                    <Label htmlFor="full_name">{t('settings.profile.name')}</Label>
                     <Input id="full_name" name="full_name" defaultValue={user.full_name ?? ""} />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="headline">Headline</Label>
+                    <Label htmlFor="headline">{t('settings.profile.headline')}</Label>
                     <Input id="headline" name="headline" defaultValue={user.headline ?? ""} />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="bio">Bio</Label>
+                    <Label htmlFor="bio">{t('settings.profile.bio')}</Label>
                     <Textarea id="bio" name="bio" defaultValue={user.bio ?? ""} rows={4} />
                 </div>
             </CardContent>
             <CardFooter>
                  <Button type="submit" disabled={fetcher.state === 'submitting'}>
-                    {fetcher.state === 'submitting' ? 'Saving...' : 'Save Changes'}
+                    {fetcher.state === 'submitting' ? t('settings.profile.saving') : t('settings.profile.save_changes')}
                 </Button>
             </CardFooter>
         </fetcher.Form>
