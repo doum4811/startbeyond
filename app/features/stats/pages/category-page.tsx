@@ -342,8 +342,10 @@ export default function CategoryStatsPage() {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  const timeUnitHours = t('category_distribution_list.time_unit_hours');
+
   return (
-    <div className="max-w-7xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen space-y-8">
+    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-background min-h-screen space-y-6">
       <StatsPageHeader
         title={t('stats_category_page.title')}
         description={t('stats_category_page.description', { month: monthName })}
@@ -369,7 +371,7 @@ export default function CategoryStatsPage() {
 
         <TabsContent value="analysis" className="space-y-6">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <CardTitle>{t('stats_category_page.analysis.chart_title')}</CardTitle>
               <Select
                 value={chartType}
@@ -399,7 +401,7 @@ export default function CategoryStatsPage() {
                       <YAxis />
                       <Tooltip
                         formatter={(value: number) =>
-                          `${(value / 60).toFixed(1)} 시간`
+                          `${(value / 60).toFixed(1)} ${timeUnitHours}`
                         }
                       />
                       <Legend />
@@ -458,7 +460,7 @@ export default function CategoryStatsPage() {
                       </Pie>
                       <Tooltip
                         formatter={(value: number) =>
-                          `${(value / 60).toFixed(1)} 시간`
+                          `${(value / 60).toFixed(1)} ${timeUnitHours}`
                         }
                       />
                       <Legend />
@@ -479,7 +481,7 @@ export default function CategoryStatsPage() {
             <CardHeader>
               <CardTitle>{t('stats_category_page.analysis.summary_title')}</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -551,7 +553,7 @@ export default function CategoryStatsPage() {
         </TabsContent>
 
         <TabsContent value="goals" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm font-medium">{t('stats_category_page.goals.completion_rate_title')}</CardTitle>

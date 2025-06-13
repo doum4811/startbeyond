@@ -28,6 +28,7 @@ interface StatsPageHeaderProps {
   onCopyLink: () => void;
   shareLink: string;
   periodButton?: React.ReactNode;
+  pdfButton?: React.ReactNode;
 }
 
 export function StatsPageHeader({
@@ -41,6 +42,7 @@ export function StatsPageHeader({
   onCopyLink,
   shareLink,
   periodButton,
+  pdfButton,
 }: StatsPageHeaderProps) {
   const [isClient, setIsClient] = useState(false);
   const { t } = useTranslation();
@@ -50,16 +52,17 @@ export function StatsPageHeader({
   }, []);
 
   return (
-    <div className="flex items-center justify-between mb-6">
+    <div className="flex w-full flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <h1 className="text-2xl font-bold">{title}</h1>
-        {description && <p className="text-sm text-gray-600">{description}</p>}
+        <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
+        {description && <p className="text-muted-foreground">{description}</p>}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+        {periodButton}
         <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Share2 className="w-4 h-4 mr-2" /> {t("stats_header.share")}
+            <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <Share2 className="w-4 h-4" /> {t("stats_header.share")}
             </Button>
           </DialogTrigger>
           <DialogContent>
@@ -136,11 +139,7 @@ export function StatsPageHeader({
             </div>
           </DialogContent>
         </Dialog>
-        {periodButton ?? (
-          <Button variant="outline" size="sm">
-            <CalendarIcon className="w-4 h-4 mr-2" /> {t("stats_header.select_period")}
-          </Button>
-        )}
+        {pdfButton}
       </div>
     </div>
   );

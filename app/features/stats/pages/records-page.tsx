@@ -205,6 +205,11 @@ export default function RecordsPage() {
         month: currentStartDate.toFormat("yyyy MMMM"),
       });
 
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const pdfDocument = (
     <RecordsReportPDF 
       data={monthlyRecordsForDisplay} 
@@ -213,14 +218,23 @@ export default function RecordsPage() {
     />
   );
 
-  const [isClient, setIsClient] = useState(false);
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const pdfButton = isClient ? (
+    <PDFDownloadLink
+      document={pdfDocument}
+      fileName={`records-report-${currentMonthString}.pdf`}
+    >
+      {({ loading }) => (
+        <Button variant="outline" size="sm" disabled={loading} className="flex items-center gap-2">
+          <Download className="w-4 h-4" />
+          {loading ? t("stats_header.pdf.loading") : t("stats_header.pdf.download")}
+        </Button>
+      )}
+    </PDFDownloadLink>
+  ) : null;
 
   return (
-    <div className="max-w-7xl mx-auto py-12 px-4 pt-8 sm:pt-12 md:pt-16 bg-background min-h-screen">
-      <div className="flex justify-between items-center mb-6">
+    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-background min-h-screen">
+      <div className="mb-4">
         <StatsPageHeader
           title={t("stats_records_page.title")}
           description={description}
@@ -232,20 +246,8 @@ export default function RecordsPage() {
           isCopied={false}
           onCopyLink={() => {}}
           shareLink=""
+          pdfButton={pdfButton}
         />
-        {isClient && (
-          <PDFDownloadLink
-            document={pdfDocument}
-            fileName={`records-report-${currentMonthString}.pdf`}
-          >
-            {({ loading }) => (
-              <Button variant="outline" size="sm" disabled={loading} className="flex items-center gap-2">
-                <Download className="w-4 h-4" />
-                {loading ? t("stats_header.pdf.loading") : t("stats_header.pdf.download")}
-              </Button>
-            )}
-          </PDFDownloadLink>
-        )}
       </div>
       <div className="mt-6">
         <MonthlyRecordsTab 

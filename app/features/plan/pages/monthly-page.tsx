@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "~/common/components/ui/card";
 import { Button } from "~/common/components/ui/button";
 import { Input } from "~/common/components/ui/input";
@@ -6,7 +6,7 @@ import { Textarea } from "~/common/components/ui/textarea";
 import { Label } from "~/common/components/ui/label";
 import { CATEGORIES } from "~/common/types/daily";
 import type { CategoryCode, UICategory } from "~/common/types/daily";
-import { Link, Form, useFetcher, useNavigate } from "react-router";
+import { Link, useFetcher, useNavigate } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { Calendar as CalendarIcon, PlusCircle, Trash2, Edit, Save, CheckSquare, XSquare } from "lucide-react";
 import { DateTime } from "luxon";
@@ -62,10 +62,6 @@ interface MonthlyReflectionUI {
 }
 
 // --- Helper Functions ---
-// async function getProfileId(_request?: Request): Promise<string> {
-//   // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; 
-//   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
-// }
 async function getProfileId(request: Request): Promise<string> {
   const { client } = makeSSRClient(request);
   const { data: { user } } = await client.auth.getUser();
@@ -656,7 +652,7 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
   
   return (
     <div className="max-w-5xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-2">
         <div className="flex items-center gap-2">
           <h1 className="font-bold text-3xl">{t('monthly_page.title')}</h1>
           <MonthlyCalendarPopover 
@@ -666,8 +662,8 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
             }}
           />
         </div>
-        <div className="text-gray-500 text-lg">{getMonthName(selectedMonth, t, i18n)}</div>
-        <Button asChild className="ml-2" variant="ghost" size="sm">
+        <div className="text-gray-500 text-lg order-last sm:order-none sm:mx-auto">{getMonthName(selectedMonth, t, i18n)}</div>
+        <Button asChild className="sm:ml-2" variant="ghost" size="sm">
             <Link to="/plan/weekly">{t('monthly_page.to_weekly_plan')}</Link>
         </Button>
       </div>
@@ -771,13 +767,15 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
                     {monthlyGoals.map(goal => (
                         <Card key={goal.id} className={` ${goal.is_completed ? 'bg-green-50 dark:bg-green-900/20' : ''}`}>
                             <CardHeader className="pb-3 pt-4 px-4">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <span className={`text-3xl ${isValidCategoryCode(goal.category_code, categories) ? getCategoryColor(categories.find(c=>c.code === goal.category_code), goal.category_code) : 'text-gray-500'}`}>{categories.find(c=>c.code === goal.category_code)?.icon || '🎯'}</span>
-                                        <h3 className="text-lg font-semibold">{goal.title}</h3>
-                                        {goal.is_completed && <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">{t('monthly_page.completed_badge')}</span>}
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-center gap-3 flex-shrink min-w-0">
+                                        <span className={`text-3xl flex-shrink-0 ${isValidCategoryCode(goal.category_code, categories) ? getCategoryColor(categories.find(c=>c.code === goal.category_code), goal.category_code) : 'text-gray-500'}`}>{categories.find(c=>c.code === goal.category_code)?.icon || '🎯'}</span>
+                                        <div className="flex-grow min-w-0">
+                                            <h3 className="text-lg font-semibold break-words">{goal.title}</h3>
+                                            {goal.is_completed && <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full mt-1 inline-block">{t('monthly_page.completed_badge')}</span>}
+                                        </div>
                                     </div>
-                                    <div className="flex gap-1.5">
+                                    <div className="flex gap-1.5 flex-shrink-0">
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleOpenGoalForm(goal)}><Edit className="h-4 w-4" /></Button>
                                         <fetcher.Form method="post" style={{display: 'inline-block'}}>
                                             <input type="hidden" name="intent" value="deleteMonthlyGoal" />
@@ -789,17 +787,17 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
                 </div>
                             </CardHeader>
                             <CardContent className="px-4 pb-4 space-y-3">
-                                {goal.description && <p className="text-sm text-muted-foreground whitespace-pre-line">{goal.description}</p>}
+                                {goal.description && <p className="text-sm text-muted-foreground whitespace-pre-line break-words">{goal.description}</p>}
                                 {goal.success_criteria.length > 0 && (
                                     <div>
                                         <h4 className="text-sm font-medium mb-1.5">{t('monthly_page.success_criteria_heading')}</h4>
                                         <ul className="space-y-1.5">
                                             {goal.success_criteria.map(sc => (
-                                                <li key={sc.id} className="flex items-center gap-2 text-sm">
-                                                    <button onClick={() => handleToggleSuccessCriterion(goal.id, sc.id)} disabled={fetcher.state !== 'idle'} className="flex-shrink-0">
+                                                <li key={sc.id} className="flex items-start gap-2 text-sm">
+                                                    <button onClick={() => handleToggleSuccessCriterion(goal.id, sc.id)} disabled={fetcher.state !== 'idle'} className="flex-shrink-0 mt-0.5">
                                                         {sc.is_completed ? <CheckSquare className="w-4 h-4 text-green-600" /> : <XSquare className="w-4 h-4 text-muted-foreground" />}
                                                     </button>
-                                                    <span className={`${sc.is_completed ? 'line-through text-muted-foreground' : ''}`}>{sc.text}</span>
+                                                    <span className={`break-words ${sc.is_completed ? 'line-through text-muted-foreground' : ''}`}>{sc.text}</span>
                                                 </li>
                                             ))}
                                         </ul>
@@ -810,7 +808,7 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
                                         <h4 className="text-sm font-medium mb-1.5">{t('monthly_page.weekly_breakdown_heading')}</h4>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-sm">
                                         {Object.entries(goal.weekly_breakdown).map(([weekKey, breakdownText]) => (
-                                            breakdownText && <p key={weekKey}><strong className="capitalize">{t('monthly_page.week_label', { week: weekKey.replace('week', '') })}:</strong> {breakdownText}</p>
+                                            breakdownText && <p key={weekKey} className="break-words"><strong className="capitalize">{t('monthly_page.week_label', { week: weekKey.replace('week', '') })}:</strong> {breakdownText}</p>
                                         ))}
                                         </div>
             </div>
@@ -899,7 +897,3 @@ function MonthlyCalendarPopover({ currentMonthISO, onMonthChange }: MonthlyCalen
       </Popover>
     );
   }
-
-// Re-add Dialog components if they were removed
-import React from "react"; // For React.Fragment
-  

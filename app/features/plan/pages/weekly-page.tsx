@@ -4,7 +4,7 @@ import { Button } from "~/common/components/ui/button";
 import { Input } from "~/common/components/ui/input";
 import { Textarea } from "~/common/components/ui/textarea";
 import { Label } from "~/common/components/ui/label";
-import { Link, Form, useFetcher, redirect, useNavigate } from "react-router";
+import { Link, Form, useFetcher, redirect, useNavigate, useLoaderData } from "react-router";
 import { Calendar as CalendarIcon, PlusCircle, Trash2, Edit, Check, X, Save, ChevronLeft, ChevronRight } from "lucide-react";
 import { DateTime } from "luxon";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
@@ -26,7 +26,6 @@ import { CATEGORIES } from "~/common/types/daily";
 import type { CategoryCode, UICategory } from "~/common/types/daily";
 import { CategorySelector } from "~/common/components/ui/CategorySelector";
 import * as settingsQueries from "~/features/settings/queries";
-import type { UserCategory as DbUserCategory, UserDefaultCodePreference as DbUserDefaultCodePreference } from "~/features/settings/queries";
 import { makeSSRClient } from "~/supa-client";
 
 // --- UI Specific Types ---
@@ -82,22 +81,17 @@ const isValidCategoryCode = (code: string, activeCategories: UICategory[]): bool
 };
 
 function getCategoryColor(category: UICategory | undefined, code?: string): string {
-  if (category) {
-    if (category.isCustom && category.color) {
+  const categoryCode = category?.code ?? code;
+  if (!categoryCode) return "text-gray-500";
+  
+  if (category?.isCustom && category.color) {
       return category.color;
-    }
-    const map: Record<string, string> = {
-      EX: "text-orange-500", BK: "text-green-600", ML: "text-orange-600", EM: "text-purple-500", ST: "text-yellow-500", WK: "text-teal-700", HB: "text-pink-500", SL: "text-cyan-600", RT: "text-blue-500"
-    };
-    return map[category.code] || "text-gray-500";
   }
-  if (code) {
-     const map: Record<string, string> = {
-      EX: "text-orange-500", BK: "text-green-600", ML: "text-orange-600", EM: "text-purple-500", ST: "text-yellow-500", WK: "text-teal-700", HB: "text-pink-500", SL: "text-cyan-600", RT: "text-blue-500"
-    };
-    return map[code] || "text-gray-500";
-  }
-  return "text-gray-500";
+  
+  const map: Record<string, string> = {
+    EX: "text-orange-500", BK: "text-green-600", ML: "text-orange-600", EM: "text-purple-500", ST: "text-yellow-500", WK: "text-teal-700", HB: "text-pink-500", SL: "text-cyan-600", RT: "text-blue-500"
+  };
+  return map[categoryCode] || "text-gray-500";
 }
 
 function sortWeeklyTasksArray(tasks: WeeklyTaskUI[]): WeeklyTaskUI[] {
@@ -287,8 +281,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
   const url = new URL(request.url);
-  const weekParam = url.searchParams.get("week");
-  let baseDate = weekParam ? DateTime.fromISO(weekParam) : DateTime.now();
+  let baseDate = url.searchParams.get("week") ? DateTime.fromISO(url.searchParams.get("week")!) : DateTime.now();
   if (!baseDate.isValid) {
     baseDate = DateTime.now();
   }
@@ -528,11 +521,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
 
 const DEFAULT_TASK_CATEGORY: CategoryCode = "WK";
 
-interface WeeklyPlanPageProps {
-    loaderData: WeeklyPageLoaderData;
-}
-
-export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
+export default function WeeklyPlanPage() {
   const { 
     profileId,
     currentWeekStartDate, 
@@ -541,7 +530,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
     monthlyGoalsForWeek,
     currentWeekNumberInMonth,
     categories
-  } = loaderData;
+  } = useLoaderData<typeof loader>();
 
   const { t, i18n } = useTranslation();
   const editFetcher = useFetcher<Awaited<ReturnType<typeof action>>>();
@@ -833,9 +822,9 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
 
   return (
     <div className="max-w-5xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-bold text-3xl">{t('weekly_page.title')}</h1>
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+        <h1 className="font-bold text-3xl flex-shrink-0">{t('weekly_page.title')}</h1>
+        <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="icon" onClick={() => handleWeekNavigate('prev')}>
                 <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -843,7 +832,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                 <PopoverTrigger asChild>
                     <Button
                         variant={"outline"}
-                        className="w-[280px] justify-start text-left font-normal"
+                        className="w-full sm:w-[280px] justify-start text-left font-normal"
                     >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {getWeekRangeString(currentWeekStartDate, i18n.language)}
@@ -860,8 +849,8 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                 <ChevronRight className="h-4 w-4" />
             </Button>
         </div>
-        <Button asChild variant="ghost" size="sm">
-            <Link to="/plan/tomorrow">{t('weekly_page.to_tomorrows_plan')}</Link>
+        <Button asChild variant="ghost">
+            <Link to="/plan/daily/tomorrow">{t('weekly_page.to_tomorrows_plan')}</Link>
         </Button>
       </div>
 
@@ -1000,7 +989,7 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                     </Button>
                 </div>
               ) : (
-                <Button type="submit" disabled={anyFetcherSubmitting || !newTaskComment.trim()}>
+                <Button type="submit" className="whitespace-nowrap" disabled={anyFetcherSubmitting || !newTaskComment.trim()}>
                     {editFetcher.state !== 'idle' && editFetcher.formData?.get("intent") === "addWeeklyTask" ? t('weekly_page.adding') : <><PlusCircle className="w-4 h-4 mr-1" /> {t('weekly_page.add_task_button')}</>}
                 </Button>
               )}
@@ -1011,15 +1000,15 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
             {weeklyTasks.length === 0 ? (
                 <p className="text-muted-foreground text-center py-6">{t('weekly_page.no_tasks_yet')}</p>
             ) : (
-            <table className="min-w-full text-sm">
+            <table className="min-w-full w-full text-sm">
                 <thead>
                 <tr className="border-b">
                   <th className="py-2 px-1 text-left">{t('weekly_page.table_header_task')}</th>
                   {DAYS_OF_WEEK.map(day => (
-                    <th key={day} className="py-2 px-1 text-center w-10">{day}</th>
+                    <th key={day} className="py-2 px-1 text-center w-px whitespace-nowrap">{day}</th>
                   ))}
-                  <th className="py-2 px-1 text-center">{t('weekly_page.table_header_lock')}</th>
-                  <th className="py-2 px-1 text-center">{t('weekly_page.table_header_actions')}</th>
+                  <th className="py-2 px-1 text-center w-px whitespace-nowrap">{t('weekly_page.table_header_lock')}</th>
+                  <th className="py-2 px-1 text-center w-px whitespace-nowrap">{t('weekly_page.table_header_actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1030,22 +1019,27 @@ export default function WeeklyPlanPage({ loaderData }: WeeklyPlanPageProps) {
                     <tr key={task.id} className={`border-b ${isEditingThis ? 'bg-amber-50 dark:bg-amber-900/30' : ''}`}>
                       <td className="py-2 px-1">
                         <div className="flex items-center gap-2">
-                            <span className={`text-xl ${dynamicCategoryInfo ? getCategoryColor(dynamicCategoryInfo, task.category_code) : getCategoryColor(undefined, task.category_code)}`}>{dynamicCategoryInfo?.icon || '❓'}</span>
-                            <div>
-                                <span className="font-medium">{task.comment}</span>
+                            <span className={`text-xl flex-shrink-0 ${dynamicCategoryInfo ? getCategoryColor(dynamicCategoryInfo, task.category_code) : getCategoryColor(undefined, task.category_code)}`}>{dynamicCategoryInfo?.icon || '❓'}</span>
+                            <div className="min-w-0">
+                                <span className="font-medium break-keep">{task.comment}</span>
                                 {task.subcode && <span className="text-xs text-muted-foreground block"> ({task.subcode})</span>}
                             </div>
                           </div>
                       </td>
                       {DAYS_OF_WEEK.map(day => (
                         <td key={day} className="py-2 px-1 text-center">
-                          <input
-                            type="checkbox"
-                            checked={task.days?.[day] || false}
-                            onChange={() => handleToggleTaskDay(task.id, day)}
-                            className={`form-checkbox h-4 w-4 text-primary rounded accent-primary ${task.is_locked ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleTaskDay(task.id, day)}
+                            className={`w-7 h-7 rounded-full text-xs transition-colors ${
+                              task.days?.[day]
+                                ? 'bg-primary text-primary-foreground font-semibold'
+                                : 'bg-muted hover:bg-muted/80'
+                            } ${task.is_locked ? 'opacity-50 cursor-not-allowed' : ''}`}
                             disabled={task.is_locked || anyFetcherSubmitting}
-                          />
+                          >
+                            {day}
+                          </button>
                         </td>
                       ))}
                       <td className="py-2 px-1 text-center">

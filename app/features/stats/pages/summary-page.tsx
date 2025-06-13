@@ -432,14 +432,28 @@ export default function SummaryStatsPage() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+  
+  const pdfButton = isClient ? (
+    <PDFDownloadLink
+      document={pdfDocument}
+      fileName={`summary-report-${selectedMonthISO}.pdf`}
+    >
+      {({ loading }) => (
+        <Button variant="outline" size="sm" disabled={loading} className="flex items-center gap-2">
+          <Download className="w-4 h-4" />
+          {loading ? t("stats_header.pdf.loading") : t("stats_header.pdf.download")}
+        </Button>
+      )}
+    </PDFDownloadLink>
+  ) : null;
 
   if (!i18n.isInitialized) {
     return null; // or a loading spinner
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-12 px-4 pt-8 sm:pt-12 md:pt-16 bg-background min-h-screen">
-      <div className="flex justify-between items-center mb-6">
+    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-background min-h-screen">
+      <div className="mb-4">
         <StatsPageHeader
           title={t('stats_summary_page.page_title')}
           description={t('stats_summary_page.page_description_free')}
@@ -451,23 +465,11 @@ export default function SummaryStatsPage() {
           onCopyLink={handleCopyLink}
           shareLink={`https://startbeyond.com/share/summary/${selectedMonthISO}`}
           periodButton={periodControl}
+          pdfButton={pdfButton}
         />
-        {isClient && (
-            <PDFDownloadLink
-              document={pdfDocument}
-              fileName={`summary-report-${selectedMonthISO}.pdf`}
-            >
-              {({ loading }) => (
-                <Button variant="outline" size="sm" disabled={loading} className="flex items-center gap-2">
-                  <Download className="w-4 h-4" />
-                  {loading ? t("stats_header.pdf.loading") : t("stats_header.pdf.download")}
-                </Button>
-              )}
-            </PDFDownloadLink>
-          )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('stats_summary_page.total_records')}</CardTitle>

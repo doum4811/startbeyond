@@ -85,8 +85,8 @@ export default function MonthlyRecordsTab({ monthlyRecordsForDisplay, categories
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
             <Input
             placeholder={t("stats_records_page.search_placeholder")}
               value={searchQuery}

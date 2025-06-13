@@ -226,7 +226,7 @@ export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps
   ];
 
   return (
-    <div className="max-w-7xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen space-y-8">
+    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-background min-h-screen space-y-6">
       <StatsPageHeader
         title={t("stats_advanced_page.title", { year: currentYear })}
         shareSettings={shareSettings as any} 
@@ -278,7 +278,7 @@ export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <ComparisonCard title={t('stats_advanced_page.monthly_comparison_title')} metrics={monthlyMetrics} />
         <ComparisonCard title={t('stats_advanced_page.weekly_comparison_title')} metrics={weeklyMetrics} />
       </div>
