@@ -159,7 +159,7 @@ export default function CommunityPostDetailPage({ loaderData }: { loaderData: Co
   const isOwner = post.profile_id === profileId;
 
   return (
-    <div className="max-w-3xl mx-auto py-12 px-4 pt-16">
+    <div className="max-w-3xl mx-auto w-full">
       <div className="mb-6">
         <Button variant="outline" size="sm" asChild>
           <Link to="/community">{t('community.new_post_page.back_to_community')}</Link>
@@ -168,18 +168,18 @@ export default function CommunityPostDetailPage({ loaderData }: { loaderData: Co
 
       <Card className="mb-8">
         <CardHeader>
-          <div className="flex items-center gap-3 mb-3">
+          <Link to={`/users/${post.author_username}`} className="flex items-center gap-3 mb-3 group">
             <Avatar className="h-12 w-12">
               <AvatarImage src={post.author_avatar_url || undefined} alt={post.author_name || t('community.anonymous')} />
               <AvatarFallback>{post.author_name?.charAt(0) || "A"}</AvatarFallback>
             </Avatar>
             <div>
-              <p className="text-lg font-semibold">{post.author_name || t('community.anonymous')}</p>
+              <p className="text-lg font-semibold group-hover:underline">{post.author_name || t('community.anonymous')}</p>
               <p className="text-sm text-muted-foreground">
                 {DateTime.fromISO(post.created_at).toLocaleString(DateTime.DATETIME_MED) || ""}
               </p>
             </div>
-          </div>
+          </Link>
           <CardTitle className="text-3xl font-bold mb-1">{post.title}</CardTitle>
           {post.category && <CardDescription className="text-md text-primary font-medium">{t(`community.new_post_page.categories.${post.category}`)}</CardDescription>}
         </CardHeader>
@@ -233,13 +233,13 @@ export default function CommunityPostDetailPage({ loaderData }: { loaderData: Co
           <Card key={comment.id} className="bg-muted/50">
             <CardHeader className="pb-2 pt-3 px-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+                <Link to={`/users/${comment.author_username}`} className="flex items-center gap-2 group">
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={comment.author_avatar_url || undefined} alt={comment.author_name || t('community.anonymous')} />
                     <AvatarFallback className="text-xs">{comment.author_name?.charAt(0) || "A"}</AvatarFallback>
                   </Avatar>
-                  <p className="font-semibold text-sm">{comment.author_name || t('community.anonymous')}</p>
-                </div>
+                  <p className="font-semibold text-sm group-hover:underline">{comment.author_name || t('community.anonymous')}</p>
+                </Link>
                 <div className="flex items-center gap-1">
                     <p className="text-xs text-muted-foreground">
                     {DateTime.fromISO(comment.created_at).toRelative() || ""}

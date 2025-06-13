@@ -1,4 +1,3 @@
-
 import pkg from '@supabase/supabase-js';
 import type { Database } from "database.types";
 // import type { Database } from "-client";
@@ -26,8 +25,10 @@ const COMMUNITY_POST_COLUMNS = `
 
 // We'll need profile information too, so let's define a type for post with author
 export interface CommunityPostWithAuthor extends CommunityPost {
-  author_name: string | null; // Or a more detailed profile type
+  author_name: string | null;
+  author_username: string | null;
   author_avatar_url: string | null;
+  comment_count: number;
 }
 
 
@@ -42,44 +43,63 @@ const COMMUNITY_COMMENT_COLUMNS = `
 
 export interface CommunityCommentWithAuthor extends CommunityComment {
   author_name: string | null;
+  author_username: string | null;
   author_avatar_url: string | null;
 }
 
+export const POSTS_PER_PAGE = 10;
+
 // == Community Posts ==
 
-// export async function getCommunityPosts(
-//   { limit = 20, offset = 0 }: { limit?: number; offset?: number }
-// ): Promise<CommunityPostWithAuthor[]> {
-//   const { data, error } = await client
 export const getCommunityPosts = async (
   client: pkg.SupabaseClient<Database>,
-  {
-    limit = 20,
-    offset = 0,
-  }: { limit?: number; offset?: number }
-): Promise<CommunityPostWithAuthor[]> => {
-  const { data, error } = await client
+  { page = 1, category, searchQuery }: { page?: number; category?: string; searchQuery?: string }
+): Promise<{ posts: CommunityPostWithAuthor[]; count: number }> => {
+  const from = (page - 1) * POSTS_PER_PAGE;
+  const to = from + POSTS_PER_PAGE - 1;
+
+  let query = client
     .from("community_posts")
-    .select(`
+    .select(
+      `
       ${COMMUNITY_POST_COLUMNS},
       profiles (
         username,
         avatar_url
-      )
-    `)
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+      ),
+      community_comments(count)
+    `,
+      { count: "exact" }
+    );
+  
+  if (category) {
+    query = query.eq("category", category);
+  }
+
+  if (searchQuery && searchQuery.trim() !== '') {
+    query = query.or(`title.ilike.%${searchQuery.trim()}%,content.ilike.%${searchQuery.trim()}%`);
+  }
+  
+  query = query.order("created_at", { ascending: false });
+
+  const { data, error, count } = await query
+    .range(from, to);
 
   if (error) {
     console.error("Error fetching community posts:", error.message);
     throw new Error(error.message);
   }
-  return (data || []).map(post => ({
+  
+  const posts = (data || []).map((post) => ({
     ...(post as CommunityPost),
-    author_name: post.profiles?.username || 'Unknown User',
+    author_name: post.profiles?.username || "Unknown User",
+    author_username: post.profiles?.username || null,
     author_avatar_url: post.profiles?.avatar_url || null,
+    comment_count: (post.community_comments as unknown as [{ count: number }])?.[0]?.count ?? 0,
   }));
-}
+
+  return { posts, count: count ?? 0 };
+};
 
 export const getCommunityPostById = async (
   client: pkg.SupabaseClient<Database>,
@@ -103,13 +123,15 @@ export const getCommunityPostById = async (
     throw new Error(error.message);
   }
   if (!data) return null;
-  return {
+
+  const postWithAuthor: CommunityPostWithAuthor = {
     ...(data as CommunityPost),
-    // author_name: data.profiles?.[0]?.username || 'Unknown User',
-    // author_avatar_url: data.profiles?.[0]?.avatar_url || null,
     author_name: data.profiles?.username || 'Unknown User',
+    author_username: data.profiles?.username || null,
     author_avatar_url: data.profiles?.avatar_url || null,
+    comment_count: 0, // Not needed on detail page, but required by type
   };
+  return postWithAuthor;
 }
 
 
@@ -192,9 +214,8 @@ export const getCommentsByPostId = async (
   }
   return (data || []).map(comment => ({
     ...(comment as CommunityComment),
-    // author_name: comment.profiles?.[0]?.username || 'Unknown User',
-    // author_avatar_url: comment.profiles?.[0]?.avatar_url || null,
     author_name: comment.profiles?.username || 'Unknown User',
+    author_username: comment.profiles?.username || null,
     author_avatar_url: comment.profiles?.avatar_url || null,
   }));
 }

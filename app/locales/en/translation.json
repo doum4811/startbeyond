@@ -236,7 +236,11 @@
             "delete_comment_button": "Delete Comment",
             "delete_comment_confirm": "Are you sure you want to delete this comment?",
             "no_comments_yet": "No comments yet. Be the first to comment!"
-        }
+        },
+        "all_posts": "All Posts",
+        "no_posts_in_category": "There are no posts in this category.",
+        "try_another_category": "Try selecting another category or be the first to post!",
+        "search_placeholder": "Search by title, content..."
     },
     "settings": {
         "profile": {

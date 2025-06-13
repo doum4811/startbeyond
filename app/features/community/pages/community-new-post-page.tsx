@@ -11,6 +11,7 @@ import { createCommunityPost } from "~/features/community/queries";
 import type { CommunityPostInsert } from "~/features/community/queries";
 import { makeSSRClient } from "~/supa-client";
 import { useTranslation } from "react-i18next";
+import { POST_CATEGORIES } from "../constants";
 
 // Dummy profile ID for now
 // async function getProfileId(_request: Request): Promise<string> {
@@ -81,13 +82,6 @@ export default function NewCommunityPostPage() {
   const navigation = useNavigation();
   const actionData = useActionData<ActionResponse>();
 
-  const POST_CATEGORIES = [
-    { value: "goal-sharing", label: t("community.new_post_page.categories.goal-sharing") },
-    { value: "tips", label: t("community.new_post_page.categories.tips") },
-    { value: "free-talk", label: t("community.new_post_page.categories.free-talk") },
-    { value: "qna", label: t("community.new_post_page.categories.qna") },
-  ];
-
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [category, setCategory] = useState<string | undefined>(undefined);
@@ -106,7 +100,7 @@ export default function NewCommunityPostPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto py-12 px-4 pt-16">
+    <div className="max-w-2xl mx-auto w-full">
       <div className="mb-8">
         <Button variant="outline" asChild>
           <Link to="/community">{t('community.new_post_page.back_to_community')}</Link>
@@ -138,7 +132,7 @@ export default function NewCommunityPostPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {POST_CATEGORIES.map(cat => (
-                    <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                    <SelectItem key={cat.value} value={cat.value}>{t(cat.tKey)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
