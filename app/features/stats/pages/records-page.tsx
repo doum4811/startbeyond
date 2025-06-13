@@ -233,7 +233,7 @@ export default function RecordsPage() {
   ) : null;
 
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-background min-h-screen">
+    <div className="w-full max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-background min-h-screen">
       <div className="mb-4">
         <StatsPageHeader
           title={t("stats_records_page.title")}

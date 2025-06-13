@@ -821,7 +821,7 @@ export default function WeeklyPlanPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
+    <div className="w-full max-w-5xl mx-auto py-12 px-4 pt-16 sm:px-6 lg:px-8 bg-background min-h-screen">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
         <h1 className="font-bold text-3xl flex-shrink-0">{t('weekly_page.title')}</h1>
         <div className="flex items-center gap-2 flex-wrap">

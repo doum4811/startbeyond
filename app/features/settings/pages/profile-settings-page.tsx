@@ -48,7 +48,7 @@ export default function ProfileSettingsPage() {
   const { t } = useTranslation();
 
   return (
-    <div className="space-y-6 min-h-screen">
+    <div className="w-full max-w-7xl mx-auto py-12 px-4 pt-16 sm:px-6 lg:px-8 min-h-screen">
        <Card>
         <fetcher.Form method="post">
             <CardHeader>

@@ -285,7 +285,7 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
   const selectedRecord = records.find(r => r.id === selectedRowId);
 
   return (
-    <div className="max-w-7xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
+    <div className="w-full max-w-7xl mx-auto py-12 px-4 pt-16 sm:px-6 lg:px-8 bg-background min-h-screen">
       <div className="mb-6 space-y-4">
         <h1 className="text-3xl font-bold tracking-tight">{t('daily')}</h1>
         <div className="flex justify-between items-center">

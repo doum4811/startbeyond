@@ -719,7 +719,7 @@ export default function SettingsPage({ loaderData }: { loaderData: SettingsPageL
     [])); // Default to empty if no specific category or "ALL" variant is chosen correctly.
 
   return (
-    <div className="max-w-5xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
+    <div className="w-full max-w-5xl mx-auto py-12 px-4 pt-16 sm:px-6 lg:px-8 bg-background min-h-screen">
       <h1 className="text-3xl font-bold mb-8">{t('settings.categories.page_title')}</h1>
 
       <Tabs defaultValue="categories" className="w-full">

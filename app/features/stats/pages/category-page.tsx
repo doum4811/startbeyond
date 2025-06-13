@@ -345,7 +345,7 @@ export default function CategoryStatsPage() {
   const timeUnitHours = t('category_distribution_list.time_unit_hours');
 
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-background min-h-screen space-y-6">
+    <div className="w-full max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-background min-h-screen space-y-6">
       <StatsPageHeader
         title={t('stats_category_page.title')}
         description={t('stats_category_page.description', { month: monthName })}

@@ -52,7 +52,7 @@ export default function NotificationsPage() {
   const { t } = useTranslation();
 
   return (
-    <div className="max-w-2xl mx-auto py-12 px-4 pt-24 min-h-screen">
+    <div className="w-full max-w-2xl mx-auto py-12 px-4 pt-16 sm:px-6 lg:px-8 bg-background min-h-screen">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">{t('notifications.title')}</h1>
         {notifications.some(n => !n.is_read) && (

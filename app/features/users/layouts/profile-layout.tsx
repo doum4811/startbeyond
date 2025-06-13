@@ -108,9 +108,9 @@ export default function ProfileLayout({
   const fetcher = useFetcher();
   
   return (
-    <div className="space-y-10">
-      <div className="flex items-center gap-4">
-        <Avatar className="size-40">
+    <div className="w-full max-w-7xl mx-auto py-12 px-4 pt-16 sm:px-6 lg:px-8 space-y-10">
+      <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:items-start sm:text-left">
+        <Avatar className="size-40 flex-shrink-0">
           {user.avatar_url ? (
             <AvatarImage src={user.avatar_url} />
           ) : (
@@ -120,8 +120,8 @@ export default function ProfileLayout({
           )}
         </Avatar>
         <div className="space-y-5">
-          <div className="flex gap-2 items-center">
-            <h1 className="text-2xl font-semibold">{user.full_name}</h1>
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+            <h1 className="text-2xl font-semibold break-all">{user.full_name}</h1>
             {isOwnProfile ? (
               <Button variant="outline" asChild>
                 <Link to="/settings/profile">Edit profile</Link>
@@ -144,7 +144,7 @@ export default function ProfileLayout({
                 </Button>
             </fetcher.Form>
           </div>
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             <span className="text-sm text-muted-foreground">
               @{user.username}
             </span>
@@ -176,7 +176,7 @@ export default function ProfileLayout({
           </NavLink>
         ))}
       </div>
-      <div className="max-w-screen-md">
+      <div className="w-full">
         <Outlet
           context={{
             headline: user.headline,

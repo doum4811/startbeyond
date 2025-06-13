@@ -1020,7 +1020,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
+    <div className="w-full max-w-4xl mx-auto py-12 px-4 pt-16 sm:px-6 lg:px-8 bg-background min-h-screen">
       <div className="mb-6 space-y-4">
         <h1 className="font-bold text-3xl">{t('tomorrow_page.title')}</h1>
         <div className="flex flex-col items-end gap-2 md:flex-row md:items-center md:justify-between">
