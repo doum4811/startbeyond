@@ -1,5 +1,5 @@
 // app/features/stats/pages/summary-page.tsx
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "~/common/components/ui/card";
 import { Button } from "~/common/components/ui/button";
@@ -22,12 +22,19 @@ import { SubcodeDistributionList } from "../components/SubcodeDistributionList";
 import type { SummaryPageLoaderData } from '../types';
 import i18next from "i18next";
 
-// Register a font for PDF (Optional, but good for Korean characters)
-// Ensure you have a font file (e.g., NotoSansKR-Regular.ttf) in your project
-// Font.register({
-//   family: "Noto Sans KR",
-//   src: "/fonts/NotoSansKR-Regular.ttf", // Adjust path as needed
-// });
+Font.register({
+  family: "Noto Sans KR",
+  fonts: [
+    { src: "/fonts/NotoSansKR-Variable.ttf" }, // All weights in one file
+  ],
+});
+Font.register({
+    family: "Source Sans 3",
+    fonts: [
+        { src: "/fonts/SourceSans3-Variable.ttf" },
+        { src: "/fonts/SourceSans3-Italic-Variable.ttf", fontStyle: 'italic' },
+    ]
+});
 
 interface CustomShareSettings {
   isPublic: boolean;
@@ -40,10 +47,16 @@ const initialCustomShareSettings: CustomShareSettings = {
 };
 
 const pdfStyles = StyleSheet.create({
-  page: { padding: 30, fontFamily: "Helvetica" }, // Consider using registered font: fontFamily: "Noto Sans KR"
-  header: { marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 10 },
-  title: { fontSize: 22, marginBottom: 5, fontWeight: 'bold' },
-  date: { fontSize: 12, color: "#555" },
+  page: { 
+    paddingTop: 35,
+    paddingBottom: 50, // Increased padding for footer
+    paddingHorizontal: 35,
+    fontFamily: "Noto Sans KR", 
+    fontWeight: 400,
+  },
+  header: { marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 10, textAlign: 'center' },
+  title: { fontSize: 22, marginBottom: 5, fontFamily: 'Noto Sans KR', fontWeight: 700 },
+  date: { fontSize: 12, color: "#555", fontFamily: 'Noto Sans KR' },
   section: { marginBottom: 15 },
   sectionTitle: { fontSize: 16, marginBottom: 8, fontWeight: 'bold', color: '#333' }, 
   summaryText: { fontSize: 11, marginBottom: 3, color: '#444' }, 
@@ -56,17 +69,40 @@ const pdfStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
-  categoryName: { flex: 2, color: '#333' },
-  categoryValue: { flex: 1, textAlign: 'right', color: '#333' },
+  categoryName: { width: '40%', fontWeight: 500 },
+  categoryValue: { width: '20%', textAlign: 'right' },
+  subcodeSection: { marginTop: 10, paddingLeft: 15 },
+  subcodeItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    fontSize: 9,
+    marginBottom: 3,
+  },
+  subcodeName: { width: '50%' },
+  subcodeValue: { width: '25%', textAlign: 'right' },
+  footer: {
+    position: 'absolute',
+    bottom: 25,
+    left: 35,
+    right: 35,
+    textAlign: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 8,
+    fontSize: 9,
+    color: 'grey',
+  },
 });
 
 const SummaryReportPDF = ({ 
     data, 
+    subcodeData,
     categories, 
     month,
     t
 }: { 
     data: CategoryDistribution[], 
+    subcodeData: SubcodeDistribution[],
     categories: UICategory[], 
     month: string,
     t: (key: string, options?: any) => string;
@@ -74,6 +110,22 @@ const SummaryReportPDF = ({
     const getCategoryLabel = (code: CategoryCode) => categories.find(c => c.code === code)?.label || code;
     const totalRecords = data.reduce((sum, cat) => sum + cat.count, 0);
     const totalDurationMinutes = data.reduce((sum, cat) => sum + cat.duration, 0);
+    
+    const subcodesByCategory = useMemo(() => {
+        return subcodeData.reduce((acc, item) => {
+            const category = categories.find(c => c.code === item.category);
+            if (category) {
+                if (!acc[item.category]) {
+                    acc[item.category] = {
+                        label: category.label,
+                        subcodes: []
+                    };
+                }
+                acc[item.category].subcodes.push(item);
+            }
+            return acc;
+        }, {} as Record<CategoryCode, { label: string; subcodes: SubcodeDistribution[] }>);
+    }, [subcodeData, categories]);
 
     return (
   <Document>
@@ -99,6 +151,29 @@ const SummaryReportPDF = ({
                 <Text style={pdfStyles.categoryValue}>{item.percentage}%</Text>
               </View>
             ))}
+      </View>
+
+      {subcodeData && subcodeData.length > 0 && (
+          <View style={pdfStyles.section}>
+              <Text style={pdfStyles.sectionTitle}>{t('stats_summary_page.subcode_distribution_title')}</Text>
+              {Object.keys(subcodesByCategory).map(categoryCode => (
+                  <View key={categoryCode} style={{ marginBottom: 8 }}>
+                      <Text style={pdfStyles.categoryName}>{subcodesByCategory[categoryCode as CategoryCode].label}</Text>
+                      <View style={pdfStyles.subcodeSection}>
+                          {subcodesByCategory[categoryCode as CategoryCode].subcodes.map(subcode => (
+                              <View key={subcode.subcode} style={pdfStyles.subcodeItem}>
+                                  <Text style={pdfStyles.subcodeName}>{subcode.subcode}</Text>
+                                  <Text style={pdfStyles.subcodeValue}>{subcode.count}회</Text>
+                                  <Text style={pdfStyles.subcodeValue}>{(subcode.duration / 60).toFixed(1)}시간</Text>
+                              </View>
+                          ))}
+                      </View>
+                  </View>
+              ))}
+          </View>
+      )}
+       <View style={pdfStyles.footer} fixed>
+          <Text>StartBeyond</Text>
       </View>
     </Page>
   </Document>
@@ -333,7 +408,7 @@ export default function SummaryStatsPage() {
     });
   }
 
-  const pdfDocument = <SummaryReportPDF data={categoryDistribution} categories={categories} month={monthNameForDisplay} t={t} />;
+  const pdfDocument = <SummaryReportPDF data={categoryDistribution} subcodeData={subcodeDistribution} categories={categories} month={monthNameForDisplay} t={t} />;
 
   const periodControl = (
     <div className="flex items-center gap-1">
@@ -353,28 +428,46 @@ export default function SummaryStatsPage() {
     </div>
   );
 
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   if (!i18n.isInitialized) {
     return null; // or a loading spinner
   }
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 pt-8 sm:pt-12 md:pt-16 bg-background min-h-screen">
-      <StatsPageHeader
-        title={t('stats_summary_page.page_title')}
-        description={t('stats_summary_page.page_description_free')}
-        shareSettings={shareSettings as any} // Cast for simplicity with generic StatsPageHeader
-        onShareSettingsChange={handleShareSettingsChange as any}
-        isShareDialogOpen={isShareDialogOpen}
-        setIsShareDialogOpen={setIsShareDialogOpen}
-        isCopied={isCopied}
-        onCopyLink={handleCopyLink}
-        shareLink={`https://startbeyond.com/share/summary/${selectedMonthISO}`}
-        pdfDocument={pdfDocument}
-        pdfFileName={`summary-report-${selectedMonthISO}.pdf`}
-        periodButton={periodControl}
-      />
+      <div className="flex justify-between items-center mb-6">
+        <StatsPageHeader
+          title={t('stats_summary_page.page_title')}
+          description={t('stats_summary_page.page_description_free')}
+          shareSettings={shareSettings as any}
+          onShareSettingsChange={handleShareSettingsChange as any}
+          isShareDialogOpen={isShareDialogOpen}
+          setIsShareDialogOpen={setIsShareDialogOpen}
+          isCopied={isCopied}
+          onCopyLink={handleCopyLink}
+          shareLink={`https://startbeyond.com/share/summary/${selectedMonthISO}`}
+          periodButton={periodControl}
+        />
+        {isClient && (
+            <PDFDownloadLink
+              document={pdfDocument}
+              fileName={`summary-report-${selectedMonthISO}.pdf`}
+            >
+              {({ loading }) => (
+                <Button variant="outline" size="sm" disabled={loading} className="flex items-center gap-2">
+                  <Download className="w-4 h-4" />
+                  {loading ? t("stats_header.pdf.loading") : t("stats_header.pdf.download")}
+                </Button>
+              )}
+            </PDFDownloadLink>
+          )}
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('stats_summary_page.total_records')}</CardTitle>

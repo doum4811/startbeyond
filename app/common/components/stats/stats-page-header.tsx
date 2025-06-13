@@ -27,8 +27,6 @@ interface StatsPageHeaderProps {
   isCopied: boolean;
   onCopyLink: () => void;
   shareLink: string;
-  pdfDocument?: ReactElement<any>;
-  pdfFileName: string;
   periodButton?: React.ReactNode;
 }
 
@@ -42,8 +40,6 @@ export function StatsPageHeader({
   isCopied,
   onCopyLink,
   shareLink,
-  pdfDocument,
-  pdfFileName,
   periodButton,
 }: StatsPageHeaderProps) {
   const [isClient, setIsClient] = useState(false);
@@ -144,19 +140,6 @@ export function StatsPageHeader({
           <Button variant="outline" size="sm">
             <CalendarIcon className="w-4 h-4 mr-2" /> {t("stats_header.select_period")}
           </Button>
-        )}
-        {isClient && pdfDocument && (
-          <PDFDownloadLink
-            document={pdfDocument}
-            fileName={pdfFileName}
-          >
-            {({ loading }) => (
-              <Button variant="outline" size="sm" disabled={loading}>
-                <Download className="w-4 h-4 mr-2" />
-                {loading ? t("stats_header.pdf.loading") : t("stats_header.pdf.download")}
-              </Button>
-            )}
-          </PDFDownloadLink>
         )}
       </div>
     </div>

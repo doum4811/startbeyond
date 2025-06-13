@@ -236,7 +236,7 @@ export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps
         isCopied={isCopied}
         onCopyLink={handleCopyLink}
         shareLink="mock/share/link/advanced"
-        pdfFileName={`advanced-stats-${currentYear}.pdf`}
+       // pdfFileName={`advanced-stats-${currentYear}.pdf`}
       />
 
       <Card>

@@ -354,7 +354,7 @@ export default function CategoryStatsPage() {
         isCopied={isCopied}
         onCopyLink={handleCopyLink}
         shareLink="mock/share/link"
-        pdfFileName={`category-report-${DateTime.now().toFormat("yyyy-MM")}.pdf`}
+       // pdfFileName={`category-report-${DateTime.now().toFormat("yyyy-MM")}.pdf`}
       />
 
       <Tabs defaultValue="analysis" className="space-y-6">

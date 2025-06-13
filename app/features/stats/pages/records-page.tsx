@@ -2,15 +2,24 @@ import { useLoaderData, useSearchParams, useNavigate, Link } from "react-router"
 import type { MetaFunction, LoaderFunction } from "react-router";
 import { DateTime } from "luxon";
 import { Button } from "~/common/components/ui/button";
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, Search, Download } from "lucide-react";
+import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, Font } from "@react-pdf/renderer";
 import MonthlyRecordsTab from "~/features/stats/components/MonthlyRecordsTab";
 import { StatsPageHeader } from "~/common/components/stats/stats-page-header";
 import { loader as recordsLoader, type RecordsLoaderData } from "../records-loader";
 import { useTranslation } from "react-i18next";
 import { Popover, PopoverContent, PopoverTrigger } from "~/common/components/ui/popover";
 import { Calendar } from "~/common/components/ui/calendar";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Label } from "~/common/components/ui/label";
+import type { MonthlyDayRecord, DailyRecordUI } from "../types";
+import type { UICategory } from "~/common/types/daily";
+
+// Re-register fonts for this page's PDF generation
+Font.register({
+  family: "Noto Sans KR",
+  fonts: [{ src: "/fonts/NotoSansKR-Variable.ttf" }],
+});
 
 export const loader: LoaderFunction = recordsLoader;
 
@@ -19,6 +28,64 @@ export const meta: MetaFunction = () => {
     { title: "Search Records - StartBeyond" },
     { name: "description", content: "Search and filter all your activities, memos, and notes." },
   ];
+};
+
+const pdfStyles = StyleSheet.create({
+  page: {
+    paddingTop: 35,
+    paddingBottom: 50,
+    paddingHorizontal: 35,
+    fontFamily: "Noto Sans KR",
+    fontSize: 9,
+  },
+  headerText: { fontSize: 18, marginBottom: 15, textAlign: 'center', fontWeight: 'bold' },
+  dayContainer: { marginBottom: 15 },
+  dayHeader: { fontSize: 12, fontWeight: 'bold', marginBottom: 5, borderBottomWidth: 1, borderBottomColor: '#eee', paddingBottom: 3 },
+  recordItem: { flexDirection: 'row', marginBottom: 3, paddingLeft: 5 },
+  recordCategory: { width: '20%', fontWeight: 'bold' },
+  recordSubcode: { width: '25%' },
+  recordComment: { flex: 1 },
+  recordDuration: { width: '15%', textAlign: 'right' },
+  footer: {
+    position: 'absolute',
+    bottom: 25,
+    left: 35,
+    right: 35,
+    textAlign: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    paddingTop: 8,
+    fontSize: 9,
+    color: 'grey',
+  },
+});
+
+const RecordsReportPDF = ({ data, categories, title }: { data: MonthlyDayRecord[], categories: UICategory[], title: string }) => {
+  const getCategoryLabel = (code: string) => categories.find(c => c.code === code)?.label || code;
+
+  return (
+    <Document>
+      <Page size="A4" style={pdfStyles.page}>
+        <Text style={pdfStyles.headerText}>{title}</Text>
+        {data.map(day => (
+          <View key={day.date} style={pdfStyles.dayContainer}>
+            <Text style={pdfStyles.dayHeader}>{DateTime.fromISO(day.date).toFormat('yyyy-MM-dd ccc')}</Text>
+            {day.records.map((record: DailyRecordUI) => (
+              <View key={record.id} style={pdfStyles.recordItem}>
+                <Text style={pdfStyles.recordCategory}>{getCategoryLabel(record.category_code)}</Text>
+                <Text style={pdfStyles.recordSubcode}>{record.subcode || '-'}</Text>
+                <Text style={pdfStyles.recordComment}>{record.comment || '-'}</Text>
+                <Text style={pdfStyles.recordDuration}>{record.duration ? `${record.duration}분` : ''}</Text>
+              </View>
+            ))}
+          </View>
+        ))}
+        <View style={pdfStyles.footer} fixed>
+          <Text>StartBeyond</Text>
+        </View>
+      </Page>
+    </Document>
+  );
 };
 
 function DateRangePicker({
@@ -129,21 +196,57 @@ export default function RecordsPage() {
         month: currentStartDate.setLocale(i18n.language).toFormat("yyyy MMMM"),
       });
 
+  const pdfTitle = isPeriodSearch
+    ? t("stats_records_page.pdf_title_period", {
+        startDate: currentStartDate.toFormat("yyyy.MM.dd"),
+        endDate: DateTime.fromISO(endDate).toFormat("yyyy.MM.dd"),
+      })
+    : t("stats_records_page.pdf_title_month", {
+        month: currentStartDate.toFormat("yyyy MMMM"),
+      });
+
+  const pdfDocument = (
+    <RecordsReportPDF 
+      data={monthlyRecordsForDisplay} 
+      categories={categories} 
+      title={pdfTitle}
+    />
+  );
+
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 pt-8 sm:pt-12 md:pt-16 bg-background min-h-screen">
-      <StatsPageHeader
-        title={t("stats_records_page.title")}
-        description={description}
-        periodButton={periodControl}
-        shareSettings={{ isPublic: false, includeRecords: false, includeDailyNotes: false, includeMemos: false, includeStats: false }}
-        onShareSettingsChange={() => {}}
-        isShareDialogOpen={false}
-        setIsShareDialogOpen={() => {}}
-        isCopied={false}
-        onCopyLink={() => {}}
-        shareLink=""
-        pdfFileName=""
-      />
+      <div className="flex justify-between items-center mb-6">
+        <StatsPageHeader
+          title={t("stats_records_page.title")}
+          description={description}
+          periodButton={periodControl}
+          shareSettings={{ isPublic: false, includeRecords: false, includeDailyNotes: false, includeMemos: false, includeStats: false }}
+          onShareSettingsChange={() => {}}
+          isShareDialogOpen={false}
+          setIsShareDialogOpen={() => {}}
+          isCopied={false}
+          onCopyLink={() => {}}
+          shareLink=""
+        />
+        {isClient && (
+          <PDFDownloadLink
+            document={pdfDocument}
+            fileName={`records-report-${currentMonthString}.pdf`}
+          >
+            {({ loading }) => (
+              <Button variant="outline" size="sm" disabled={loading} className="flex items-center gap-2">
+                <Download className="w-4 h-4" />
+                {loading ? t("stats_header.pdf.loading") : t("stats_header.pdf.download")}
+              </Button>
+            )}
+          </PDFDownloadLink>
+        )}
+      </div>
       <div className="mt-6">
         <MonthlyRecordsTab 
             monthlyRecordsForDisplay={monthlyRecordsForDisplay}
