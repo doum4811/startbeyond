@@ -1021,36 +1021,38 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
 
   return (
     <div className="max-w-4xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 space-y-4">
         <h1 className="font-bold text-3xl">{t('tomorrow_page.title')}</h1>
-        <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={() => handleDateNavigate('prev')}>
-                <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Popover>
-                <PopoverTrigger asChild>
-                    <Button
-                        variant={"outline"}
-                        className="w-[200px] justify-start text-left font-normal"
-                    >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {DateTime.fromISO(planDate).setLocale(i18n.language).toFormat("yyyy-MM-dd (ccc)")}
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                    <Calendar
-                        selectedDate={DateTime.fromISO(planDate)}
-                        onDateChange={handleDateSelect}
-                    />
-                </PopoverContent>
-            </Popover>
-            <Button variant="outline" size="icon" onClick={() => handleDateNavigate('next')}>
-                <ChevronRight className="h-4 w-4" />
+        <div className="flex flex-col items-end gap-2 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" onClick={() => handleDateNavigate('prev')}>
+                    <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                            variant={"outline"}
+                            className="justify-start text-left font-normal"
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {DateTime.fromISO(planDate).setLocale(i18n.language).toFormat("yyyy-MM-dd (ccc)")}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                        <Calendar
+                            selectedDate={DateTime.fromISO(planDate)}
+                            onDateChange={handleDateSelect}
+                        />
+                    </PopoverContent>
+                </Popover>
+                <Button variant="outline" size="icon" onClick={() => handleDateNavigate('next')}>
+                    <ChevronRight className="h-4 w-4" />
+                </Button>
+            </div>
+            <Button asChild className="md:ml-2" variant="ghost" size="sm">
+              <Link to="/plan/weekly">{t('tomorrow_page.to_weekly_plan')}</Link>
             </Button>
         </div>
-        <Button asChild className="ml-2" variant="ghost" size="sm">
-          <Link to="/plan/weekly">{t('tomorrow_page.to_weekly_plan')}</Link>
-        </Button>
       </div>
 
       {/* Weekly Tasks Section - Collapsible */}

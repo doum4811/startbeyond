@@ -114,55 +114,58 @@ function PlanBanner({
           </div>
         </CollapsibleTrigger>
         <CollapsibleContent>
-            <div className="p-4">
+            <div className="p-4 overflow-x-auto">
               <table className="min-w-full text-sm">
-        <thead>
-          <tr className="border-b">
-            <th className="py-2 px-2 text-left">{t('category')}</th>
-            <th className="py-2 px-2 text-left">{t('subcode')}</th>
-            <th className="py-2 px-2 text-left">{t('duration')}</th>
-            <th className="py-2 px-2 text-left">{t('comment')}</th>
-            <th className="py-2 px-2 text-center">{t('action')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {plans.length === 0 ? (
-            <tr>
-              <td colSpan={5} className="text-center text-muted-foreground py-4">{t('no_plans')}</td>
-            </tr>
-          ) : (
+                <thead>
+                  <tr className="border-b">
+                    <th className="py-2 px-2 text-left">{t('category')}</th>
+                    <th className="py-2 px-2 text-left">{t('comment')}</th>
+                    <th className="py-2 px-2 text-left">{t('duration')}</th>
+                    <th className="py-2 px-2 text-center">{t('action')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {plans.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="text-center text-muted-foreground py-4">{t('no_plans')}</td>
+                    </tr>
+                  ) : (
                     plans.map((plan) => {
                       const category = categories.find(c => c.code === plan.category_code);
                       const isCategoryActive = !!category?.isActive;
                       const isAdded = records.some(r => r.linked_plan_id === plan.id);
-              return (
-              <tr key={plan.id} className="border-b">
-                <td className="py-2 px-2 flex items-center gap-2">
-                              <span className={`text-2xl`}>{category?.icon || '❓'}</span>
-                              <span>{category?.label || plan.category_code}</span>
-                </td>
-                          <td>{plan.subcode || '-'}</td>
-                          <td>{plan.duration ? `${plan.duration}분` : '-'}</td>
-                          <td>{plan.comment || '-'}</td>
-                          <td className="text-center">
-                              <Button size="sm" onClick={() => onAddFromPlan(plan, isCategoryActive)} disabled={isAdded}>
-                                {isAdded ? t('added') : (isCategoryActive ? t('add_record') : `${t('add_record')} (${t('inactive')})`)}
-                      </Button>
-                </td>
-              </tr>
+                      return (
+                      <tr key={plan.id} className="border-b">
+                        <td className="py-2 px-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-2xl`}>{category?.icon || '❓'}</span>
+                            <div>
+                                <span>{category?.label || plan.category_code}</span>
+                                {plan.subcode && <div className="text-xs text-muted-foreground">({plan.subcode})</div>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-2 px-2">{plan.comment || '-'}</td>
+                        <td className="py-2 px-2">{plan.duration ? `${plan.duration}분` : '-'}</td>
+                        <td className="text-center">
+                            <Button size="sm" onClick={() => onAddFromPlan(plan, isCategoryActive)} disabled={isAdded}>
+                              {isAdded ? t('added') : (isCategoryActive ? t('add_record') : `${t('add_record')} (${t('inactive')})`)}
+                            </Button>
+                        </td>
+                      </tr>
                       )
                     })
-          )}
-        </tbody>
-      </table>
-      {plans.length > 0 && (
+                  )}
+                </tbody>
+              </table>
+              {plans.length > 0 && (
                 <div className="flex justify-end mt-4">
                     <Button onClick={onAddAllFromPlans} disabled={isAddingAll || allPlansAdded}>
-            {isAddingAll ? t('processing') : (allPlansAdded ? t('all_added') : t('add_all_records'))}
-          </Button>
-        </div>
-      )}
-    </div>
+                      {isAddingAll ? t('processing') : (allPlansAdded ? t('all_added') : t('add_all_records'))}
+                    </Button>
+                </div>
+              )}
+            </div>
         </CollapsibleContent>
       </div>
     </Collapsible>
@@ -283,20 +286,22 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
 
   return (
     <div className="max-w-7xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-2">
-          <h1 className="text-3xl font-bold tracking-tight">{t('daily')}</h1>
-          <CalendarPopover markedDates={markedDates} currentSelectedDate={today} />
+      <div className="mb-6 space-y-4">
+        <h1 className="text-3xl font-bold tracking-tight">{t('daily')}</h1>
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <CalendarPopover markedDates={markedDates} currentSelectedDate={today} />
+            <div className="text-lg font-bold text-muted-foreground">
+              {DateTime.fromISO(today).setLocale(i18n.language).toFormat("yyyy-MM-dd (ccc)")}
+            </div>
+          </div>
+          <Button asChild>
+              <Link to="/plan/tomorrow"><Plus className="w-4 h-4 mr-1" />{t('tomorrow_plan')}</Link>
+          </Button>
         </div>
-        <div className="text-lg font-bold text-muted-foreground">
-          {DateTime.fromISO(today).setLocale(i18n.language).toFormat("yyyy-MM-dd (ccc)")}
       </div>
-        <Button asChild>
-            <Link to="/plan/tomorrow"><Plus className="w-4 h-4 mr-1" />{t('tomorrow_plan')}</Link>
-                </Button>
-              </div>
 
-              <PlanBanner
+      <PlanBanner
         plans={plansForBanner}
         records={records}
         date={today} 
@@ -352,7 +357,7 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                         disabled={isEditing && !!selectedRecord?.linked_plan_id}
                         instanceId="daily-page-form"
                 />
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
                         <div className="relative">
                             <Input name="duration" type="number" placeholder={t('duration')} value={form.duration} onChange={e => { if(validateDuration(e.target.value)) setForm(f=>({...f, duration: e.target.value}))}} className={`w-24 ${durationError ? 'border-red-500' : ''}`} />
                             {durationError && <div className="absolute -bottom-6 left-0 text-xs text-red-500">{durationError}</div>}
@@ -381,29 +386,40 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-base">
-                        <thead><tr className="border-b"><th className="py-2 px-2 text-left">{t('category')}</th><th className="py-2 px-2 text-left">{t('subcode')}</th><th className="py-2 px-2 text-left">{t('duration')}</th><th className="py-2 px-2 text-left">{t('comment')}</th><th className="py-2 px-2 text-center">{t('action')}</th></tr></thead>
+                        <thead><tr className="border-b">
+                            <th className="py-2 px-2 text-left w-1/3">{t('category')}</th>
+                            <th className="py-2 px-2 text-left w-2/4">{t('comment')}</th>
+                            <th className="py-2 px-2 text-left">{t('duration')}</th>
+                            <th className="py-2 px-2 text-center">{t('action')}</th>
+                        </tr></thead>
                   <tbody>
                             {records.map(rec => {
                       const categoryInfo = categories.find(c => c.code === rec.category_code);
                                 return (<React.Fragment key={rec.id}>
                                     <tr className={`border-b cursor-pointer ${selectedRowId === rec.id ? 'bg-accent/30' : ''}`} onClick={() => handleRowClick(rec)}>
-                            <td className="py-2 px-2 flex items-center gap-2">
-                                            <span className="text-2xl">{categoryInfo?.icon}</span>
-                                            <span className="font-medium">{categoryInfo?.label}</span>
+                            <td className="py-2 px-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-2xl">{categoryInfo?.icon}</span>
+                                    <div>
+                                        <span className="font-medium">{categoryInfo?.label}</span>
+                                        {rec.subcode && <div className="text-xs text-muted-foreground">{rec.subcode}</div>}
+                                    </div>
+                                </div>
                             </td>
-                                        <td>{rec.subcode || '-'}</td>
-                                        <td>{rec.duration ? `${rec.duration}분` : (categoryInfo?.hasDuration ? "-" : "")}</td>
-                                        <td>{rec.comment || '-'}</td>
-                                        <td className="py-2 px-2 text-center flex gap-1 justify-center">
-                                            <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setEditingSubcodeForRecordId(rec.id); setEditSubcodeValue(rec.subcode || ""); setShowMemoFormForRecordId(null); setSelectedRowId(rec.id); setIsEditing(false); }}>{t('subcode')}</Button>
-                                            <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setShowMemoFormForRecordId(rec.id); setMemoTitle(''); setMemoContent(''); setEditingSubcodeForRecordId(null); setSelectedRowId(rec.id); setIsEditing(false); }}>{t('comment')}</Button>
-                            </td>
+                                        <td className="w-2/4">{rec.comment || '-'}</td>
+                                        <td className="w-[70px]">{rec.duration ? `${rec.duration}분` : (categoryInfo?.hasDuration ? "-" : "")}</td>
+                                        <td className="py-2 px-2 text-center">
+                                            <div className="flex gap-1 justify-center">
+                                                <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setEditingSubcodeForRecordId(rec.id); setEditSubcodeValue(rec.subcode || ""); setShowMemoFormForRecordId(null); setSelectedRowId(rec.id); setIsEditing(false); }}>{t('subcode')}</Button>
+                                                <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setShowMemoFormForRecordId(rec.id); setMemoTitle(''); setMemoContent(''); setEditingSubcodeForRecordId(null); setSelectedRowId(rec.id); setIsEditing(false); }}>{t('comment')}</Button>
+                                            </div>
+                                        </td>
                           </tr>
-                                    {editingSubcodeForRecordId === rec.id && (<tr><td colSpan={5} className="bg-muted p-2"><fetcher.Form method="post" className="flex items-center gap-2" onSubmit={() => setEditingSubcodeForRecordId(null)}><input type="hidden" name="intent" value="updateSubcode" /><input type="hidden" name="recordId" value={rec.id} /><Input name="subcode" value={editSubcodeValue} onChange={e => setEditSubcodeValue(e.target.value)} className="flex-1" /><Button type="submit" size="sm">{t('save')}</Button><Button type="button" size="sm" variant="ghost" onClick={() => setEditingSubcodeForRecordId(null)}><X className="w-4 h-4"/></Button></fetcher.Form></td></tr>)}
-                                    {showMemoFormForRecordId === rec.id && (<tr><td colSpan={5} className="bg-muted p-4"><h4 className="font-medium text-md mb-2">{t('add_new_memo')}</h4><fetcher.Form method="post" className="flex flex-col gap-3" onSubmit={() => setShowMemoFormForRecordId(null)}><input type="hidden" name="intent" value="addMemo" /><input type="hidden" name="recordId" value={rec.id} /><Input name="memoTitle" placeholder={t('title')} value={memoTitle} onChange={e => setMemoTitle(e.target.value)} /><Textarea name="memoContent" placeholder={t('content')} value={memoContent} onChange={e => setMemoContent(e.target.value)} required /><div className="flex justify-end gap-2"><Button type="submit" size="sm">{t('save')}</Button><Button type="button" size="sm" variant="outline" onClick={() => setShowMemoFormForRecordId(null)}>{t('cancel')}</Button></div></fetcher.Form></td></tr>)}
+                                    {editingSubcodeForRecordId === rec.id && (<tr><td colSpan={4} className="bg-muted p-2"><fetcher.Form method="post" className="flex items-center gap-2" onSubmit={() => setEditingSubcodeForRecordId(null)}><input type="hidden" name="intent" value="updateSubcode" /><input type="hidden" name="recordId" value={rec.id} /><Input name="subcode" value={editSubcodeValue} onChange={e => setEditSubcodeValue(e.target.value)} className="flex-1" /><Button type="submit" size="sm">{t('save')}</Button><Button type="button" size="sm" variant="ghost" onClick={() => setEditingSubcodeForRecordId(null)}><X className="w-4 h-4"/></Button></fetcher.Form></td></tr>)}
+                                    {showMemoFormForRecordId === rec.id && (<tr><td colSpan={4} className="bg-muted p-4"><h4 className="font-medium text-md mb-2">{t('add_new_memo')}</h4><fetcher.Form method="post" className="flex flex-col gap-3" onSubmit={() => setShowMemoFormForRecordId(null)}><input type="hidden" name="intent" value="addMemo" /><input type="hidden" name="recordId" value={rec.id} /><Input name="memoTitle" placeholder={t('title')} value={memoTitle} onChange={e => setMemoTitle(e.target.value)} /><Textarea name="memoContent" placeholder={t('content')} value={memoContent} onChange={e => setMemoContent(e.target.value)} required /><div className="flex justify-end gap-2"><Button type="submit" size="sm">{t('save')}</Button><Button type="button" size="sm" variant="outline" onClick={() => setShowMemoFormForRecordId(null)}>{t('cancel')}</Button></div></fetcher.Form></td></tr>)}
                                 </React.Fragment>)
                     })}
-                            {records.length === 0 && (<tr><td colSpan={5} className="text-center py-8 text-muted-foreground">{t('no_records_yet')}</td></tr>)}
+                            {records.length === 0 && (<tr><td colSpan={4} className="text-center py-8 text-muted-foreground">{t('no_records_yet')}</td></tr>)}
                   </tbody>
                 </table>
               </div>
