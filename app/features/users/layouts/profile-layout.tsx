@@ -82,13 +82,14 @@ export async function action({ request, params }: Route.ActionArgs) {
     if (intent === "follow") {
         await followUser(client, { followerId: currentUserId, followingId: targetUser.profile_id });
         
-        // Add a notification for the followed user
-        await client.from('notifications').insert({
-            recipient_id: targetUser.profile_id,
-            actor_id: currentUserId,
-            type: 'new_follower',
-            resource_url: `/users/${params.username}` 
-        });
+        // // Add a notification for the followed user
+        // await client.from('notifications').insert({
+        //     recipient_id: targetUser.profile_id,
+        //     actor_id: currentUserId,
+        //     type: 'new_follower',
+        //     message: `${currentUser.full_name} started following you.`,
+        //     resource_url: `/users/${params.username}` 
+        // });
 
     } else if (intent === "unfollow") {
         await unfollowUser(client, { followerId: currentUserId, followingId: targetUser.profile_id });
@@ -124,7 +125,7 @@ export default function ProfileLayout({
             <h1 className="text-2xl font-semibold break-all">{user.full_name}</h1>
             {isOwnProfile ? (
               <Button variant="outline" asChild>
-                <Link to="/settings/profile">Edit profile</Link>
+                <Link to={`/users/${user.username}/edit`}>Edit profile</Link>
               </Button>
             ) : (
               <fetcher.Form method="post">

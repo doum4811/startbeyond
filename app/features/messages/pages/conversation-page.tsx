@@ -110,3 +110,124 @@ export default function ConversationPage() {
         </div>
     );
 } 
+// import { Form, useFetcher, useLoaderData } from "react-router";
+// import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
+// import { makeSSRClient } from "~/supa-client";
+// import * as messageQueries from "../queries";
+// import { getProfileId } from "~/features/users/utils";
+// import { MessageBubble } from "../components/message-bubble";
+// import { Button } from "~/common/components/ui/button";
+// import { Input } from "~/common/components/ui/input";
+// import { SendIcon } from "lucide-react";
+// import { useEffect, useRef } from "react";
+// import { useTranslation } from "react-i18next";
+// import type { Profile } from "~/features/users/queries";
+
+// // A simplified profile type for this page's context
+// type SimpleProfile = Pick<Profile, 'profile_id' | 'username' | 'full_name' | 'avatar_url'>;
+
+// export async function loader({ request, params }: LoaderFunctionArgs) {
+//   const { conversationId } = params;
+//   if (!conversationId) {
+//     throw new Response("Conversation not found", { status: 404 });
+//   }
+
+//   const { client } = makeSSRClient(request);
+//   const currentUserId = await getProfileId(request);
+
+//   const { data: convData, error: convError } = await client
+//     .from('conversations')
+//     .select(`
+//       id,
+//       participant1:profiles!conversations_participant1_id_fkey(*),
+//       participant2:profiles!conversations_participant2_id_fkey(*)
+//     `)
+//     .eq('id', conversationId)
+//     .single();
+
+//   if (convError || !convData) {
+//     throw new Response("Conversation not found", { status: 404 });
+//   }
+
+//   const otherUser = convData.participant1.profile_id === currentUserId 
+//     ? convData.participant2 as SimpleProfile
+//     : convData.participant1 as SimpleProfile;
+
+//   if (!otherUser) {
+//     throw new Response("Conversation partner not found", { status: 404 });
+//   }
+
+//   const messages = await messageQueries.getMessages(client, conversationId);
+
+//   return { messages, currentUserId, otherUser, conversationId };
+// }
+
+// export async function action({ request, params }: ActionFunctionArgs) {
+//     const { conversationId } = params;
+//     if (!conversationId) {
+//       throw new Response("Conversation not found", { status: 404 });
+//     }
+  
+//     const { client } = makeSSRClient(request);
+//     const senderId = await getProfileId(request);
+//     const formData = await request.formData();
+//     const content = formData.get("content") as string;
+  
+//     if (content?.trim()) {
+//       await messageQueries.createMessage(client, {
+//         conversationId,
+//         senderId,
+//         content,
+//       });
+//     }
+  
+//     return { ok: true };
+// }
+
+// type MessageWithAuthor = Awaited<ReturnType<typeof messageQueries.getMessages>>[number];
+
+// export default function ConversationPage() {
+//     const { messages, currentUserId, otherUser, conversationId } = useLoaderData<typeof loader>();
+//     const fetcher = useFetcher();
+//     const { t } = useTranslation();
+//     const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+//     useEffect(() => {
+//         if (scrollContainerRef.current) {
+//             scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
+//         }
+//     }, [messages]);
+
+//     const currentUserProfile: SimpleProfile = {
+//       profile_id: currentUserId,
+//       username: 'You',
+//       full_name: 'You',
+//       avatar_url: null,
+//     };
+
+//     return (
+//         <div className="flex flex-col h-[calc(100vh-10rem)]">
+//             <div className="p-4 border-b">
+//                 <h2 className="text-xl font-semibold">{otherUser.full_name ?? otherUser.username}</h2>
+//             </div>
+//             <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+//                 {messages.map((msg: MessageWithAuthor) => (
+//                     <MessageBubble 
+//                         key={msg.id}
+//                         message={msg.content}
+//                         isCurrentUser={msg.sender_id === currentUserId}
+//                         author={msg.sender_id === currentUserId ? currentUserProfile : otherUser}
+//                     />
+//                 ))}
+//             </div>
+//             <div className="p-4 border-t">
+//                 <fetcher.Form method="post" action={`/messages/${conversationId}`} className="flex items-center gap-2">
+//                     <Input name="content" placeholder={t('messages.type_a_message')} autoComplete="off" />
+//                     <Button type="submit" size="icon" disabled={fetcher.state === "submitting"}>
+//                         <SendIcon className="size-4" />
+//                     </Button>
+//                 </fetcher.Form>
+//             </div>
+//         </div>
+//     );
+// } 

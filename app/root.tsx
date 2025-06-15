@@ -10,6 +10,7 @@ import {
 } from "react-router";
 import "./i18n";
 import { useTranslation } from "react-i18next";
+import { Toaster } from "sonner";
 
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
@@ -50,6 +51,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <main>{children}</main>
+        <Toaster />
         <ScrollRestoration />
         <Scripts />
       </body>

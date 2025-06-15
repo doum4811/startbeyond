@@ -33,7 +33,8 @@ export default [
             route(":conversationId", "features/messages/pages/conversation-page.tsx"),
         ]),
     ]),
-    route("profile", "features/users/pages/profile-settings-page.tsx"),
+    // route("profile", "features/users/pages/profile-settings-page.tsx"),
+    // route("edit", "features/users/pages/profile-edit-page.tsx"),
     ...prefix("/auth", [
         layout("features/auth/layouts/auth-layout.tsx", [
           route("/login", "features/auth/pages/login-page.tsx"),
@@ -54,6 +55,7 @@ export default [
           index("features/users/pages/profile-page.tsx"),
           route("/posts", "features/users/pages/profile-posts-page.tsx"), // 필요함
           route("/activity", "features/users/pages/profile-activity-page.tsx"),
+          route("edit", "features/users/pages/profile-edit-page.tsx"),
         ]),
       ]),
       route("/users/:username/welcome", "features/users/pages/welcome-page.tsx"),

@@ -162,11 +162,11 @@ export default function CommunityPage({ loaderData }: { loaderData: CommunityPag
         <h1 className="font-bold text-2xl sm:text-3xl">{t('community.title')}</h1>
         {isLoggedIn && (
           <Button asChild size="icon" className="sm:w-auto sm:px-4">
-            <Link to="/community/new">
+          <Link to="/community/new">
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline sm:ml-2">{t('community.new_post')}</span>
-            </Link>
-          </Button>
+          </Link>
+        </Button>
         )}
       </div>
       
@@ -180,11 +180,11 @@ export default function CommunityPage({ loaderData }: { loaderData: CommunityPag
         </div>
       ) : (
         <>
-          <div className="space-y-6">
-            {posts.map((post) => (
-              <PostCard key={post.id} post={post} />
-            ))}
-          </div>
+        <div className="space-y-6">
+          {posts.map((post) => (
+            <PostCard key={post.id} post={post} />
+          ))}
+        </div>
           <div className="mt-8">
             <CommunityPagination totalPages={totalPages} />
           </div>

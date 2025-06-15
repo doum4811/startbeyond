@@ -632,6 +632,7 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           created_at: string
+          daily_record_visibility: string | null
           full_name: string
           headline: string | null
           profile_id: string
@@ -644,6 +645,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          daily_record_visibility?: string | null
           full_name: string
           headline?: string | null
           profile_id: string
@@ -656,6 +658,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          daily_record_visibility?: string | null
           full_name?: string
           headline?: string | null
           profile_id?: string
@@ -1001,7 +1004,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      track_event: {
+        Args: {
+          event_type: string
+          event_data: Json
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
