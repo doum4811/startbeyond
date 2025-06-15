@@ -5,13 +5,14 @@ import { Input } from "~/common/components/ui/input";
 import { Textarea } from "~/common/components/ui/textarea";
 import { Label } from "~/common/components/ui/label";
 import { Link, Form, useFetcher, redirect, useNavigate, useLoaderData } from "react-router";
-import { Calendar as CalendarIcon, PlusCircle, Trash2, Edit, Check, X, Save, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar as CalendarIcon, PlusCircle, Trash2, Edit, Check, X, Save, ChevronLeft, ChevronRight, AlertCircle, Info, CheckCircle, AlertTriangle } from "lucide-react";
 import { DateTime } from "luxon";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { Switch } from "~/common/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "~/common/components/ui/popover";
 import { Calendar } from "~/common/components/ui/calendar";
 import { useTranslation } from "react-i18next";
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "~/common/components/ui/alert-dialog";
 
 import * as planQueries from "~/features/plan/queries";
 import type { 
@@ -560,6 +561,8 @@ export default function WeeklyPlanPage() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [editTaskData, setEditTaskData] = useState<Partial<WeeklyTaskUI> | null>(null);
   
+  const [pageAlert, setPageAlert] = useState<{ type: 'error' | 'warning' | 'info' | 'success'; message: string; } | null>(null);
+  
   const [isMonthlyGoalsCollapsed, setIsMonthlyGoalsCollapsed] = useState(monthlyGoalsForWeek.length === 0);
   const [addedMonthlyGoalTaskIds, setAddedMonthlyGoalTaskIds] = useState<Set<string>>(() => 
     new Set(initialWeeklyTasks.filter(t => !!t.from_monthly_goal_id).map(t => t.from_monthly_goal_id!))
@@ -574,6 +577,7 @@ export default function WeeklyPlanPage() {
     setGoalNoteInput(initialWeeklyNote?.weekly_goal_note || "");
     setAddedMonthlyGoalTaskIds(new Set(initialWeeklyTasks.filter(t => !!t.from_monthly_goal_id).map(t => t.from_monthly_goal_id!)));
     setIsMonthlyGoalsCollapsed(monthlyGoalsForWeek.length === 0);
+    setPageAlert(null);
   }, [initialWeeklyTasks, initialWeeklyNote, monthlyGoalsForWeek]);
 
   // Edit/Add Fetcher Effect
@@ -598,7 +602,7 @@ export default function WeeklyPlanPage() {
             }
         } else if (res.error) {
             console.error("Edit/Add Task Error:", res.error, "Intent:", res.intent);
-            alert(`Error (${res.intent || 'Unknown'}): ${res.error}`);
+            setPageAlert({ type: 'error', message: `Error (${res.intent || 'Unknown'}): ${res.error}` });
         }
     }
   }, [editFetcher.data, editFetcher.state]);
@@ -622,7 +626,7 @@ export default function WeeklyPlanPage() {
               }
           } else if (res.error) {
               console.error("Delete Task Error:", res.error, "Intent:", res.intent);
-              alert(`Error (${res.intent || 'Unknown'}): ${res.error}`);
+              setPageAlert({ type: 'error', message: `Error (${res.intent || 'Unknown'}): ${res.error}` });
           }
       }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -637,7 +641,7 @@ export default function WeeklyPlanPage() {
               setWeeklyTasks(prev => sortWeeklyTasksArray(prev.map(t => t.id === res.taskId ? res.updatedTask as WeeklyTaskUI : t)));
           } else if (res.error) {
               console.error("Day Toggle Error:", res.error, "Intent:", res.intent);
-              alert(`Error (${res.intent || 'Unknown'}): ${res.error}`);
+              setPageAlert({ type: 'error', message: `Error (${res.intent || 'Unknown'}): ${res.error}` });
           }
       }
   }, [dayToggleFetcher.data, dayToggleFetcher.state]);
@@ -651,7 +655,7 @@ export default function WeeklyPlanPage() {
               setWeeklyTasks(prev => sortWeeklyTasksArray(prev.map(t => t.id === res.taskId ? res.updatedTask as WeeklyTaskUI : t)));
           } else if (res.error) {
               console.error("Lock Toggle Error:", res.error, "Intent:", res.intent);
-              alert(`Error (${res.intent || 'Unknown'}): ${res.error}`);
+              setPageAlert({ type: 'error', message: `Error (${res.intent || 'Unknown'}): ${res.error}` });
           }
       }
   }, [lockFetcher.data, lockFetcher.state]);
@@ -679,12 +683,12 @@ export default function WeeklyPlanPage() {
                       });
                   }
                   if (res.partialErrors && res.partialErrors.length > 0) {
-                      alert(`Some weekly tasks could not be added: ${res.partialErrors.join("; ")}`);
+                      setPageAlert({ type: 'warning', message: `Some weekly tasks could not be added: ${res.partialErrors.join("; ")}` });
                   }
               }
           } else if (res.error) {
               console.error("Monthly Goal Action Error:", res.error, "Intent:", res.intent);
-              alert(`Error (${res.intent || 'Unknown'}): ${res.error}`);
+              setPageAlert({ type: 'error', message: `Error (${res.intent || 'Unknown'}): ${res.error}` });
           }
       }
   }, [monthlyGoalFetcher.data, monthlyGoalFetcher.state]);
@@ -696,12 +700,13 @@ export default function WeeklyPlanPage() {
           if (res instanceof Response) return;
           if (res.ok && res.intent === "upsertWeeklyGoals" && res.upsertedNote) {
               setWeeklyNote(res.upsertedNote as WeeklyNoteUI);
+              setPageAlert({ type: 'success', message: t('weekly_page.notes_saved_success')});
           } else if (res.error) {
               console.error("Notes Save Error:", res.error, "Intent:", res.intent);
-              alert(`Error (${res.intent || 'Unknown'}): ${res.error}`);
+              setPageAlert({ type: 'error', message: `Error (${res.intent || 'Unknown'}): ${res.error}` });
           }
       }
-  }, [notesFetcher.data, notesFetcher.state]);
+  }, [notesFetcher.data, notesFetcher.state, t]);
 
   const handleWeekNavigate = (direction: 'prev' | 'next') => {
     const newDate = direction === 'prev' 
@@ -796,7 +801,7 @@ export default function WeeklyPlanPage() {
     });
 
     if (tasksToAddFromGoals.length === 0) {
-      alert(t('weekly_page.all_monthly_added_alert'));
+      setPageAlert({ type: 'info', message: t('weekly_page.all_monthly_added_alert') });
       return;
     }
 
@@ -819,9 +824,29 @@ export default function WeeklyPlanPage() {
   if (!i18n.isInitialized) {
     return null;
   }
+  
+  const alertIcons = {
+    error: <AlertCircle className="h-4 w-4" />,
+    warning: <AlertTriangle className="h-4 w-4" />,
+    info: <Info className="h-4 w-4" />,
+    success: <CheckCircle className="h-4 w-4" />,
+  };
 
   return (
     <div className="w-full max-w-5xl mx-auto py-12 px-4 pt-16 sm:px-6 lg:px-8 bg-background min-h-screen">
+      {pageAlert && (
+        <AlertDialog open={!!pageAlert} onOpenChange={() => setPageAlert(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{pageAlert.type.charAt(0).toUpperCase() + pageAlert.type.slice(1)}</AlertDialogTitle>
+              <AlertDialogDescription>{pageAlert.message}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => setPageAlert(null)}>{i18n.language === 'ko' ? '확인' : 'Confirm'}</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
         <h1 className="font-bold text-3xl flex-shrink-0">{t('weekly_page.title')}</h1>
         <div className="flex items-center gap-2 flex-wrap">

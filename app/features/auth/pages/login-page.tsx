@@ -108,7 +108,7 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
             ) : (
               "Log in"
             )}
-            Log in
+            {/* Log in */}
           </Button>
           {/* {actionData?.message && (
             <p className="text-sm text-red-500">{actionData.message}</p> */}

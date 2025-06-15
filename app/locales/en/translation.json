@@ -493,5 +493,17 @@
             "statistics": "Statistics",
             "share_link": "Share Link"
         }
+    },
+    "profile": {
+        "edit_profile": "Edit Profile",
+        "follow": "Follow",
+        "unfollow": "Unfollow",
+        "message": "Message",
+        "followers": "{{count}} followers",
+        "following": "{{count}} following",
+        "about_tab": "About",
+        "posts_tab": "Posts",
+        "headline": "Headline",
+        "bio": "Bio"
     }
 } 

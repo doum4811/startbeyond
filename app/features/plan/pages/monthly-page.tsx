@@ -8,13 +8,15 @@ import { CATEGORIES } from "~/common/types/daily";
 import type { CategoryCode, UICategory } from "~/common/types/daily";
 import { Link, useFetcher, useNavigate } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
-import { Calendar as CalendarIcon, PlusCircle, Trash2, Edit, Save, CheckSquare, XSquare } from "lucide-react";
+import { Calendar as CalendarIcon, PlusCircle, Trash2, Edit, Save, CheckSquare, XSquare, AlertCircle, Info, CheckCircle, AlertTriangle, X } from "lucide-react";
 import { DateTime } from "luxon";
 import { Calendar } from "~/common/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "~/common/components/ui/popover";
 import { Switch } from "~/common/components/ui/switch";
 import { CategorySelector } from "~/common/components/ui/CategorySelector";
 import { useTranslation } from "react-i18next";
+import { Alert, AlertDescription } from "~/common/components/ui/alert";
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "~/common/components/ui/alert-dialog";
 
 import * as planQueries from "~/features/plan/queries";
 import type { 
@@ -549,6 +551,8 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
   
   const [reflectionFormContent, setReflectionFormContent] = useState(initialMonthlyReflection?.content || "");
 
+  const [pageAlert, setPageAlert] = useState<{ type: 'error' | 'warning' | 'info' | 'success'; message: string; } | null>(null);
+
   const [isGoalsInputSectionOpen, setIsGoalsInputSectionOpen] = useState(false);
   const [isReflectionSectionCollapsed, setIsReflectionSectionCollapsed] = useState(!initialMonthlyReflection || !initialMonthlyReflection.content);
   
@@ -561,6 +565,7 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
     setGoalForm(initialGoalFormState(weeksInSelectedMonth));
     setIsGoalsInputSectionOpen(false);
     setIsEditingGoal(false);
+    setPageAlert(null);
   }, [initialSelectedMonth, initialMonthlyGoals, initialMonthlyReflection, weeksInSelectedMonth]);
 
   useEffect(() => {
@@ -583,10 +588,11 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
         } else if (res.intent === "upsertMonthlyReflection" && res.upsertedReflection) {
           setMonthlyReflection(res.upsertedReflection as MonthlyReflectionUI);
           setReflectionFormContent((res.upsertedReflection as MonthlyReflectionUI).content || "");
+          setPageAlert({ type: 'success', message: t('monthly_page.reflection_saved_success')});
         }
       } else if (res.error) {
         console.error("Monthly Page Action Error:", res.error, "Intent:", res.intent);
-        alert(`Error (${res.intent || 'Unknown'}): ${res.error}`);
+        setPageAlert({ type: 'error', message: `Error (${res.intent || 'Unknown'}): ${res.error}`});
   }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -650,8 +656,28 @@ export default function MonthlyPlanPage({ loaderData }: MonthlyPlanPageProps) {
     fetcher.submit(formData, { method: "post" });
   };
   
+  const alertIcons = {
+    error: <AlertCircle className="h-4 w-4" />,
+    warning: <AlertTriangle className="h-4 w-4" />,
+    info: <Info className="h-4 w-4" />,
+    success: <CheckCircle className="h-4 w-4" />,
+  };
+  
   return (
     <div className="w-full max-w-5xl mx-auto py-12 px-4 pt-16 sm:px-6 lg:px-8 bg-background min-h-screen">
+      {pageAlert && (
+        <AlertDialog open={!!pageAlert} onOpenChange={() => setPageAlert(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{pageAlert.type.charAt(0).toUpperCase() + pageAlert.type.slice(1)}</AlertDialogTitle>
+              <AlertDialogDescription>{pageAlert.message}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => setPageAlert(null)}>{i18n.language === 'ko' ? '확인' : 'Confirm'}</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-2">
         <div className="flex items-center gap-2">
           <h1 className="font-bold text-3xl">{t('monthly_page.title')}</h1>

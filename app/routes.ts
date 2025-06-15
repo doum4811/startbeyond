@@ -25,7 +25,7 @@ export default [
     route("notifications", "features/notifications/pages/notifications-page.tsx"),
     ...prefix("settings", [
       index("features/settings/pages/categories-settings-page.tsx"),
-      route("profile", "features/settings/pages/profile-settings-page.tsx"),
+
     ]),
     ...prefix("messages", [
         layout("features/messages/layouts/messages-layout.tsx", [
@@ -33,6 +33,7 @@ export default [
             route(":conversationId", "features/messages/pages/conversation-page.tsx"),
         ]),
     ]),
+    route("profile", "features/users/pages/profile-settings-page.tsx"),
     ...prefix("/auth", [
         layout("features/auth/layouts/auth-layout.tsx", [
           route("/login", "features/auth/pages/login-page.tsx"),
@@ -48,14 +49,14 @@ export default [
           ]),
         ]),
       ]),
-      ...prefix("/users/:username", [
-        layout("features/users/layouts/profile-layout.tsx", [
+      layout("features/users/layouts/profile-layout.tsx", [
+        ...prefix("/users/:username", [
           index("features/users/pages/profile-page.tsx"),
-          // route("/products", "features/users/pages/profile-products-page.tsx"), //필요없음
           route("/posts", "features/users/pages/profile-posts-page.tsx"), // 필요함
+          route("/activity", "features/users/pages/profile-activity-page.tsx"),
         ]),
-        route("/welcome", "features/users/pages/welcome-page.tsx"),
       ]),
+      route("/users/:username/welcome", "features/users/pages/welcome-page.tsx"),
         // CRON Job API Route
   route("api/cron/weekly-summary", "features/notifications/api/weekly-summary.ts"),
 ] satisfies RouteConfig;

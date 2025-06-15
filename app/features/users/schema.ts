@@ -32,6 +32,9 @@ export const profiles = pgTable("profiles", {
     username: text('username').notNull(),
     headline: text('headline'),
     bio: text('bio'),
+    daily_record_visibility: text('daily_record_visibility', {
+      enum: ["public", "followers", "private"],
+    }).default("followers").notNull(),
     // role: roles().default("developer").notNull(),
     stats: jsonb('stats').$type<{
       followers: number;

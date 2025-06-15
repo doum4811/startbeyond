@@ -585,6 +585,7 @@ export type Database = {
           created_at: string
           id: string
           is_read: boolean
+          message: string
           recipient_id: string
           resource_url: string | null
           type: string
@@ -594,6 +595,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_read?: boolean
+          message: string
           recipient_id: string
           resource_url?: string | null
           type: string
@@ -603,6 +605,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_read?: boolean
+          message?: string
           recipient_id?: string
           resource_url?: string | null
           type?: string
@@ -998,13 +1001,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      track_event: {
-        Args: {
-          event_type: string
-          event_data: Json
-        }
-        Returns: undefined
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never

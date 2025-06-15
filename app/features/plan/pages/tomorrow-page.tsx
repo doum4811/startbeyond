@@ -6,7 +6,7 @@ import { Textarea } from "~/common/components/ui/textarea";
 import { CATEGORIES, type CategoryCode, type UICategory } from "~/common/types/daily";
 // import type { Route } from "~/common/types";
 import { Link, Form, useFetcher, redirect, useNavigate } from "react-router";
-import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight, AlertCircle, Info, CheckCircle, AlertTriangle, X } from "lucide-react";
 import { DateTime } from "luxon";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogCancel, AlertDialogAction } from "~/common/components/ui/alert-dialog";
@@ -14,6 +14,7 @@ import { CategorySelector } from "~/common/components/ui/CategorySelector";
 import { Popover, PopoverContent, PopoverTrigger } from "~/common/components/ui/popover";
 import { Calendar } from "~/common/components/ui/calendar";
 import { useTranslation } from "react-i18next";
+import { Alert, AlertDescription } from "~/common/components/ui/alert";
 
 import * as planQueries from "~/features/plan/queries";
 import type { DailyPlan as DbDailyPlan, DailyPlanInsert, DailyPlanUpdate, WeeklyTask as DbWeeklyTask } from "~/features/plan/queries";
@@ -711,6 +712,8 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
   const [isEditingPlan, setIsEditingPlan] = useState(false);
   const [durationError, setDurationError] = useState<string | null>(null); // For both add and edit
 
+  const [pageAlert, setPageAlert] = useState<{ type: 'error' | 'warning' | 'info' | 'success'; message: string; } | null>(null);
+
   // New state variables for sequential activation dialog
   const [showActivatePlanDialog, setShowActivatePlanDialog] = useState(false);
   const [planForActivation, setPlanForActivation] = useState<DailyPlanUI | null>(null);
@@ -733,6 +736,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
     setShowActivatePlanDialog(false);
     setPlanForActivation(null);
     setPendingAddAllPlansQueue([]);
+    setPageAlert(null);
   }, [initialTomorrowPlans, relevantWeeklyTasks, categories]);
 
   useEffect(() => {
@@ -791,7 +795,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
                     });
                 }
                 if (actionData.partialErrors && actionData.partialErrors.length > 0) {
-                    alert(`Some weekly tasks could not be added as plans: ${actionData.partialErrors.join("; ")}`);
+                    setPageAlert({ type: 'warning', message: `Some weekly tasks could not be added as plans: ${actionData.partialErrors.join("; ")}`});
                 }
             }
             if (actionData.intent === "updatePlan" && actionData.updatedPlan && actionData.planId) {
@@ -838,7 +842,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
         } else if (actionData.error) {
             console.error("Action Error:", actionData.error, "Intent:", actionData.intent);
             if (actionData.intent === "activateCategoryAndAddSinglePlanFromWeekly") {
-                alert(`Error activating/adding task ${planForActivation?.comment}: ${actionData.error}`);
+                setPageAlert({ type: 'error', message: `Error activating/adding task ${planForActivation?.comment}: ${actionData.error}`});
                 setShowActivatePlanDialog(false); // Close dialog
                 // Process next task in queue even if current one failed
                 if (actionData.originalWeeklyTaskId) { // originalWeeklyTaskId might not be present on all errors
@@ -850,7 +854,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
             } else if (actionData.error?.includes("duration")) {
                 setDurationError(actionData.error);
             } else {
-                alert(`Error (${actionData.intent || 'unknown'}): ${actionData.error}`); 
+                setPageAlert({ type: 'error', message: `Error (${actionData.intent || 'unknown'}): ${actionData.error}`}); 
             }
         }
     }
@@ -1019,8 +1023,28 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
       navigate(`/plan/tomorrow?date=${date.toISODate()}`);
   };
 
+  const alertIcons = {
+    error: <AlertCircle className="h-4 w-4" />,
+    warning: <AlertTriangle className="h-4 w-4" />,
+    info: <Info className="h-4 w-4" />,
+    success: <CheckCircle className="h-4 w-4" />,
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto py-12 px-4 pt-16 sm:px-6 lg:px-8 bg-background min-h-screen">
+      {pageAlert && (
+        <AlertDialog open={!!pageAlert} onOpenChange={() => setPageAlert(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{pageAlert.type.charAt(0).toUpperCase() + pageAlert.type.slice(1)}</AlertDialogTitle>
+              <AlertDialogDescription>{pageAlert.message}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => setPageAlert(null)}>{i18n.language === 'ko' ? '확인' : 'Confirm'}</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
       <div className="mb-6 space-y-4">
         <h1 className="font-bold text-3xl">{t('tomorrow_page.title')}</h1>
         <div className="flex flex-col items-end gap-2 md:flex-row md:items-center md:justify-between">

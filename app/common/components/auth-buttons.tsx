@@ -14,16 +14,14 @@ export default function AuthButtons() {
         <Separator className="w-full" />
       </div>
       <div className="w-full flex flex-col gap-2">
-        <Button variant="outline" className="w-full" asChild>
+        {/* <Button variant="outline" className="w-full" asChild>
           <Link to="/auth/social/naver/start">
-            {/* <MessageCircleIcon className="w-4 h-4" /> */}
-            {/* <div className="w-6 h-6 rounded bg-green-600 text-white text-sm font-bold flex items-center justify-center"> */}
             <div className="w-6 h-6 rounded text-white text-sm font-bold flex items-center justify-center">
   N
 </div>
             Naver
           </Link>
-        </Button>
+        </Button> */}
         <Button variant="outline" className="w-full" asChild>
           <Link to="/auth/social/kakao/start">
             <MessageCircleIcon className="w-4 h-4" />

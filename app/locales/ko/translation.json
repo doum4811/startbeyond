@@ -208,6 +208,18 @@
         "try_another_category": "다른 카테고리를 선택하거나 새 글을 작성해보세요.",
         "sign_out": "로그아웃"
     },
+    "profile": {
+        "edit_profile": "프로필 수정",
+        "follow": "팔로우",
+        "unfollow": "언팔로우",
+        "message": "메시지",
+        "followers": "{{count}} 팔로워",
+        "following": "{{count}} 팔로잉",
+        "about_tab": "소개",
+        "posts_tab": "게시물",
+        "headline": "헤드라인",
+        "bio": "소개"
+    },
     "settings": {
         "profile": {
             "title": "공개 프로필",

@@ -11,12 +11,18 @@ export const communityPosts = pgTable("community_posts", {
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
 }, (table) => ({
-  rls: pgPolicy("community_posts_rls", {
-    for: "all",
-    to: "authenticated",
-    using: sql`auth.uid() = ${table.profile_id}`,
-    withCheck: sql`auth.uid() = ${table.profile_id}`,
-  }),
+  rls: [
+    pgPolicy("Allow all users to read community posts", {
+        for: "select",
+        using: sql`true`,
+    }),
+    pgPolicy("Allow authenticated users to manage their own posts", {
+        for: "all",
+        to: "authenticated",
+        using: sql`auth.uid() = ${table.profile_id}`,
+        withCheck: sql`auth.uid() = ${table.profile_id}`,
+    }),
+  ]
 }));
 
 export const communityComments = pgTable("community_comments", {

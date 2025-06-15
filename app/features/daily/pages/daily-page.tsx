@@ -36,6 +36,7 @@ import { CategorySelector } from "~/common/components/ui/CategorySelector";
 import { Bell, CalendarIcon, Plus, Trash2, X } from "lucide-react";
 import { getCategoryColor } from "../utils";
 import { Textarea } from "~/common/components/ui/textarea";
+import { Switch } from "~/common/components/ui/switch";
 
 
 export { loader, action };
@@ -364,9 +365,15 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                             </div>
                         <Input name="comment" placeholder={t('comment')} value={form.comment} onChange={e => setForm(f=>({...f, comment: e.target.value}))} className="flex-1" />
                         <input type="hidden" name="category_code" value={form.category_code} />
-                        {isEditing && (
-                            <div className="flex items-center space-x-2"><Label htmlFor="is_public_edit">{t('public')}</Label><input type="checkbox" name="is_public" id="is_public_edit" checked={form.is_public} onChange={e => setForm(f => ({...f, is_public: e.target.checked}))} /></div>
-                        )}
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id="is_public_switch"
+                            name="is_public"
+                            checked={form.is_public}
+                            onCheckedChange={checked => setForm(f => ({ ...f, is_public: checked }))}
+                          />
+                          <Label htmlFor="is_public_switch">{t('public')}</Label>
+                        </div>
                         {isEditing ? (
                             <div className="flex gap-1">
                                 <Button type="submit" size="sm" disabled={fetcher.state !== 'idle'}>{t('save')}</Button>

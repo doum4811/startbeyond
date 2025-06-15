@@ -45,7 +45,7 @@ const menuKeys = [
 
 const profileMenuKeys = [
     { name: "profile", to: (username?: string) => `/users/${username}`, icon: UserIcon },
-    { name: "settings", to: () => `/settings`, icon: SettingsIcon },
+    //{ name: "settings", to: () => `/settings`, icon: SettingsIcon },
     { name: "logout", to: () => "/auth/logout", icon: LogOutIcon },
 ];
 
@@ -204,21 +204,21 @@ export default function Navigation({
       {/* Mobile Sheet Menu */}
       <SheetContent side="right" className="w-full max-w-sm flex flex-col">
         <SheetClose asChild>
-            <Link to="/" className="text-lg font-bold">StartBeyond</Link>
+            <Link to="/" className="text-lg font-bold p-4">StartBeyond</Link>
         </SheetClose>
         <div className="mt-8 overflow-y-auto flex-grow">
             <Accordion type="single" collapsible className="w-full">
                 {menus.map((menu) => (
             menu.items ? (
                         <AccordionItem value={menu.name} key={menu.name}>
-                            <AccordionTrigger className="text-base font-medium py-3">
+                            <AccordionTrigger className="text-base font-medium py-3 px-4">
                                 <Link to={menu.to} className="flex items-center">
                                     {menu.icon && <menu.icon className="mr-3 h-5 w-5" />}
                                     {menu.name}
                       </Link>
                             </AccordionTrigger>
                             <AccordionContent>
-                                <ul className="pl-8 space-y-2 py-2">
+                                <ul className="pl-8 space-y-2 py-2 px-4">
                                     {menu.items.map(item => (
                                         <li key={item.name}>
                                             <SheetClose asChild>
@@ -231,7 +231,7 @@ export default function Navigation({
                 </AccordionItem>
             ) : (
                         <SheetClose asChild key={menu.name}>
-                            <Link to={menu.to} className="flex items-center text-base font-medium py-3 border-b">
+                            <Link to={menu.to} className="flex items-center text-base font-medium py-3 border-b px-4">
                                 {menu.icon && <menu.icon className="mr-3 h-5 w-5" />}
                                 {menu.name}
               </Link>
@@ -241,29 +241,50 @@ export default function Navigation({
             </Accordion>
         </div>
         <SheetFooter className="mt-auto pt-4 border-t">
-            <div className="flex justify-between w-full items-center">
           {isLoggedIn ? (
-                    <div className="flex items-center gap-2">
-                <Avatar>
-                  {avatar ? <AvatarImage src={avatar} /> : <AvatarFallback>{name?.[0]}</AvatarFallback>}
-                </Avatar>
-                        <div>
-                            <div className="font-medium">{name}</div>
-                            <div className="text-sm text-muted-foreground">@{username}</div>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="flex items-center gap-2">
-                         <Button asChild variant="secondary">
-                            <Link to="/auth/login">{t('nav.login')}</Link>
-                        </Button>
-                        <Button asChild>
-                            <Link to="/auth/join">{t('nav.join')}</Link>
-                        </Button>
-                    </div>
-          )}
+            <div className="flex justify-between w-full items-center">
+              <SheetClose asChild>
+                <Link to={`/users/${username}`} className="flex items-center gap-2 overflow-hidden">
+                  <Avatar>
+                    {avatar ? <AvatarImage src={avatar} /> : <AvatarFallback>{name?.[0]}</AvatarFallback>}
+                  </Avatar>
+                  <div className="flex-1 overflow-hidden">
+                      <div className="font-medium truncate">{name}</div>
+                      <div className="text-sm text-muted-foreground truncate">@{username}</div>
+                  </div>
+                </Link>
+              </SheetClose>
+              <div className="flex items-center">
+                <SheetClose asChild>
+                    <Button variant="ghost" size="icon" asChild className="relative">
+                        <Link to="/notifications">
+                            <BellIcon className="h-5 w-5" />
+                        {hasNotifications && <div className="absolute top-1.5 right-1.5 size-2 bg-red-500 rounded-full"></div>}
+                        </Link>
+                    </Button>
+                </SheetClose>
+                <SheetClose asChild>
+                    <Button variant="ghost" size="icon" asChild className="relative">
+                        <Link to="/messages">
+                            <MessageCircleIcon className="h-5 w-5" />
+                        {hasMessages && <div className="absolute top-1.5 right-1.5 size-2 bg-red-500 rounded-full"></div>}
+                        </Link>
+                   </Button>
+                </SheetClose>
+                <LanguageSwitcher />
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center w-full gap-2">
+                <Button asChild variant="secondary" className="flex-1">
+                    <SheetClose asChild><Link to="/auth/login">{t('nav.login')}</Link></SheetClose>
+                </Button>
+                <Button asChild className="flex-1">
+                    <SheetClose asChild><Link to="/auth/join">{t('nav.join')}</Link></SheetClose>
+                </Button>
                 <LanguageSwitcher />
             </div>
+          )}
         </SheetFooter>
       </SheetContent>
     </Sheet>
