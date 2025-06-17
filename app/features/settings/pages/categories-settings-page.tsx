@@ -36,6 +36,7 @@ import type {
     UserCodeSettingInsert
 } from "~/features/settings/queries";
 import { useTranslation } from "react-i18next";
+import { getRequiredProfileId } from '~/features/users/utils';
 
 // Helper to get profileId (replace with actual implementation if available)
 // async function getProfileId(request: Request): Promise<string> {
@@ -47,16 +48,6 @@ import { useTranslation } from "react-i18next";
 //   // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c"; 
 //   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
 // }
-async function getProfileId(request: Request): Promise<string> {
-  const { client } = makeSSRClient(request);
-  const { data: { user } } = await client.auth.getUser();
-  
-  if (!user) {
-    throw new Error("User not authenticated");
-  }
-  
-  return user.id;
-}
 
 export interface SettingsPageLoaderData {
   userCategories: DbUserCategory[];
@@ -75,7 +66,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
 };
 
 export async function loader({ request }: LoaderFunctionArgs): Promise<SettingsPageLoaderData> {
-  const profileId = await getProfileId(request);
+  const profileId = await getRequiredProfileId(request);
   const { client } = makeSSRClient(request);
   const [userCategoriesData, userSubcodesData, defaultCodePreferencesData, userCodeSettingsData] = await Promise.all([
     settingsQueries.getUserCategories(client, { profileId }),
@@ -94,7 +85,7 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<SettingsP
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-    const profileId = await getProfileId(request);
+    const profileId = await getRequiredProfileId(request);
     const { client } = makeSSRClient(request);
     const formData = await request.formData();
     const intent = formData.get("intent") as string;

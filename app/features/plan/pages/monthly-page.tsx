@@ -29,6 +29,7 @@ import type {
 import * as settingsQueries from "~/features/settings/queries";
 import type { UserCategory as DbUserCategory, UserDefaultCodePreference as DbUserDefaultCodePreference } from "~/features/settings/queries";
 import { makeSSRClient } from "~/supa-client";
+import { getRequiredProfileId } from "~/features/users/utils";
 
 // Generic JSON type if specific one isn't available from supabase-helpers
 export type Json = | string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
@@ -64,17 +65,6 @@ interface MonthlyReflectionUI {
 }
 
 // --- Helper Functions ---
-async function getProfileId(request: Request): Promise<string> {
-  const { client } = makeSSRClient(request);
-  const { data: { user } } = await client.auth.getUser();
-  
-  if (!user) {
-    throw new Error("User not authenticated");
-  }
-  
-  return user.id;
-}
-
 function getCurrentMonthStartDateISO(dateParam?: string | null): string {
   if (dateParam) {
     const dt = DateTime.fromISO(dateParam);
@@ -218,7 +208,7 @@ export interface MonthlyPageLoaderData {
 
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<MonthlyPageLoaderData> => {
   const { client } = makeSSRClient(request);
-  const profileId = await getProfileId(request);
+  const profileId = await getRequiredProfileId(request);
   const url = new URL(request.url);
   const monthParam = url.searchParams.get("month");
   const selectedMonth = getCurrentMonthStartDateISO(monthParam);
@@ -308,7 +298,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<MonthlyPa
 // --- Action ---
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { client } = makeSSRClient(request);
-  const profileId = await getProfileId(request);
+  const profileId = await getRequiredProfileId(request);
   const formData = await request.formData();
   const intent = formData.get("intent") as string;
   const selectedMonth = formData.get("month_date") as string || getCurrentMonthStartDateISO(); // Ensure month_date is passed
