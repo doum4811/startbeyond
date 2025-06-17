@@ -12,6 +12,8 @@ import { useState, useEffect } from "react";
 import { Trash2 } from "lucide-react";
 import { makeSSRClient } from "~/supa-client";
 import { useTranslation } from "react-i18next";
+import { cn } from "~/lib/utils";
+import { POST_CATEGORIES } from "../constants";
 
 export interface CommunityPostDetailPageLoaderData {
   post: CommunityPostWithAuthor | null;
@@ -120,6 +122,8 @@ export default function CommunityPostDetailPage({ loaderData }: { loaderData: Co
   const [commentContent, setCommentContent] = useState("");
   const [comments, setComments] = useState(initialComments);
   
+  console.log("DEBUG: Post Author Data for Link ->", post?.author);
+  
   useEffect(() => {
     setComments(initialComments);
   }, [initialComments]);
@@ -168,22 +172,29 @@ export default function CommunityPostDetailPage({ loaderData }: { loaderData: Co
 
       <Card className="mb-8">
         <CardHeader>
-          <Link to={`/users/${post.author_username}`} className="flex items-center gap-3 mb-3 group">
-            <Avatar className="h-12 w-12">
-              <AvatarImage src={post.author_avatar_url || undefined} alt={post.author_name || t('community.anonymous')} />
-              <AvatarFallback>{post.author_name?.charAt(0) || "A"}</AvatarFallback>
+          <CardTitle className="text-3xl font-bold mb-2">{post.title}</CardTitle>
+          {post.category && <CardDescription className="text-md text-primary font-medium mb-4">{t(POST_CATEGORIES.find(c => c.value === post.category)?.tKey ?? post.category)}</CardDescription>}
+
+          <div className="flex items-center justify-between w-full text-sm">
+            <Link
+              to={post.author?.username ? `/users/${post.author.username}` : '#'}
+              className={cn(
+                "flex items-center gap-2 group",
+                !post.author?.username && "pointer-events-none"
+              )}
+            >
+              <Avatar className="h-8 w-8">
+              <AvatarImage src={post.author?.avatar_url || undefined} alt={post.author?.full_name || t('community.anonymous')} />
+              <AvatarFallback>{post.author?.full_name?.charAt(0) || "A"}</AvatarFallback>
             </Avatar>
-            <div>
-              <p className="text-lg font-semibold group-hover:underline">{post.author_name || t('community.anonymous')}</p>
-              <p className="text-sm text-muted-foreground">
+              <p className="font-semibold group-hover:underline">{post.author?.full_name || t('community.anonymous')}</p>
+            </Link>
+            <p className="text-muted-foreground">
                 {DateTime.fromISO(post.created_at).toLocaleString(DateTime.DATETIME_MED) || ""}
               </p>
             </div>
-          </Link>
-          <CardTitle className="text-3xl font-bold mb-1">{post.title}</CardTitle>
-          {post.category && <CardDescription className="text-md text-primary font-medium">{t(`community.new_post_page.categories.${post.category}`)}</CardDescription>}
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           <div className="prose dark:prose-invert max-w-none whitespace-pre-line">
             {post.content}
           </div>
@@ -233,12 +244,18 @@ export default function CommunityPostDetailPage({ loaderData }: { loaderData: Co
           <Card key={comment.id} className="bg-muted/50">
             <CardHeader className="pb-2 pt-3 px-4">
               <div className="flex items-center justify-between">
-                <Link to={`/users/${comment.author_username}`} className="flex items-center gap-2 group">
+                <Link
+                  to={comment.author?.username ? `/users/${comment.author.username}` : '#'}
+                  className={cn(
+                    "flex items-center gap-2 group",
+                    !comment.author?.username && "pointer-events-none"
+                  )}
+                >
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={comment.author_avatar_url || undefined} alt={comment.author_name || t('community.anonymous')} />
-                    <AvatarFallback className="text-xs">{comment.author_name?.charAt(0) || "A"}</AvatarFallback>
+                    <AvatarImage src={comment.author?.avatar_url || undefined} alt={comment.author?.full_name || t('community.anonymous')} />
+                    <AvatarFallback className="text-xs">{comment.author?.full_name?.charAt(0) || "A"}</AvatarFallback>
                   </Avatar>
-                  <p className="font-semibold text-sm group-hover:underline">{comment.author_name || t('community.anonymous')}</p>
+                  <p className="font-semibold text-sm group-hover:underline">{comment.author?.full_name || t('community.anonymous')}</p>
                 </Link>
                 <div className="flex items-center gap-1">
                     <p className="text-xs text-muted-foreground">

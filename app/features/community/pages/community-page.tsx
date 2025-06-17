@@ -69,12 +69,12 @@ function PostCard({ post }: { post: CommunityPostWithAuthor }) {
           <Link to={`/community/${post.id}`}>{post.title}</Link>
         </CardTitle>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <Link to={`/users/${post.author_username}`} className="flex items-center gap-2 group">
+          <Link to={`/users/${post.author?.username}`} className="flex items-center gap-2 group">
             <Avatar className="h-6 w-6">
-              <AvatarImage src={post.author_avatar_url || undefined} alt={post.author_name || t('community.anonymous')} />
-              <AvatarFallback>{post.author_name?.charAt(0) || "A"}</AvatarFallback>
+              <AvatarImage src={post.author?.avatar_url || undefined} alt={post.author?.full_name || t('community.anonymous')} />
+              <AvatarFallback>{post.author?.username?.charAt(0) || "A"}</AvatarFallback>
             </Avatar>
-            <p className="font-medium group-hover:underline">{post.author_name || t('community.anonymous')}</p>
+            <p className="font-medium group-hover:underline">{post.author?.full_name || t('community.anonymous')}</p>
             <p>·</p>
             <p>{DateTime.fromISO(post.created_at).toRelative() || ""}</p>
           </Link>

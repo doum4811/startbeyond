@@ -7,7 +7,7 @@ import { getUserProfile, followUser, unfollowUser, getUserProfileById } from "..
 import { getOrCreateConversation } from "~/features/messages/queries";
 
 export const loader = async ({ request, params }: Route.LoaderArgs) => {
-  const { client, headers } = makeSSRClient(request);
+  const { client } = makeSSRClient(request);
   await client.rpc("track_event", {
     event_type: "profile_view",
     event_data: {
@@ -45,7 +45,7 @@ export async function action({ request, params }: Route.ActionArgs) {
             recipient_id: targetUser.profile_id,
             actor_id: currentUserId,
             type: 'new_follower',
-            message: `${currentUser.full_name}님이 회원님을 팔로우하기 시작했습니다.`,
+            message: `${currentUser.full_name ?? 'Someone'}님이 회원님을 팔로우하기 시작했습니다.`,
             resource_url: `/users/${currentUser.username}` 
         });
 

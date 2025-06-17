@@ -17,12 +17,9 @@ import {
 import { Textarea } from "~/common/components/ui/textarea";
 import { cn } from "~/lib/utils";
 import type { Route } from "./+types/profile-layout";
-import { getUserProfile, getFollowStatus, getFollowCounts, followUser, unfollowUser } from "../queries";
+import { getUserProfile, getFollowStatus, getFollowCounts } from "../queries";
 import { makeSSRClient } from "~/supa-client";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { getProfileId } from "../utils";
-import * as notificationQueries from "~/features/notifications/queries";
-import { getOrCreateConversation } from "~/features/messages/queries";
 
 export const meta: Route.MetaFunction = ({ data }) => {
   if (!data?.user) {
@@ -66,41 +63,6 @@ export const loader = async ({
   return { user, isFollowing, followers, following, isOwnProfile };
 };
 
-export async function action({ request, params }: Route.ActionArgs) {
-    const { client } = makeSSRClient(request);
-    const currentUserId = await getProfileId(request);
-    const { username } = params;
-
-    const targetUser = await getUserProfile(client, { username: username! });
-    if (!targetUser) {
-        throw new Response("Target user not found", { status: 404 });
-    }
-
-    const formData = await request.formData();
-    const intent = formData.get("intent");
-
-    if (intent === "follow") {
-        await followUser(client, { followerId: currentUserId, followingId: targetUser.profile_id });
-        
-        // // Add a notification for the followed user
-        // await client.from('notifications').insert({
-        //     recipient_id: targetUser.profile_id,
-        //     actor_id: currentUserId,
-        //     type: 'new_follower',
-        //     message: `${currentUser.full_name} started following you.`,
-        //     resource_url: `/users/${params.username}` 
-        // });
-
-    } else if (intent === "unfollow") {
-        await unfollowUser(client, { followerId: currentUserId, followingId: targetUser.profile_id });
-    } else if (intent === "message") {
-        const conversationId = await getOrCreateConversation(client, currentUserId, targetUser.profile_id);
-        return redirect(`/messages/${conversationId}`);
-    }
-
-    return { ok: true };
-}
-
 export default function ProfileLayout({
   loaderData,
   params,
@@ -128,22 +90,24 @@ export default function ProfileLayout({
                 <Link to={`/users/${user.username}/edit`}>Edit profile</Link>
               </Button>
             ) : (
-              <fetcher.Form method="post">
-                <Button 
-                    type="submit" 
+              <div className="flex gap-2">
+                <fetcher.Form method="post" action={`/users/${user.username}`}>
+                  <Button
+                    type="submit"
                     name="intent"
                     value={isFollowing ? "unfollow" : "follow"}
                     variant={isFollowing ? "secondary" : "default"}
-                >
+                  >
                     {isFollowing ? "Unfollow" : "Follow"}
-                </Button>
-              </fetcher.Form>
-            )}
-            <fetcher.Form method="post">
-                <Button variant="secondary" type="submit" name="intent" value="message">
+                  </Button>
+                </fetcher.Form>
+                <fetcher.Form method="post" action={`/users/${user.username}`}>
+                  <Button variant="secondary" type="submit" name="intent" value="message">
                     Message
-                </Button>
-            </fetcher.Form>
+                  </Button>
+                </fetcher.Form>
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             <span className="text-sm text-muted-foreground">
