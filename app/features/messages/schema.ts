@@ -1,14 +1,24 @@
-import { pgTable, text, timestamp, uuid, primaryKey, boolean, pgPolicy } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, primaryKey, boolean, pgPolicy, foreignKey } from "drizzle-orm/pg-core";
 import { profiles } from "~/features/users/schema";
 import { sql } from "drizzle-orm";
 
 // 대화 (두 사용자 간의 채팅방)
 export const conversations = pgTable("conversations", {
     id: uuid("id").primaryKey().defaultRandom(),
-    participant1_id: uuid("participant1_id").notNull().references(() => profiles.profile_id, { onDelete: "cascade" }),
-    participant2_id: uuid("participant2_id").notNull().references(() => profiles.profile_id, { onDelete: "cascade" }),
+    participant1_id: uuid("participant1_id").notNull(),
+    participant2_id: uuid("participant2_id").notNull(),
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (table) => ({
+    participant1Fk: foreignKey({
+        columns: [table.participant1_id],
+        foreignColumns: [profiles.profile_id],
+        name: "conversations_participant1_id_fkey"
+    }).onDelete("cascade"),
+    participant2Fk: foreignKey({
+        columns: [table.participant2_id],
+        foreignColumns: [profiles.profile_id],
+        name: "conversations_participant2_id_fkey"
+    }).onDelete("cascade"),
     rls: pgPolicy("conversations_rls", {
         for: "all",
         to: "authenticated",

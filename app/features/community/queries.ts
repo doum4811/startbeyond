@@ -23,11 +23,13 @@ const COMMUNITY_POST_COLUMNS = `
   updated_at
 `;
 
+// Define a type for the author's profile information
+type AuthorProfile = Pick<Database['public']['Tables']['profiles']['Row'], 'username' | 'full_name' | 'avatar_url'>;
+
+
 // We'll need profile information too, so let's define a type for post with author
 export interface CommunityPostWithAuthor extends CommunityPost {
-  author_name: string | null;
-  author_username: string | null;
-  author_avatar_url: string | null;
+  author: AuthorProfile | null;
   comment_count: number;
 }
 
@@ -42,9 +44,7 @@ const COMMUNITY_COMMENT_COLUMNS = `
 `;
 
 export interface CommunityCommentWithAuthor extends CommunityComment {
-  author_name: string | null;
-  author_username: string | null;
-  author_avatar_url: string | null;
+  author: AuthorProfile | null;
 }
 
 export const POSTS_PER_PAGE = 10;
@@ -63,11 +63,12 @@ export const getCommunityPosts = async (
     .select(
       `
       ${COMMUNITY_POST_COLUMNS},
-      profiles (
+      author:profiles (
         username,
+        full_name,
         avatar_url
       ),
-      community_comments(count)
+      comment_count:community_comments(count)
     `,
       { count: "exact" }
     );
@@ -91,11 +92,9 @@ export const getCommunityPosts = async (
   }
   
   const posts = (data || []).map((post) => ({
-    ...(post as CommunityPost),
-    author_name: post.profiles?.username || "Unknown User",
-    author_username: post.profiles?.username || null,
-    author_avatar_url: post.profiles?.avatar_url || null,
-    comment_count: (post.community_comments as unknown as [{ count: number }])?.[0]?.count ?? 0,
+    ...post,
+    author: post.author as AuthorProfile | null,
+    comment_count: (post.comment_count as unknown as [{ count: number }])?.[0]?.count ?? 0,
   }));
 
   return { posts, count: count ?? 0 };
@@ -109,8 +108,9 @@ export const getCommunityPostById = async (
     .from("community_posts")
     .select(`
       ${COMMUNITY_POST_COLUMNS},
-      profiles (
+      author:profiles (
         username,
+        full_name,
         avatar_url
       )
     `)
@@ -125,10 +125,8 @@ export const getCommunityPostById = async (
   if (!data) return null;
 
   const postWithAuthor: CommunityPostWithAuthor = {
-    ...(data as CommunityPost),
-    author_name: data.profiles?.username || 'Unknown User',
-    author_username: data.profiles?.username || null,
-    author_avatar_url: data.profiles?.avatar_url || null,
+    ...(data as Omit<typeof data, 'author'>),
+    author: data.author as AuthorProfile | null,
     comment_count: 0, // Not needed on detail page, but required by type
   };
   return postWithAuthor;
@@ -198,9 +196,15 @@ export const getCommentsByPostId = async (
   const { data, error } = await client
     .from("community_comments")
     .select(`
-      ${COMMUNITY_COMMENT_COLUMNS},
-      profiles (
+      id,
+      post_id,
+      profile_id,
+      content,
+      created_at,
+      updated_at,
+      author:profiles (
         username,
+        full_name,
         avatar_url
       )
     `)
@@ -213,10 +217,8 @@ export const getCommentsByPostId = async (
     throw new Error(error.message);
   }
   return (data || []).map(comment => ({
-    ...(comment as CommunityComment),
-    author_name: comment.profiles?.username || 'Unknown User',
-    author_username: comment.profiles?.username || null,
-    author_avatar_url: comment.profiles?.avatar_url || null,
+    ...comment,
+    author: comment.author as AuthorProfile | null,
   }));
 }
 

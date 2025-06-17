@@ -149,14 +149,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "conversations_participant1_id_profiles_profile_id_fk"
+            foreignKeyName: "conversations_participant1_id_fkey"
             columns: ["participant1_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["profile_id"]
           },
           {
-            foreignKeyName: "conversations_participant2_id_profiles_profile_id_fk"
+            foreignKeyName: "conversations_participant2_id_fkey"
             columns: ["participant2_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -1004,13 +1004,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      track_event: {
-        Args: {
-          event_type: string
-          event_data: Json
-        }
-        Returns: undefined
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never
