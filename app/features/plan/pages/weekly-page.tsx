@@ -28,6 +28,7 @@ import type { CategoryCode, UICategory } from "~/common/types/daily";
 import { CategorySelector } from "~/common/components/ui/CategorySelector";
 import * as settingsQueries from "~/features/settings/queries";
 import { makeSSRClient } from "~/supa-client";
+import { getProfileId } from "~/features/users/utils";
 
 // --- UI Specific Types ---
 interface WeeklyTaskUI {
@@ -54,17 +55,6 @@ interface MonthlyGoalUI extends Pick<DbMonthlyGoal, 'id' | 'category_code' | 'ti
 }
 
 // --- Helper Functions ---
-async function getProfileId(request: Request): Promise<string> {
-  const { client } = makeSSRClient(request);
-  const { data: { user } } = await client.auth.getUser();
-  
-  if (!user) {
-    throw new Error("User not authenticated");
-  }
-  
-  return user.id;
-}
-
 function getCurrentWeekStartDateISO(): string {
   return DateTime.now().startOf('week').toISODate();
 }

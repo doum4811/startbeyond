@@ -21,6 +21,10 @@ import { CategoryDistributionList } from "../components/CategoryDistributionList
 import { SubcodeDistributionList } from "../components/SubcodeDistributionList";
 import type { SummaryPageLoaderData } from '../types';
 import i18next from "i18next";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from '~/common/components/ui/select';
+import { getRequiredProfileId } from '~/features/users/utils';
 
 Font.register({
   family: "Noto Sans KR",
@@ -180,15 +184,10 @@ const SummaryReportPDF = ({
 );
 };
 
-async function getProfileId(request: Request): Promise<string> {
-  const { client } = makeSSRClient(request);
-  const { data } = await client.auth.getUser();
-  if (!data?.user) throw new Error("User not authenticated");
-  return data.user.id;
-}
-
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<SummaryPageLoaderData> => {
-  const profileId = await getProfileId(request);
+  const { client } = makeSSRClient(request);
+  const profileId = await getRequiredProfileId(request);
+
   const url = new URL(request.url);
   const monthParam = url.searchParams.get("month") || DateTime.now().toFormat("yyyy-MM");
   const selectedMonthStart = DateTime.fromFormat(monthParam, "yyyy-MM").startOf("month");
@@ -196,8 +195,6 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<SummaryPa
   const prevMonthStart = selectedMonthStart.minus({ months: 1 });
   const prevMonthEnd = prevMonthStart.endOf("month");
   
-  const { client } = makeSSRClient(request);
-
   const [
       cachedStats,
       userCategoriesData,

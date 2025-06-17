@@ -25,7 +25,7 @@ export default [
     route("notifications", "features/notifications/pages/notifications-page.tsx"),
     ...prefix("settings", [
       index("features/settings/pages/categories-settings-page.tsx"),
-
+      route("profile", "features/settings/pages/profile-settings-page.tsx"),
     ]),
     ...prefix("messages", [
         layout("features/messages/layouts/messages-layout.tsx", [

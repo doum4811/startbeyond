@@ -566,3 +566,23 @@ export const getDatesWithRecords = async (
     const distinctDates = [...new Set(data.map(item => item.date))];
     return distinctDates.map(date => ({ date }));
 }
+
+export const createMultipleDailyRecords = async (
+  client: pkg.SupabaseClient<Database>,
+  recordsData: DailyRecordInsert[]
+) => {
+  if (!recordsData || recordsData.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await client
+    .from("daily_records")
+    .insert(recordsData)
+    .select(DAILY_RECORD_COLUMNS);
+
+  if (error) {
+    console.error("Error creating multiple daily records:", error.message);
+    throw new Error(error.message);
+  }
+  return data;
+}

@@ -45,6 +45,7 @@ import type { DetailedCategorySummary, SubcodeDetail } from "~/features/stats/qu
 import type { CategoryCode, UICategory } from "~/common/types/daily";
 import { CATEGORIES as DEFAULT_CATEGORIES } from "~/common/types/daily";
 import { useTranslation } from "react-i18next";
+import { getRequiredProfileId } from "~/features/users/utils";
 
 interface GoalAchievementStats {
   totalPlans: number;
@@ -56,31 +57,18 @@ interface GoalAchievementStats {
 }
 
 export interface CategoryPageLoaderData {
-  profileId: string | null;
+  profileId: string;
   categories: UICategory[];
   detailedSummary: DetailedCategorySummary[];
   selectedMonthISO: string;
   goalStats: GoalAchievementStats;
 }
 
-async function getProfileId(request: Request): Promise<string | null> {
-  try {
-    const { client } = makeSSRClient(request);
-    const {
-      data: { user },
-    } = await client.auth.getUser();
-    return user?.id || null;
-  } catch (error) {
-    console.warn("Failed to get profileId in loader:", error);
-    return null;
-  }
-}
-
 export const loader = async ({
   request,
 }: LoaderFunctionArgs): Promise<CategoryPageLoaderData> => {
-  const profileId = await getProfileId(request);
   const { client } = makeSSRClient(request);
+  const profileId = await getRequiredProfileId(request);
   const url = new URL(request.url);
   const monthParam = url.searchParams.get("month") || DateTime.now().toFormat("yyyy-MM");
   const monthStart = DateTime.fromFormat(monthParam, "yyyy-MM").startOf("month");
@@ -98,137 +86,127 @@ export const loader = async ({
     categoryCompletion: {},
   };
 
-  if (profileId) {
-    const [userCategoriesDb, summary, plans, records] = await Promise.all([
-      getUserCategories(client, { profileId }),
-      statsQueries.calculateDetailedCategorySummary(client, {
-        profileId,
-        startDate,
-        endDate,
-      }),
-      planQueries.getDailyPlansByPeriod(client, { profileId, startDate, endDate }),
-      dailyQueries.getDailyRecordsByPeriod(client, { profileId, startDate, endDate }),
-    ]);
+  const [userCategoriesDb, summary, plans, records] = await Promise.all([
+    getUserCategories(client, { profileId }),
+    statsQueries.calculateDetailedCategorySummary(client, {
+      profileId,
+      startDate,
+      endDate,
+    }),
+    planQueries.getDailyPlansByPeriod(client, { profileId, startDate, endDate }),
+    dailyQueries.getDailyRecordsByPeriod(client, { profileId, startDate, endDate }),
+  ]);
 
-    const finalCategories: UICategory[] = [];
-    const defaultCategoriesMap = new Map(Object.values(DEFAULT_CATEGORIES).map((value) => [value.code, {...value, color: null, isCustom: false, isActive: true}]));
-    const userCategoriesMap = new Map(userCategoriesDb.map(c => [c.code, c]));
+  const finalCategories: UICategory[] = [];
+  const defaultCategoriesMap = new Map(Object.values(DEFAULT_CATEGORIES).map((value) => [value.code, {...value, color: null, isCustom: false, isActive: true}]));
+  const userCategoriesMap = new Map(userCategoriesDb.map(c => [c.code, c]));
 
-    defaultCategoriesMap.forEach((defaultCat, code) => {
-        const userOverride = userCategoriesMap.get(code);
-        if (userOverride) {
-            finalCategories.push({
-                ...defaultCat,
-                label: userOverride.label || defaultCat.label,
-                icon: userOverride.icon || defaultCat.icon,
-                color: userOverride.color || defaultCat.color,
-                isCustom: true, 
-                isActive: userOverride.is_active,
-                sort_order: userOverride.sort_order ?? defaultCat.sort_order,
-            });
-            userCategoriesMap.delete(code); 
-        } else {
-            finalCategories.push(defaultCat);
-        }
-    });
-
-    userCategoriesMap.forEach(userCat => {
-        finalCategories.push({
-            code: userCat.code,
-            label: userCat.label,
-            icon: userCat.icon || '📝',
-            color: userCat.color,
-            isCustom: true,
-            isActive: userCat.is_active,
-            hasDuration: true, 
-            sort_order: userCat.sort_order ?? 1000,
-        });
-    });
-    
-    uiCategories = finalCategories.sort(
-      (a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999),
-    );
-    const activeCategories = uiCategories.filter(c => c.isActive);
-    const activeCategoryCodes = new Set(activeCategories.map(c => c.code));
-    
-    detailedSummary = summary.filter(s => activeCategoryCodes.has(s.category_code));
-  
-    // Calculate Goal Stats
-    if (plans && plans.length > 0) {
-      const completedPlanIds = new Set(records.map(r => r.linked_plan_id).filter(Boolean));
-      const plansByCategory: Record<string, { total: number; completed: number; category: UICategory }> = {};
-      
-      activeCategories.forEach(cat => {
-        plansByCategory[cat.code] = { total: 0, completed: 0, category: cat };
-      });
-      
-      const plansByDate: Record<string, { total: number; completed: number }> = {};
-
-      for (const plan of plans) {
-        if (!plan.plan_date) continue;
-        
-        if (!plansByDate[plan.plan_date]) {
-          plansByDate[plan.plan_date] = { total: 0, completed: 0 };
-        }
-        plansByDate[plan.plan_date].total++;
-        
-        const isCompleted = completedPlanIds.has(plan.id);
-        if (isCompleted) {
-          plansByDate[plan.plan_date].completed++;
-        } else {
-          goalStats.uncheckedPlans.push({
-            plan,
-            category: uiCategories.find(c => c.code === plan.category_code)
+  defaultCategoriesMap.forEach((defaultCat, code) => {
+      const userOverride = userCategoriesMap.get(code);
+      if (userOverride) {
+          finalCategories.push({
+              ...defaultCat,
+              label: userOverride.label || defaultCat.label,
+              icon: userOverride.icon || defaultCat.icon,
+              color: userOverride.color || defaultCat.color,
+              isCustom: true, 
+              isActive: userOverride.is_active,
+              sort_order: userOverride.sort_order ?? defaultCat.sort_order,
           });
-        }
-        
-        if (plan.category_code && plansByCategory[plan.category_code]) {
-          plansByCategory[plan.category_code].total++;
-          if (isCompleted) {
-            plansByCategory[plan.category_code].completed++;
-          }
-        }
+          userCategoriesMap.delete(code); 
+      } else {
+          finalCategories.push(defaultCat);
       }
+  });
 
-      goalStats.totalPlans = plans.length;
-      goalStats.completedPlans = completedPlanIds.size;
-      goalStats.completionRate = plans.length > 0 ? Math.round((completedPlanIds.size / plans.length) * 100) : 0;
-
-      Object.keys(plansByCategory).forEach(code => {
-        const catData = plansByCategory[code];
-        if (catData.total > 0) {
-          goalStats.categoryCompletion[code] = {
-            ...catData,
-            rate: Math.round((catData.completed / catData.total) * 100)
-          };
-        }
+  userCategoriesMap.forEach(userCat => {
+      finalCategories.push({
+          code: userCat.code,
+          label: userCat.label,
+          icon: userCat.icon || '📝',
+          color: userCat.color,
+          isCustom: true,
+          isActive: userCat.is_active,
+          hasDuration: true, 
+          sort_order: userCat.sort_order ?? 1000,
       });
+  });
+  
+  uiCategories = finalCategories.sort(
+    (a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999),
+  );
+  const activeCategories = uiCategories.filter(c => c.isActive);
+  const activeCategoryCodes = new Set(activeCategories.map(c => c.code));
+  
+  detailedSummary = summary.filter(s => activeCategoryCodes.has(s.category_code));
+
+  // Calculate Goal Stats
+  if (plans && plans.length > 0) {
+    const completedPlanIds = new Set(records.map(r => r.linked_plan_id).filter(Boolean));
+    const plansByCategory: Record<string, { total: number; completed: number; category: UICategory }> = {};
+    
+    activeCategories.forEach(cat => {
+      plansByCategory[cat.code] = { total: 0, completed: 0, category: cat };
+    });
+    
+    const plansByDate: Record<string, { total: number; completed: number }> = {};
+
+    for (const plan of plans) {
+      if (!plan.plan_date) continue;
       
-      let currentStreak = 0;
-      let longestStreak = 0;
-      for (let day = monthStart; day <= monthStart.endOf("month"); day = day.plus({ days: 1 })) {
-          const dateStr = day.toISODate()!;
-          const dayPlans = plansByDate[dateStr];
-          if (dayPlans && dayPlans.total > 0 && dayPlans.total === dayPlans.completed) {
-              currentStreak++;
-          } else {
-              longestStreak = Math.max(longestStreak, currentStreak);
-              currentStreak = 0;
-          }
+      if (!plansByDate[plan.plan_date]) {
+        plansByDate[plan.plan_date] = { total: 0, completed: 0 };
       }
-      longestStreak = Math.max(longestStreak, currentStreak);
-      goalStats.longestStreak = longestStreak;
+      plansByDate[plan.plan_date].total++;
+      
+      const isCompleted = completedPlanIds.has(plan.id);
+      if (isCompleted) {
+        plansByDate[plan.plan_date].completed++;
+      } else {
+        goalStats.uncheckedPlans.push({
+          plan,
+          category: uiCategories.find(c => c.code === plan.category_code)
+        });
+      }
+      
+      if (plan.category_code && plansByCategory[plan.category_code]) {
+        plansByCategory[plan.category_code].total++;
+        if (isCompleted) {
+          plansByCategory[plan.category_code].completed++;
+        }
+      }
     }
-  } else {
-     uiCategories = Object.values(DEFAULT_CATEGORIES).map((c) => ({
-        ...c,
-        isCustom: false,
-        isActive: true,
-      }));
+
+    goalStats.totalPlans = plans.length;
+    goalStats.completedPlans = completedPlanIds.size;
+    goalStats.completionRate = plans.length > 0 ? Math.round((completedPlanIds.size / plans.length) * 100) : 0;
+
+    Object.keys(plansByCategory).forEach(code => {
+      const catData = plansByCategory[code];
+      if (catData.total > 0) {
+        goalStats.categoryCompletion[code] = {
+          ...catData,
+          rate: Math.round((catData.completed / catData.total) * 100)
+        };
+      }
+    });
+    
+    let currentStreak = 0;
+    let longestStreak = 0;
+    for (let day = monthStart; day <= monthStart.endOf("month"); day = day.plus({ days: 1 })) {
+        const dateStr = day.toISODate()!;
+        const dayPlans = plansByDate[dateStr];
+        if (dayPlans && dayPlans.total > 0 && dayPlans.total === dayPlans.completed) {
+            currentStreak++;
+        } else {
+            longestStreak = Math.max(longestStreak, currentStreak);
+            currentStreak = 0;
+        }
+    }
+    longestStreak = Math.max(longestStreak, currentStreak);
+    goalStats.longestStreak = longestStreak;
   }
   
-  const activeCategories = uiCategories.filter(c => c.isActive);
-
   return {
     profileId,
     categories: activeCategories,

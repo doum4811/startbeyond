@@ -14,6 +14,7 @@ import type { CategoryCode, UICategory } from "~/common/types/daily";
 import { CATEGORIES as DEFAULT_CATEGORIES } from "~/common/types/daily";
 import { useTranslation } from "react-i18next";
 import { ComparisonCard } from "~/features/stats/components/ComparisonCard";
+import { getRequiredProfileId } from "~/features/users/utils";
 
 // Mock Categories (fallback if DB fetch fails)
 const MOCK_UI_CATEGORIES: UICategory[] = Object.values(DEFAULT_CATEGORIES).map(cat => ({
@@ -24,39 +25,26 @@ const MOCK_UI_CATEGORIES: UICategory[] = Object.values(DEFAULT_CATEGORIES).map(c
   hasDuration: true,
 }));
 
-async function getProfileId(request: Request): Promise<string | null> {
-  try {
-    const { client } = makeSSRClient(request);
-    const { data: { user } } = await client.auth.getUser();
-    return user?.id || null;
-  } catch (error) {
-    console.warn("Failed to get profileId in advanced-page loader:", error);
-    return null;
-  }
-}
-
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<AdvancedPageLoaderData> => {
-  let profileId: string | null = null;
-  let uiCategories: UICategory[] = MOCK_UI_CATEGORIES;
   const { client } = makeSSRClient(request);
+  const profileId = await getRequiredProfileId(request);
+
+  let uiCategories: UICategory[] = MOCK_UI_CATEGORIES;
 
   try {
-    profileId = await getProfileId(request);
-    if (profileId) {
-      const dbUserCategories = await getUserCategories(client, { profileId });
-      if (dbUserCategories && dbUserCategories.length > 0) {
-        const fetchedCategories = dbUserCategories.map(cat => ({
-          code: cat.code as CategoryCode,
-          label: cat.label,
-          icon: cat.icon || '❓',
-          color: cat.color,
-          isCustom: true, 
-          isActive: cat.is_active ?? true,
-          sort_order: cat.sort_order ?? 1000,
-          hasDuration: true, 
-        }));
-        uiCategories = fetchedCategories.length > 0 ? fetchedCategories : MOCK_UI_CATEGORIES;
-      }
+    const dbUserCategories = await getUserCategories(client, { profileId });
+    if (dbUserCategories && dbUserCategories.length > 0) {
+      const fetchedCategories = dbUserCategories.map(cat => ({
+        code: cat.code as CategoryCode,
+        label: cat.label,
+        icon: cat.icon || '❓',
+        color: cat.color,
+        isCustom: true, 
+        isActive: cat.is_active ?? true,
+        sort_order: cat.sort_order ?? 1000,
+        hasDuration: true, 
+      }));
+      uiCategories = fetchedCategories.length > 0 ? fetchedCategories : MOCK_UI_CATEGORIES;
     }
   } catch (error) {
     console.error("Error fetching categories in advanced-page loader:", error);
@@ -75,65 +63,48 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<AdvancedP
       weekly: { time: { current: 0, prev: 0 }, records: { current: 0, prev: 0 } },
   };
 
-  if (profileId) {
-    const startDate = DateTime.fromObject({ year: currentYear }).startOf('year').toISODate()!;
-    const endDate = DateTime.fromObject({ year: currentYear }).endOf('year').toISODate()!;
-    
-    const [yearlyActivity, fetchedComparisonStats] = await Promise.all([
-        statsQueries.calculateActivityHeatmap(client, { profileId, startDate, endDate }),
-        statsQueries.getComparisonStats(client, { profileId })
-    ]);
-    
-    comparisonStats = fetchedComparisonStats;
+  const startDate = DateTime.fromObject({ year: currentYear }).startOf('year').toISODate()!;
+  const endDate = DateTime.fromObject({ year: currentYear }).endOf('year').toISODate()!;
+  
+  const [yearlyActivity, fetchedComparisonStats] = await Promise.all([
+      statsQueries.calculateActivityHeatmap(client, { profileId, startDate, endDate }),
+      statsQueries.getComparisonStats(client, { profileId })
+  ]);
+  
+  comparisonStats = fetchedComparisonStats;
 
-    const activityByDate: { [date: string]: ActivityHeatmapType } = {};
-    for (const day of yearlyActivity) {
-        activityByDate[day.date] = day;
-    }
+  const activityByDate: { [date: string]: ActivityHeatmapType } = {};
+  for (const day of yearlyActivity) {
+      activityByDate[day.date] = day;
+  }
 
-    let maxCategoryIntensity = 1;
-    for (const day of yearlyActivity) {
-      for (const catCode in day.categories) {
-        if (day.categories[catCode as CategoryCode] > maxCategoryIntensity) {
-          maxCategoryIntensity = day.categories[catCode as CategoryCode];
-        }
+  let maxCategoryIntensity = 1;
+  for (const day of yearlyActivity) {
+    for (const catCode in day.categories) {
+      if (day.categories[catCode as CategoryCode] > maxCategoryIntensity) {
+        maxCategoryIntensity = day.categories[catCode as CategoryCode];
       }
     }
-    
-    for (const code of activeCategoryCodes) {
-        const categoryYearlyData: HeatmapData[] = [];
-        let currentDate = DateTime.fromObject({ year: currentYear }).startOf('year');
-        
-        while (currentDate.year === currentYear) {
-            const dateStr = currentDate.toISODate()!;
-            const dayData = activityByDate[dateStr];
-            const categoryCount = dayData?.categories[code] || 0;
-            
-            categoryYearlyData.push({
-                date: dateStr,
-                intensity: categoryCount / maxCategoryIntensity,
-                categories: { [code]: categoryCount } as Record<CategoryCode, number>,
-                total: categoryCount,
-            });
-            currentDate = currentDate.plus({ days: 1 });
-        }
-        yearlyCategoryHeatmapData[code] = categoryYearlyData;
-    }
-  } else {
-    // For non-logged-in users, data is already initialized with empty arrays.
-    // We can fill with empty day placeholders if needed, but for now this is fine.
-    activeCategoryCodes.forEach(code => {
-        const dailyData = Array.from({ length: 365 }, (_, i) => {
-            const date = DateTime.now().startOf('year').plus({ days: i });
-            return {
-              date: date.toFormat("yyyy-MM-dd"),
-              intensity: 0,
-              categories: {} as Record<CategoryCode, number>,
-              total: 0,
-            } as HeatmapData;
+  }
+  
+  for (const code of activeCategoryCodes) {
+      const categoryYearlyData: HeatmapData[] = [];
+      let currentDate = DateTime.fromObject({ year: currentYear }).startOf('year');
+      
+      while (currentDate.year === currentYear) {
+          const dateStr = currentDate.toISODate()!;
+          const dayData = activityByDate[dateStr];
+          const categoryCount = dayData?.categories[code] || 0;
+          
+          categoryYearlyData.push({
+              date: dateStr,
+              intensity: categoryCount / maxCategoryIntensity,
+              categories: { [code]: categoryCount } as Record<CategoryCode, number>,
+              total: categoryCount,
           });
-        yearlyCategoryHeatmapData[code] = dailyData;
-    });
+          currentDate = currentDate.plus({ days: 1 });
+      }
+      yearlyCategoryHeatmapData[code] = categoryYearlyData;
   }
 
   const usedCategoryCodes = new Set(Object.keys(yearlyCategoryHeatmapData).filter(code => 
@@ -142,11 +113,11 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<AdvancedP
 
   const categoriesForGrid = uiCategories.filter(c => usedCategoryCodes.has(c.code));
 
-  const categoryDistribution = profileId ? await statsQueries.calculateCategoryDistribution(client, {
+  const categoryDistribution = await statsQueries.calculateCategoryDistribution(client, {
     profileId,
     startDate: DateTime.fromObject({ year: currentYear }).startOf('year').toISODate()!,
     endDate: DateTime.fromObject({ year: currentYear }).endOf('year').toISODate()!,
-  }) : [];
+  });
 
   const categoryDistributionWithPercentage = (() => {
     if (!categoryDistribution || categoryDistribution.length === 0) return [];

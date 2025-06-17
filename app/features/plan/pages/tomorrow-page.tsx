@@ -21,6 +21,7 @@ import type { DailyPlan as DbDailyPlan, DailyPlanInsert, DailyPlanUpdate, Weekly
 import * as settingsQueries from "~/features/settings/queries";
 import type { UserCategory as DbUserCategory, UserDefaultCodePreference as DbUserDefaultCodePreference } from "~/features/settings/queries";
 import { makeSSRClient } from "~/supa-client";
+import { getProfileId } from "~/features/users/utils";
 
 // UI-specific types
 // REMOVE UICategory interface definition from here
@@ -48,7 +49,7 @@ interface WeeklyTaskUI extends Pick<DbWeeklyTask, 'id' | 'category_code' | 'comm
 //   // return "ef20d66d-ed8a-4a14-ab2b-b7ff26f2643c";
 //   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a";
 // }
-async function getProfileId(request: Request): Promise<string> {
+/* async function getProfileId(request: Request): Promise<string> {
   const { client } = makeSSRClient(request);
   const { data: { user } } = await client.auth.getUser();
   
@@ -57,7 +58,7 @@ async function getProfileId(request: Request): Promise<string> {
   }
   
   return user.id;
-}
+} */
 function getTomorrowDateISO(): string {
   return DateTime.now().plus({ days: 1 }).toISODate()!;
 }
