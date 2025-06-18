@@ -17,8 +17,8 @@ export interface UICategory {
 export interface DailyRecordUI {
   id: string;
   date: string;
-  category_code: string;
-  duration?: number;
+  category_code: CategoryCode;
+  duration_minutes?: number | null;
   comment: string | null;
   subcode: string | null;
   is_public: boolean;
@@ -26,6 +26,10 @@ export interface DailyRecordUI {
   memos?: MemoUI[];
   created_at?: string;
   updated_at?: string;
+  profile_id: string;
+  is_bookmarked?: boolean;
+  evidence_url?: string | null;
+  memo?: string | null;
 }
 
 export interface DailyNoteUI extends Omit<DbDailyNote, "date" | "created_at" | "updated_at"> {
@@ -39,11 +43,10 @@ export interface DailyNoteUI extends Omit<DbDailyNote, "date" | "created_at" | "
 export interface MemoUI {
   id: string;
   record_id: string | null;
-  profile_id: string;
-  title: string | null;
+  title: string;
   content: string;
-  created_at?: string;
-  updated_at?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface DailyPlanUI {

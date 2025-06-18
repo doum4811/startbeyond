@@ -402,10 +402,28 @@
         "time_unit_minutes": "m"
     },
     "share_dialog": {
-        "title": "Share Settings for '{{categoryCode}}'",
-        "show_summary": "Key Stats",
-        "show_activity_trend": "Activity Trend (Chart)",
-        "show_goal_progress": "Goal Progress"
+        "title": "Share Settings for '{{period}}' Report",
+        "title_summary": "Share Settings for Summary Report",
+        "title_advanced": "Share Settings for {{year}} Advanced Report",
+        "title_category": "Share Settings for {{month}} Category Report",
+        "title_records": "Share Settings for {{range}} Records Report",
+        "description": "Create a public link and choose what data to share.",
+        "make_public": "Make link public",
+        "include_in_share": "Include in share",
+        "options": {
+            "include_summary": "Weekly/Monthly Comparison Summary",
+            "include_subcode_distribution": "Subcode Distribution",
+            "include_heatmap": "Yearly Heatmap",
+            "include_comparison": "Period Comparison",
+            "include_goals": "Goal Achievement",
+            "include_notes": "Daily Notes",
+            "include_records_list": "Records List"
+        },
+        "copy_link": "Copy Link",
+        "link_copied": "Copied!",
+        "saving": "Saving...",
+        "saved": "All changes saved.",
+        "close": "Close"
     },
     "stats_records_page": {
         "title": "Activity Records",
@@ -421,7 +439,11 @@
         "end_date": "End Date",
         "apply_period": "Apply Period",
         "description_month": "Displaying data for {{month}}.",
-        "description_period": "Displaying data from {{startDate}} to {{endDate}}."
+        "description_period": "Displaying data from {{startDate}} to {{endDate}}.",
+        "include_records_list_desc": "Controls if the list of records is included on the shared page.",
+        "include_notes_label": "Include Daily Notes",
+        "include_notes_desc": "Controls if the daily notes are included on the shared page.",
+        "memos": "Memos"
     },
     "stats_category_page": {
         "title": "Detailed Category Statistics",
@@ -521,5 +543,10 @@
         "not_found": "The shared link could not be found or is no longer valid.",
         "content_placeholder": "Shared statistics data will be displayed here.",
         "back_to_app": "Back to App"
+    },
+    "page_not_found": {
+        "title": "Page Not Found",
+        "description": "Sorry, we couldn't find the page you were looking for.",
+        "go_home": "Go back home"
     }
 } 

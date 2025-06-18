@@ -98,9 +98,9 @@ export function SearchRecords({ records, categories, onSearch }: Props) {
                   </div>
                   <div className="mt-2">
                     <p className="text-sm">{record.comment}</p>
-                    {record.duration && (
+                    {record.duration_minutes && (
                       <p className="text-sm text-muted-foreground mt-1">
-                        {record.duration}분
+                        {record.duration_minutes}분
                       </p>
                     )}
                   </div>

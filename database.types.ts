@@ -9,45 +9,6 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      category_stats: {
-        Row: {
-          category_code: string
-          count: number
-          created_at: string
-          id: string
-          percentage: number
-          period_end: string
-          period_start: string
-          profile_id: string
-          total_duration: number
-          updated_at: string
-        }
-        Insert: {
-          category_code: string
-          count?: number
-          created_at?: string
-          id?: string
-          percentage?: number
-          period_end: string
-          period_start: string
-          profile_id: string
-          total_duration?: number
-          updated_at?: string
-        }
-        Update: {
-          category_code?: string
-          count?: number
-          created_at?: string
-          id?: string
-          percentage?: number
-          period_end?: string
-          period_start?: string
-          profile_id?: string
-          total_duration?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       community_comments: {
         Row: {
           content: string
@@ -163,39 +124,6 @@ export type Database = {
             referencedColumns: ["profile_id"]
           },
         ]
-      }
-      daily_activity: {
-        Row: {
-          categories: Json
-          count: number
-          created_at: string
-          date: string
-          id: string
-          profile_id: string
-          total_duration: number
-          updated_at: string
-        }
-        Insert: {
-          categories?: Json
-          count?: number
-          created_at?: string
-          date: string
-          id?: string
-          profile_id: string
-          total_duration?: number
-          updated_at?: string
-        }
-        Update: {
-          categories?: Json
-          count?: number
-          created_at?: string
-          date?: string
-          id?: string
-          profile_id?: string
-          total_duration?: number
-          updated_at?: string
-        }
-        Relationships: []
       }
       daily_notes: {
         Row: {
@@ -540,45 +468,6 @@ export type Database = {
           },
         ]
       }
-      monthly_summary: {
-        Row: {
-          active_days: number
-          created_at: string
-          id: string
-          month: string
-          most_active_category: string | null
-          most_active_category_percentage: number | null
-          profile_id: string
-          total_duration: number
-          total_records: number
-          updated_at: string
-        }
-        Insert: {
-          active_days?: number
-          created_at?: string
-          id?: string
-          month: string
-          most_active_category?: string | null
-          most_active_category_percentage?: number | null
-          profile_id: string
-          total_duration?: number
-          total_records?: number
-          updated_at?: string
-        }
-        Update: {
-          active_days?: number
-          created_at?: string
-          id?: string
-          month?: string
-          most_active_category?: string | null
-          most_active_category_percentage?: number | null
-          profile_id?: string
-          total_duration?: number
-          total_records?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       notifications: {
         Row: {
           actor_id: string | null
@@ -632,7 +521,7 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           created_at: string
-          daily_record_visibility: string | null
+          daily_record_visibility: string
           full_name: string
           headline: string | null
           profile_id: string
@@ -645,7 +534,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
-          daily_record_visibility?: string | null
+          daily_record_visibility?: string
           full_name: string
           headline?: string | null
           profile_id: string
@@ -658,7 +547,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
-          daily_record_visibility?: string | null
+          daily_record_visibility?: string
           full_name?: string
           headline?: string | null
           profile_id?: string
@@ -669,41 +558,38 @@ export type Database = {
         }
         Relationships: []
       }
-      share_settings: {
+      shared_links: {
         Row: {
           created_at: string
           id: string
-          include_daily_notes: boolean
-          include_memos: boolean
-          include_records: boolean
-          include_stats: boolean
           is_public: boolean
+          page_type: string
+          period: string
           profile_id: string
-          share_link_token: string | null
+          settings: Json | null
+          token: string
           updated_at: string
         }
         Insert: {
           created_at?: string
-          id: string
-          include_daily_notes?: boolean
-          include_memos?: boolean
-          include_records?: boolean
-          include_stats?: boolean
+          id?: string
           is_public?: boolean
+          page_type: string
+          period: string
           profile_id: string
-          share_link_token?: string | null
+          settings?: Json | null
+          token: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
-          include_daily_notes?: boolean
-          include_memos?: boolean
-          include_records?: boolean
-          include_stats?: boolean
           is_public?: boolean
+          page_type?: string
+          period?: string
           profile_id?: string
-          share_link_token?: string | null
+          settings?: Json | null
+          token?: string
           updated_at?: string
         }
         Relationships: []
@@ -748,7 +634,7 @@ export type Database = {
           is_active: boolean
           label: string
           profile_id: string
-          sort_order: number | null
+          sort_order: number
           updated_at: string
         }
         Insert: {
@@ -760,7 +646,7 @@ export type Database = {
           is_active?: boolean
           label: string
           profile_id: string
-          sort_order?: number | null
+          sort_order?: number
           updated_at?: string
         }
         Update: {
@@ -772,7 +658,7 @@ export type Database = {
           is_active?: boolean
           label?: string
           profile_id?: string
-          sort_order?: number | null
+          sort_order?: number
           updated_at?: string
         }
         Relationships: [

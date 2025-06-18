@@ -1,10 +1,10 @@
 import React from "react";
 import { DateTime } from "luxon";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/common/components/ui/tooltip";
-import type { ActivityHeatmap as ActivityHeatmapType } from "~/features/stats/queries";
+import type { HeatmapData } from "~/features/stats/types";
 
 interface Props {
-  data: ActivityHeatmapType[];
+  data: HeatmapData[];
   startDate: DateTime;
   endDate: DateTime;
   compact?: boolean;

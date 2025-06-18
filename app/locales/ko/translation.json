@@ -377,10 +377,28 @@
         "time_unit_minutes": "분"
     },
     "share_dialog": {
-        "title": "'{{categoryCode}}' 카테고리 공유 설정",
-        "show_summary": "주요 통계",
-        "show_activity_trend": "활동 트렌드 (차트)",
-        "show_goal_progress": "목표 진행 상황"
+        "title": "'{{period}}' 리포트 공유 설정",
+        "title_summary": "요약 리포트 공유 설정",
+        "title_advanced": "{{year}}년 상세 리포트 공유 설정",
+        "title_category": "{{month}} 카테고리 리포트 공유 설정",
+        "title_records": "{{range}} 기록 리포트 공유 설정",
+        "description": "공개 링크를 생성하고 공유할 데이터를 선택하세요.",
+        "make_public": "링크를 공개로 전환",
+        "include_in_share": "공유할 항목",
+        "options": {
+            "include_summary": "주간/월간 비교 요약",
+            "include_subcode_distribution": "세부 코드 분포",
+            "include_heatmap": "연간 히트맵",
+            "include_comparison": "기간 비교",
+            "include_goals": "목표 달성률",
+            "include_notes": "일일 노트",
+            "include_records_list": "기록 목록"
+        },
+        "copy_link": "링크 복사",
+        "link_copied": "복사됨!",
+        "saving": "저장 중...",
+        "saved": "모든 변경사항이 저장되었습니다.",
+        "close": "닫기"
     },
     "stats_records_page": {
         "title": "활동 기록",
@@ -396,7 +414,11 @@
         "end_date": "종료일",
         "apply_period": "기간 적용",
         "description_month": "{{month}}의 데이터를 표시합니다.",
-        "description_period": "{{startDate}}부터 {{endDate}}까지의 데이터를 표시합니다."
+        "description_period": "{{startDate}}부터 {{endDate}}까지의 데이터를 표시합니다.",
+        "include_records_list_desc": "공유 페이지에 기록 목록을 포함할지 여부를 제어합니다.",
+        "include_notes_label": "일일 노트 포함",
+        "include_notes_desc": "공유 페이지에 일일 노트를 포함할지 여부를 제어합니다.",
+        "memos": "메모"
     },
     "stats_category_page": {
         "title": "카테고리별 상세 통계",
@@ -522,5 +544,10 @@
         "not_found": "공유된 링크를 찾을 수 없거나 더 이상 유효하지 않습니다.",
         "content_placeholder": "여기에 공유된 통계 데이터가 표시됩니다.",
         "back_to_app": "앱으로 돌아가기"
+    },
+    "page_not_found": {
+        "title": "페이지를 찾을 수 없습니다",
+        "description": "죄송합니다. 요청하신 페이지를 찾을 수 없습니다.",
+        "go_home": "홈으로 돌아가기"
     }
 } 

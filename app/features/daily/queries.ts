@@ -89,14 +89,20 @@ export const getDailyRecordsByDate = async (
 
 export const getDailyRecordsByPeriod = async (
   client: pkg.SupabaseClient<Database>,
-  { profileId, startDate, endDate }: { profileId: string; startDate: string; endDate: string }
+  { profileId, startDate, endDate, onlyPublic = false }: { profileId: string; startDate: string; endDate: string; onlyPublic?: boolean }
 ) => {
-  const { data, error } = await client
+  let query = client
     .from("daily_records")
     .select(DAILY_RECORD_COLUMNS)
     .eq("profile_id", profileId)
     .gte("date", startDate)
-    .lte("date", endDate)
+    .lte("date", endDate);
+
+  if (onlyPublic) {
+    query = query.eq('is_public', true);
+  }
+  
+  const { data, error } = await query
     .order("date", { ascending: false })
     .order("created_at", { ascending: false });
 

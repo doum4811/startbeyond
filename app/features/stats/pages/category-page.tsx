@@ -47,25 +47,7 @@ import { CATEGORIES as DEFAULT_CATEGORIES } from "~/common/types/daily";
 import { useTranslation } from "react-i18next";
 import { getRequiredProfileId } from "~/features/users/utils";
 import { Button } from "~/common/components/ui/button";
-import type { SharedLink, SharedLinkInsert } from "~/features/stats/types";
-
-interface GoalAchievementStats {
-  totalPlans: number;
-  completedPlans: number;
-  completionRate: number;
-  longestStreak: number;
-  uncheckedPlans: { plan: DailyPlan; category?: UICategory }[];
-  categoryCompletion: Record<string, { total: number; completed: number; rate: number; category: UICategory }>;
-}
-
-export interface CategoryPageLoaderData {
-  profileId: string;
-  categories: UICategory[];
-  detailedSummary: DetailedCategorySummary[];
-  selectedMonthISO: string;
-  goalStats: GoalAchievementStats;
-  sharedLink: SharedLink | null;
-}
+import type { SharedLink, CategoryPageLoaderData, GoalAchievementStats } from "~/features/stats/types";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
     const { client } = makeSSRClient(request);
@@ -81,15 +63,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
             if (!period) {
                 return { ok: false, error: 'Period is required.' };
             }
+
+            const settings: { [key: string]: any } = {};
+            for (const [key, value] of formData.entries()) {
+                if (key !== 'is_public' && key !== 'period' && key !== 'intent' && key !== 'page_type') {
+                    settings[key] = value === 'true';
+                }
+            }
             
             const sharedLinkData = {
                 profile_id: profileId,
                 page_type,
                 period,
                 is_public: formData.get('is_public') === 'true',
-                settings: {
-                  include_goals: formData.get('include_goals') === 'true',
-                },
+                settings,
             };
             // @ts-ignore
             const result = await statsQueries.upsertSharedLink(client, { sharedLinkData });
@@ -308,7 +295,6 @@ export default function CategoryStatsPage() {
     if (fetcher.state === 'idle' && fetcher.data?.ok && fetcher.data.sharedLink) {
         // @ts-ignore
         setSharedLink(fetcher.data.sharedLink);
-        setIsShareDialogOpen(false);
     } else if(fetcher.state === 'idle' && fetcher.data && !fetcher.data.ok) {
         // @ts-ignore
         console.error("Failed to update share settings:", fetcher.data.error);
@@ -377,16 +363,22 @@ export default function CategoryStatsPage() {
 
   const [hideUnchecked, setHideUnchecked] = useState(false);
 
-  const handleSaveShareSettings = (settings: Partial<SharedLink>) => {
+  const handleSettingsChange = (newSettings: Partial<SharedLink>) => {
     const formData = new FormData();
     formData.append('intent', 'upsertShareSettings');
     formData.append('period', selectedMonthISO);
     
-    Object.entries(settings).forEach(([key, value]) => {
-      if (value !== null && value !== undefined) {
-        formData.append(key, String(value));
-      }
-    });
+    if (newSettings.is_public !== undefined) {
+      formData.append('is_public', String(newSettings.is_public));
+    }
+    
+    const settings = newSettings.settings as { [key: string]: any } | undefined;
+    if (settings) {
+        Object.entries(settings).forEach(([key, value]) => {
+            formData.append(key, String(value));
+        });
+    }
+
     fetcher.submit(formData, { method: "post" });
   };
 
@@ -425,13 +417,14 @@ export default function CategoryStatsPage() {
         description={t('stats_category_page.description', { month: monthName })}
         periodButton={periodButton}
         // @ts-ignore
-        shareSettings={sharedLink || { page_type: 'category', period: selectedMonthISO, is_public: false, include_goals: true }}
-        onSaveShareSettings={handleSaveShareSettings}
+        shareSettings={sharedLink || { page_type: 'category', period: selectedMonthISO, is_public: false, settings: { include_goals: true } }}
+        onSettingsChange={handleSettingsChange}
         isShareDialogOpen={isShareDialogOpen}
         setIsShareDialogOpen={setIsShareDialogOpen}
         isCopied={isCopied}
         onCopyLink={handleCopyLink}
         shareLink={sharedLink?.is_public && sharedLink?.token ? (typeof window !== 'undefined' ? `${window.location.origin}/share/${sharedLink.token}` : `/share/${sharedLink.token}`) : undefined}
+        fetcherState={fetcher.state}
       />
 
       <Tabs defaultValue="analysis" className="space-y-6">

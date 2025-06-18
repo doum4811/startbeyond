@@ -616,31 +616,32 @@ export default function SummaryStatsPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>{t('stats_summary_page.category_distribution')}</CardTitle>
+            <CardTitle>{t("stats_summary_page.category_distribution_title")}</CardTitle>
           </CardHeader>
-          <CardContent>
-          {categoryDistribution && categoryDistribution.length > 0 ? (
-              <CategoryDistributionList data={categoryDistribution} categories={categories} />
-          ) : (
-              <p className="text-center text-muted-foreground pt-12">{t('stats_summary_page.no_data')}</p>
-          )}
+          <CardContent className="h-[400px] overflow-y-auto">
+            {categoryDistribution.length > 0 ? (
+                <CategoryDistributionList data={categoryDistribution} categories={categories} />
+            ) : (
+                <p className="text-muted-foreground text-center pt-16">{t("stats_summary_page.no_data")}</p>
+            )}
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader>
-          <CardTitle>{t('stats_summary_page.subcode_distribution_title')}</CardTitle>
+            <CardTitle>{t("stats_summary_page.subcode_distribution_title")}</CardTitle>
           </CardHeader>
           <CardContent>
-          {subcodeDistribution && subcodeDistribution.length > 0 ? (
-              <SubcodeDistributionList data={subcodeDistribution} categories={categories} />
-          ) : (
-              <p className="text-center text-muted-foreground pt-12">{t('subcode_distribution_list.no_data')}</p>
-          )}
-        </CardContent>
-       </Card>
+            {subcodeDistribution.length > 0 ? (
+                <SubcodeDistributionList data={subcodeDistribution} categories={categories} />
+            ) : (
+                <p className="text-muted-foreground text-center pt-16">{t("stats_summary_page.no_data")}</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
        <Card className="mt-4">

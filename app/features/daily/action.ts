@@ -162,12 +162,13 @@ export async function action({ request }: ActionFunctionArgs) {
         const updatedRecord: DailyRecordUI = {
             id: updatedRecordDb.id!,
             date: updatedRecordDb.date || today,
-            duration: updatedRecordDb.duration_minutes ?? undefined,
+            duration_minutes: updatedRecordDb.duration_minutes ?? undefined,
             is_public: updatedRecordDb.is_public ?? false,
             comment: updatedRecordDb.comment ?? null,
             subcode: updatedRecordDb.subcode ?? null,
             linked_plan_id: updatedRecordDb.linked_plan_id ?? null,
-            category_code: updatedRecordDb.category_code,
+            category_code: updatedRecordDb.category_code as CategoryCode,
+            profile_id: updatedRecordDb.profile_id,
             created_at: updatedRecordDb.created_at,
             updated_at: updatedRecordDb.updated_at,
          };

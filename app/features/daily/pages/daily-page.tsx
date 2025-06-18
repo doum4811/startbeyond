@@ -246,7 +246,7 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
     setIsEditing(true);
       setForm({
         category_code: record.category_code || "",
-        duration: record.duration !== null && record.duration !== undefined ? String(record.duration) : "",
+        duration: record.duration_minutes !== null && record.duration_minutes !== undefined ? String(record.duration_minutes) : "",
         comment: record.comment || "",
         is_public: record.is_public || false,
       });
@@ -414,7 +414,7 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                                 </div>
                             </td>
                                         <td className="w-2/4">{rec.comment || '-'}</td>
-                                        <td className="w-[70px]">{rec.duration ? `${rec.duration}분` : (categoryInfo?.hasDuration ? "-" : "")}</td>
+                                        <td className="w-[70px]">{rec.duration_minutes ? `${rec.duration_minutes}분` : (categoryInfo?.hasDuration ? "-" : "")}</td>
                                         <td className="py-2 px-2 text-center">
                                             <div className="flex gap-1 justify-center">
                                                 <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setEditingSubcodeForRecordId(rec.id); setEditSubcodeValue(rec.subcode || ""); setShowMemoFormForRecordId(null); setSelectedRowId(rec.id); setIsEditing(false); }}>{t('subcode')}</Button>

@@ -1,6 +1,6 @@
 // app/features/stats/pages/advanced-page.tsx
 import React, { useState, useEffect } from "react";
-import { type LoaderFunctionArgs, type MetaFunction, type ActionFunctionArgs, useNavigate, useFetcher } from "react-router";
+import { type LoaderFunctionArgs, type MetaFunction, type ActionFunctionArgs, useNavigate, useFetcher, useLoaderData } from "react-router";
 import { DateTime } from "luxon";
 import { Card, CardContent, CardHeader, CardTitle } from "~/common/components/ui/card";
 import { StatsPageHeader } from "~/common/components/stats/stats-page-header";
@@ -9,7 +9,7 @@ import { CategoryDistributionChart } from "~/common/components/stats/category-di
 import { makeSSRClient } from "~/supa-client";
 import { getUserCategories } from "~/features/settings/queries";
 import * as statsQueries from "~/features/stats/queries";
-import type { AdvancedPageLoaderData, HeatmapData, ActivityHeatmap as ActivityHeatmapType, SharedLink, SharedLinkInsert } from "~/features/stats/types";
+import type { AdvancedPageLoaderData, ActivityHeatmap as ActivityHeatmapType, SharedLink, HeatmapData, SharedLinkInsert } from "~/features/stats/types";
 import type { CategoryCode, UICategory } from "~/common/types/daily";
 import { CATEGORIES as DEFAULT_CATEGORIES } from "~/common/types/daily";
 import { useTranslation } from "react-i18next";
@@ -35,7 +35,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
     if (intent === 'upsertShareSettings') {
         try {
-            const page_type = 'advanced';
+            const page_type = 'advanced' as const;
             const period = formData.get('period') as string;
 
             if (!period) {
@@ -50,14 +50,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 }
             }
 
-            const sharedLinkData = {
+            const sharedLinkData: SharedLinkInsert = {
                 profile_id: profileId,
                 page_type,
                 period,
                 is_public: formData.get('is_public') === 'true',
                 settings,
             };
-            // @ts-ignore
             const result = await statsQueries.upsertSharedLink(client, { sharedLinkData });
             return { ok: true, sharedLink: result };
         } catch (error: any) {
@@ -127,9 +126,10 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<AdvancedP
   const activeCategories = uiCategories.filter(c => c.isActive);
   const activeCategoryCodes = activeCategories.map(c => c.code as CategoryCode);
   
-  const yearlyCategoryHeatmapData = Object.fromEntries(
-    activeCategoryCodes.map(code => [code, [] as HeatmapData[]])
-  ) as Record<CategoryCode, HeatmapData[]>;
+  const yearlyCategoryHeatmapData = activeCategoryCodes.reduce((acc, code) => {
+    acc[code] = [];
+    return acc;
+  }, {} as Record<CategoryCode, HeatmapData[]>);
 
   const startDate = DateTime.fromObject({ year: currentYear }).startOf('year').toISODate()!;
   const endDate = DateTime.fromObject({ year: currentYear }).endOf('year').toISODate()!;
@@ -137,7 +137,6 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<AdvancedP
   const [yearlyActivity, fetchedComparisonStats, sharedLink] = await Promise.all([
       statsQueries.calculateActivityHeatmap(client, { profileId, startDate, endDate }),
       statsQueries.getComparisonStats(client, { profileId }),
-      // @ts-ignore
       statsQueries.getSharedLink(client, { profileId, pageType: 'advanced', period: String(currentYear) })
   ]);
   
@@ -164,11 +163,10 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<AdvancedP
           const dayData = activityByDate[dateStr];
           const categoryCount = dayData?.categories[code] || 0;
           
-          // @ts-ignore
           categoryYearlyData.push({
               date: dateStr,
-              intensity: categoryCount / maxCategoryIntensity,
-              categories: { [code]: categoryCount } as Record<CategoryCode, number>,
+              intensity: maxCategoryIntensity > 0 ? categoryCount / maxCategoryIntensity : 0,
+              categories: dayData?.categories || {},
               total: categoryCount,
           });
           currentDate = currentDate.plus({ days: 1 });
@@ -198,7 +196,6 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<AdvancedP
     }));
   })();
 
-  // @ts-ignore
   return {
     profileId,
     categories: categoriesForGrid,
@@ -206,8 +203,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<AdvancedP
     yearlyCategoryHeatmapData,
     categoryDistribution: categoryDistributionWithPercentage,
     comparisonStats: fetchedComparisonStats,
-    // @ts-ignore
-    sharedLink: sharedLink || null,
+    sharedLink: sharedLink as SharedLink | null,
   };
 };
 
@@ -219,19 +215,14 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
   ];
 };
 
-interface AdvancedStatsPageProps {
-  // @ts-ignore
-  loaderData: AdvancedPageLoaderData;
-}
-
-export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps) {
+function AdvancedStatsPage() {
+  const loaderData = useLoaderData<typeof loader>();
   const { 
     categories,
     currentYear,
     yearlyCategoryHeatmapData,
     categoryDistribution,
     comparisonStats,
-    // @ts-ignore
     sharedLink: initialSharedLink,
   } = loaderData;
   const { t } = useTranslation();
@@ -243,18 +234,15 @@ export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps
   const [isCopied, setIsCopied] = useState(false);
 
   useEffect(() => {
-    // @ts-ignore
     setSharedLink(initialSharedLink);
   }, [initialSharedLink]);
 
   useEffect(() => {
-    // @ts-ignore
-    if (fetcher.state === 'idle' && fetcher.data?.ok && fetcher.data.sharedLink) {
-        // @ts-ignore
-        setSharedLink(fetcher.data.sharedLink);
-    } else if(fetcher.state === 'idle' && fetcher.data && !fetcher.data.ok) {
-        // @ts-ignore
-        console.error("Failed to update share settings:", fetcher.data.error);
+    const fetcherData = fetcher.data as { ok: boolean, sharedLink?: SharedLink, error?: string } | undefined;
+    if (fetcher.state === 'idle' && fetcherData?.ok && fetcherData.sharedLink) {
+        setSharedLink(fetcherData.sharedLink);
+    } else if(fetcher.state === 'idle' && fetcherData && !fetcherData.ok) {
+        console.error("Failed to update share settings:", fetcherData.error);
     }
   }, [fetcher.data, fetcher.state]);
 
@@ -326,7 +314,6 @@ export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps
       <StatsPageHeader
         title={t("stats_advanced_page.title", { year: currentYear })}
         periodButton={periodButton}
-        // @ts-ignore
         shareSettings={sharedLink || { page_type: 'advanced', period: String(currentYear), is_public: false, settings: { include_heatmap: true, include_comparison: true } }}
         onSettingsChange={handleSettingsChange}
         isShareDialogOpen={isShareDialogOpen}
@@ -384,3 +371,5 @@ export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps
     </div>
   );
 }
+
+export default AdvancedStatsPage;

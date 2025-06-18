@@ -50,7 +50,7 @@ export function MonthlyRecordsGridView({ data, categories, expandedDates, onTogg
                       </div>
                       <div className="flex-1">
                         <div className="text-sm">
-                          {record.duration && `${record.duration}분 • `}
+                          {record.duration_minutes && `${record.duration_minutes}분 • `}
                           {record.comment}
                           {record.subcode && ` (${record.subcode})`}
                         </div>

@@ -52,8 +52,9 @@ export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPage
     const records: DailyRecordUI[] = (recordsData || []).map((r) => ({
       id: r.id,
       date: r.date,
-      category_code: r.category_code,
-      duration: r.duration_minutes ?? undefined,
+      category_code: r.category_code as CategoryCode,
+      duration_minutes: r.duration_minutes ?? undefined,  
+      profile_id: r.profile_id,
       comment: r.comment ?? null,
       subcode: r.subcode ?? null,
       is_public: r.is_public ?? false,

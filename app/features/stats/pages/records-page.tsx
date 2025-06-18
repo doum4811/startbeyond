@@ -1,4 +1,4 @@
-import { useLoaderData, useSearchParams, useNavigate, Link } from "react-router";
+import { useLoaderData, useSearchParams, useNavigate, Link, useFetcher, type ActionFunctionArgs, useNavigation } from "react-router";
 import type { MetaFunction, LoaderFunctionArgs } from "react-router";
 import { DateTime } from "luxon";
 import { Button } from "~/common/components/ui/button";
@@ -16,8 +16,10 @@ import type { UICategory, CategoryCode } from "~/common/types/daily";
 import { getRequiredProfileId } from "~/features/users/utils";
 import { makeSSRClient } from "~/supa-client";
 import * as dailyQueries from "~/features/daily/queries";
+import * as statsQueries from "~/features/stats/queries";
 import * as settingsQueries from "~/features/settings/queries";
 import { CATEGORIES } from "~/common/types/daily";
+import type { SharedLink } from "~/features/stats/types";
 
 // Re-register fonts for this page's PDF generation
 Font.register({
@@ -40,7 +42,47 @@ export interface RecordsPageLoaderData {
   categories: UICategory[];
   startDate: string;
   endDate: string;
+  sharedLink: SharedLink | null;
 }
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+    const { client } = makeSSRClient(request);
+    const profileId = await getRequiredProfileId(request);
+    const formData = await request.formData();
+    const intent = formData.get("intent");
+
+    if (intent === 'upsertShareSettings') {
+        try {
+            const page_type = 'records';
+            const period = formData.get('period') as string;
+
+            if (!period) {
+                return { ok: false, error: 'Period is required.' };
+            }
+
+            const settings: { [key: string]: any } = {};
+            for (const [key, value] of formData.entries()) {
+                if (key !== 'is_public' && key !== 'period' && key !== 'intent' && key !== 'page_type') {
+                    settings[key] = value === 'true';
+                }
+            }
+            
+            const sharedLinkData = {
+                profile_id: profileId,
+                page_type,
+                period,
+                is_public: formData.get('is_public') === 'true',
+                settings,
+            };
+            const result = await statsQueries.upsertSharedLink(client, { sharedLinkData });
+            return { ok: true, sharedLink: result };
+        } catch (error: any) {
+            console.error("Error upserting share settings for records page:", error);
+            return { ok: false, error: error.message };
+        }
+    }
+    return { ok: false, error: 'Unknown intent' };
+};
 
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<RecordsPageLoaderData> => {
   const { client } = makeSSRClient(request);
@@ -69,7 +111,9 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<RecordsPa
     endDate = DateTime.now().endOf("month");
   }
 
-  const [dbRecords, dbNotes, userCategoriesData, userDefaultCodePreferencesData] = await Promise.all([
+  const periodForLink = `${startDate.toISODate()}_${endDate.toISODate()}`;
+
+  const [dbRecords, dbNotes, userCategoriesData, userDefaultCodePreferencesData, sharedLink] = await Promise.all([
     dailyQueries.getDailyRecordsByPeriod(client, {
       profileId,
       startDate: startDate.toISODate()!,
@@ -81,7 +125,8 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<RecordsPa
       endDate: endDate.toISODate()!,
     }),
     settingsQueries.getUserCategories(client, { profileId }),
-    settingsQueries.getUserDefaultCodePreferences(client, { profileId })
+    settingsQueries.getUserDefaultCodePreferences(client, { profileId }),
+    statsQueries.getSharedLink(client, { profileId, pageType: 'records', period: periodForLink })
   ]);
 
   // Handle cases where future dates might return null data
@@ -92,12 +137,13 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<RecordsPa
     id: r.id!,
     date: r.date,
     category_code: r.category_code as CategoryCode,
-    duration: r.duration_minutes ?? undefined,
+    duration_minutes: r.duration_minutes ?? undefined,
     comment: r.comment,
     subcode: r.subcode,
     is_public: r.is_public ?? false,
     linked_plan_id: r.linked_plan_id,
     memos: [], 
+    profile_id: r.profile_id!,
   }));
 
   const recordIds = records.map(r => r.id).filter((id): id is string => !!id);
@@ -112,10 +158,12 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<RecordsPa
         memosByRecordId.set(recordId, []);
     }
     memosByRecordId.get(recordId)!.push({
-        ...memo,
-        id: memo.id!,
-        record_id: recordId,
-        profile_id: memo.profile_id,
+        id: memo.id,
+        record_id: memo.record_id,
+        title: memo.title,
+        content: memo.content,
+        created_at: memo.created_at,
+        updated_at: memo.updated_at,
     });
   });
 
@@ -189,7 +237,6 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<RecordsPa
       if (monthlyRecordsForDisplayMap.has(rec.date)) {
           const dayData = monthlyRecordsForDisplayMap.get(rec.date)!;
           dayData.records.push(rec);
-          dayData.memos.push(...(rec.memos || []));
       }
   });
 
@@ -205,6 +252,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<RecordsPa
     categories: processedCategories.filter(c => c.isActive),
     startDate: startDate.toISODate()!,
     endDate: endDate.toISODate()!,
+    sharedLink: sharedLink as SharedLink | null,
   };
 };
 
@@ -260,7 +308,7 @@ const RecordsReportPDF = ({ data, categories, title }: { data: MonthlyDayRecord[
                 <Text style={pdfStyles.recordCategory}>{getCategoryLabel(record.category_code)}</Text>
                 <Text style={pdfStyles.recordSubcode}>{record.subcode || '-'}</Text>
                 <Text style={pdfStyles.recordComment}>{record.comment || '-'}</Text>
-                <Text style={pdfStyles.recordDuration}>{record.duration ? `${record.duration}분` : ''}</Text>
+                <Text style={pdfStyles.recordDuration}>{record.duration_minutes ? `${record.duration_minutes}분` : ''}</Text>
               </View>
             ))}
           </View>
@@ -286,16 +334,22 @@ function DateRangePicker({
   const [currentStartDate, setCurrentStartDate] = useState(startDate);
   const [currentEndDate, setCurrentEndDate] = useState(endDate);
 
+  const handleApply = () => {
+    onApply(currentStartDate, currentEndDate);
+  };
+
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="gap-2">
-          <Search className="w-4 h-4" />
+        <Button variant="outline" className="w-64 justify-start text-left font-normal">
+          <Search className="mr-2 h-4 w-4" />
+          <span>
           {t("stats_records_page.search_by_period")}
+          </span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-4 space-y-4" align="end">
-        <div className="flex gap-4">
+      <PopoverContent className="w-auto p-0" align="start">
+        <div className="flex gap-4 p-4">
           <div>
             <Label>{t("stats_records_page.start_date")}</Label>
             <Calendar
@@ -311,24 +365,34 @@ function DateRangePicker({
             />
           </div>
         </div>
-        <Button
-          onClick={() => onApply(currentStartDate, currentEndDate)}
-          className="w-full"
-        >
-          {t("stats_records_page.apply_period")}
-        </Button>
+        <div className="p-2 border-t flex justify-end">
+          <Button onClick={handleApply}>{t("stats_records_page.apply_period")}</Button>
+        </div>
       </PopoverContent>
     </Popover>
   );
 }
 
 export default function RecordsPage() {
-  const { monthlyRecordsForDisplay, categories, startDate, endDate } = useLoaderData<RecordsPageLoaderData>();
+  const { 
+    monthlyRecordsForDisplay, 
+    categories, 
+    startDate: initialStartDate, 
+    endDate: initialEndDate,
+    sharedLink: initialSharedLink,
+  } = useLoaderData<RecordsPageLoaderData>();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const fetcher = useFetcher<typeof action>();
+  const navigation = useNavigation();
 
-  const currentStartDate = DateTime.fromISO(startDate);
+  const [sharedLink, setSharedLink] = useState<SharedLink | null>(initialSharedLink);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+  
+  const startDate = DateTime.fromISO(initialStartDate);
+  const endDate = DateTime.fromISO(initialEndDate);
   
   const handlePeriodSearch = (start: DateTime, end: DateTime) => {
     const newParams = new URLSearchParams();
@@ -336,23 +400,43 @@ export default function RecordsPage() {
     newParams.set("endDate", end.toISODate()!);
     navigate(`?${newParams.toString()}`, { preventScrollReset: true });
   }
+  
+  const isPeriodSearch = searchParams.has("startDate");
+
+  const periodForLink = isPeriodSearch 
+    ? `${startDate.toISODate()}_${endDate.toISODate()}`
+    : startDate.toFormat("yyyy-MM");
+
+  useEffect(() => {
+    setSharedLink(initialSharedLink);
+  }, [initialSharedLink]);
+
+  useEffect(() => {
+    const fetcherData = fetcher.data as { ok: boolean, sharedLink?: SharedLink, error?: string } | undefined;
+    if (fetcher.state === 'idle' && fetcherData?.ok && fetcherData.sharedLink) {
+        setSharedLink(fetcherData.sharedLink);
+    } else if(fetcher.state === 'idle' && fetcherData && !fetcherData.ok) {
+        console.error("Failed to update share settings:", fetcherData.error);
+    }
+  }, [fetcher.data, fetcher.state]);
 
   const periodControl = (
     <div className="flex items-center gap-1">
-      <Button asChild variant="outline" size="icon">
-        <Link to={`?month=${currentStartDate.minus({ months: 1 }).toFormat("yyyy-MM")}`} preventScrollReset>
+      <Button asChild variant="outline" size="icon" disabled={isPeriodSearch}>
+        <Link to={`?month=${startDate.minus({ months: 1 }).toFormat("yyyy-MM")}`} preventScrollReset>
           <ChevronLeft className="h-4 w-4" />
         </Link>
       </Button>
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" className="w-36">
-            {currentStartDate.setLocale(i18n.language).toFormat("yyyy MMMM")}
+          <Button variant="outline" className="w-36" disabled={isPeriodSearch}>
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {startDate.setLocale(i18n.language).toFormat("yyyy MMMM")}
           </Button>
         </PopoverTrigger>
         <PopoverContent>
           <Calendar
-            selectedDate={currentStartDate}
+            selectedDate={startDate}
             onDateChange={(day) => {
               if (day) {
                 navigate(`?month=${day.toFormat("yyyy-MM")}`, { preventScrollReset: true });
@@ -361,31 +445,30 @@ export default function RecordsPage() {
           />
         </PopoverContent>
       </Popover>
-      <Button asChild variant="outline" size="icon">
-        <Link to={`?month=${currentStartDate.plus({ months: 1 }).toFormat("yyyy-MM")}`} preventScrollReset>
+      <Button asChild variant="outline" size="icon" disabled={isPeriodSearch}>
+        <Link to={`?month=${startDate.plus({ months: 1 }).toFormat("yyyy-MM")}`} preventScrollReset>
           <ChevronRight className="h-4 w-4" />
         </Link>
       </Button>
     </div>
   );
 
-  const isPeriodSearch = searchParams.has("startDate");
   const description = isPeriodSearch
     ? t("stats_records_page.description_period", {
-        startDate: currentStartDate.setLocale(i18n.language).toFormat("yyyy.MM.dd"),
-        endDate: DateTime.fromISO(endDate).setLocale(i18n.language).toFormat("yyyy.MM.dd"),
+        startDate: startDate.setLocale(i18n.language).toFormat("yyyy.MM.dd"),
+        endDate: endDate.setLocale(i18n.language).toFormat("yyyy.MM.dd"),
       })
     : t("stats_records_page.description_month", {
-        month: currentStartDate.setLocale(i18n.language).toFormat("yyyy MMMM"),
+        month: startDate.setLocale(i18n.language).toFormat("yyyy MMMM"),
       });
 
   const pdfTitle = isPeriodSearch
     ? t("stats_records_page.pdf_title_period", {
-        startDate: currentStartDate.toFormat("yyyy.MM.dd"),
-        endDate: DateTime.fromISO(endDate).toFormat("yyyy.MM.dd"),
+        startDate: startDate.toFormat("yyyy.MM.dd"),
+        endDate: endDate.toFormat("yyyy.MM.dd"),
       })
     : t("stats_records_page.pdf_title_month", {
-        month: currentStartDate.toFormat("yyyy MMMM"),
+        month: startDate.toFormat("yyyy MMMM"),
       });
 
   const [isClient, setIsClient] = useState(false);
@@ -393,17 +476,46 @@ export default function RecordsPage() {
     setIsClient(true);
   }, []);
 
-  const pdfButton = isClient ? (
-    <PDFDownloadLink
-      key={startDate}
-      document={
+  const handleSettingsChange = (newSettings: Partial<SharedLink>) => {
+    const formData = new FormData();
+    formData.append('intent', 'upsertShareSettings');
+    formData.append('period', periodForLink);
+    
+    if (newSettings.is_public !== undefined) {
+      formData.append('is_public', String(newSettings.is_public));
+    }
+    
+    const settings = newSettings.settings as { [key: string]: any } | undefined;
+    if (settings) {
+        Object.entries(settings).forEach(([key, value]) => {
+            formData.append(key, String(value));
+        });
+    }
+    fetcher.submit(formData, { method: "post" });
+  };
+
+  const handleCopyLink = () => {
+    if (typeof window === 'undefined' || !sharedLink?.token) return;
+    const url = `${window.location.origin}/share/${sharedLink.token}`;
+    navigator.clipboard.writeText(url).then(() => {
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+    });
+  };
+  
+  const pdfDocument = (
         <RecordsReportPDF
-          data={monthlyRecordsForDisplay as any}
+          data={monthlyRecordsForDisplay}
           categories={categories}
           title={pdfTitle}
         />
-      }
-      fileName={`records-report-${currentStartDate.toFormat("yyyy-MM")}.pdf`}
+  );
+
+  const pdfButton = isClient ? (
+    <PDFDownloadLink
+      key={initialStartDate}
+      document={pdfDocument}
+      fileName={`records-report-${periodForLink}.pdf`}
     >
       {({ loading }) => (
         <Button variant="outline" size="sm" disabled={loading} className="flex items-center gap-2">
@@ -413,6 +525,14 @@ export default function RecordsPage() {
       )}
     </PDFDownloadLink>
   ) : null;
+  
+  const searchButton = (
+      <DateRangePicker 
+          startDate={startDate} 
+          endDate={endDate}
+          onApply={handlePeriodSearch} 
+      />
+  );
 
   return (
     <div className="w-full max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-background min-h-screen">
@@ -421,19 +541,26 @@ export default function RecordsPage() {
         title={t("stats_records_page.title")}
         description={description}
         periodButton={periodControl}
-        shareSettings={{ isPublic: false, includeRecords: false, includeDailyNotes: false, includeMemos: false, includeStats: false }}
-        onShareSettingsChange={() => {}}
-        isShareDialogOpen={false}
-        setIsShareDialogOpen={() => {}}
-        isCopied={false}
-        onCopyLink={() => {}}
-        shareLink=""
+        actionButton={searchButton}
         pdfButton={pdfButton}
+        shareSettings={{
+          page_type: 'records',
+          period: periodForLink,
+          is_public: sharedLink?.is_public ?? false,
+          settings: sharedLink?.settings ?? { include_records_list: true, include_notes: true },
+        }}
+        onSettingsChange={handleSettingsChange}
+        isShareDialogOpen={isShareDialogOpen}
+        setIsShareDialogOpen={setIsShareDialogOpen}
+        isCopied={isCopied}
+        onCopyLink={handleCopyLink}
+        shareLink={sharedLink?.is_public && sharedLink?.token ? (typeof window !== 'undefined' ? `${window.location.origin}/share/${sharedLink.token}` : `/share/${sharedLink.token}`) : undefined}
+        fetcherState={fetcher.state}
       />
       </div>
-      <div className="mt-6">
+      <div className={`mt-6 ${navigation.state === 'loading' ? 'opacity-50 transition-opacity duration-300' : ''}`}>
       <MonthlyRecordsTab
-        monthlyRecordsForDisplay={monthlyRecordsForDisplay as any}
+        monthlyRecordsForDisplay={monthlyRecordsForDisplay}
         categories={categories}
       />
       </div>

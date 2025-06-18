@@ -62,15 +62,21 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<RecordsLo
   ]);
 
   const records: DailyRecordUI[] = (dbRecords || []).map((r): DailyRecordUI => ({
-    ...r,
-    id: r.id!,
+    id: r.id,
     date: r.date,
-    duration: r.duration_minutes ?? undefined,
-    is_public: r.is_public ?? false,
-    comment: r.comment ?? null,
-    subcode: r.subcode ?? null,
-    linked_plan_id: r.linked_plan_id ?? null,
     category_code: r.category_code as CategoryCode,
+    comment: r.comment,
+    subcode: r.subcode,
+    duration_minutes: r.duration_minutes,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+    profile_id: r.profile_id,
+    linked_plan_id: r.linked_plan_id,
+    is_public: r.is_public ?? false,
+    // Default values for fields not in daily_records
+    is_bookmarked: false,
+    evidence_url: null,
+    memo: null,
     memos: [],
   }));
 
@@ -80,7 +86,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<RecordsLo
   const memosByRecordId = new Map<string, MemoUI[]>();
   (dbMemos || []).forEach((m: dailyQueries.Memo) => {
     if (!m.record_id) return;
-    const memoUI: MemoUI = { ...m, id: m.id!, record_id: m.record_id };
+    const memoUI: MemoUI = { id: m.id, title: m.title, content: m.content };
     if (!memosByRecordId.has(m.record_id)) {
       memosByRecordId.set(m.record_id, []);
     }
@@ -107,7 +113,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<RecordsLo
   for (const dateStr of Array.from(daysWithContent).sort()) {
     const dayRecords = records.filter(r => r.date === dateStr);
     const dayNotesContent = notesByDate.get(dateStr)?.join("\n\n") || null;
-    const dayMemos = dayRecords.flatMap(r => r.memos);
+    const dayMemos = dayRecords.flatMap(r => r.memos || []);
 
     monthlyRecordsForDisplay.push({
       date: dateStr,
@@ -122,7 +128,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<RecordsLo
   for (const catCodeKey in CATEGORIES) {
     if (Object.prototype.hasOwnProperty.call(CATEGORIES, catCodeKey)) {
       const baseCategory = CATEGORIES[catCodeKey as CategoryCode];
-      processedCategories.push({ ...baseCategory, isCustom: false, isActive: true, sort_order: baseCategory.sort_order || 999 });
+      processedCategories.push({ ...baseCategory, isCustom: false, isActive: true, sort_order: baseCategory.sort_order || 999, hasDuration: true });
     }
   }
   (userCategoriesData || []).forEach(userCat => {

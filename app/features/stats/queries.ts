@@ -16,9 +16,6 @@ import type { MonthlyGoalRow as DbMonthlyGoal } from "~/features/plan/queries";
 import * as dailyQueries from "~/features/daily/queries";
 
 // Types from database.types.ts used directly
-type ShareSettingsTable = Database['public']['Tables']['share_settings'];
-type ShareSetting = ShareSettingsTable['Row'];
-
 type StatsCacheTable = Database['public']['Tables']['stats_cache'];
 
 type DailyRecordTable = Database['public']['Tables']['daily_records'];
@@ -82,7 +79,7 @@ export const getSharedLink = async (
     console.error("Error fetching shared link:", error);
     throw error;
   }
-  return data as SharedLink | null;
+  return data as unknown as SharedLink | null;
 };
 
 export const getSharedLinkByToken = async (
@@ -102,7 +99,7 @@ export const getSharedLinkByToken = async (
     if (error.code === 'PGRST116') return null; // Not found is not an error
     throw error;
   }
-  return data as SharedLink | null;
+  return data as unknown as SharedLink | null;
 };
 
 export const upsertSharedLink = async (
@@ -127,7 +124,7 @@ export const upsertSharedLink = async (
     const { data: updatedData, error: updateError } = await client
       .from("shared_links")
       .update({
-        ...sharedLinkData,
+        ...(sharedLinkData as any),
         updated_at: new Date().toISOString(),
       })
       .eq("id", existingLink.id)
@@ -139,7 +136,7 @@ export const upsertSharedLink = async (
       throw updateError;
     }
     if (!updatedData) throw new Error("Update operation did not return data.");
-    return updatedData as SharedLink;
+    return updatedData as unknown as SharedLink;
 
   } else {
     // Create new link with a new token
@@ -161,7 +158,7 @@ export const upsertSharedLink = async (
       throw insertError;
     }
     if (!insertedData) throw new Error("Insert operation did not return data.");
-    return insertedData as SharedLink;
+    return insertedData as unknown as SharedLink;
   }
 };
 
@@ -211,9 +208,9 @@ export const upsertStatsCache = async (
   }
 
   const dataToUpsert = {
-    profile_id: profileId,
-    month_date: monthDate,
-    category_distribution: stats.category_distribution as any,
+      profile_id: profileId,
+      month_date: monthDate,
+      category_distribution: stats.category_distribution as any,
     activity_heatmap: stats.activity_heatmap as any ?? null,
     updated_at: new Date().toISOString(), // Manually set updated_at
   };
@@ -232,7 +229,7 @@ export const upsertStatsCache = async (
   } else {
     // INSERT if record does not exist
     const { error: insertError } = await client
-      .from("stats_cache")
+    .from("stats_cache")
       .insert(dataToUpsert as any);
 
     if (insertError) {
@@ -345,7 +342,7 @@ export const calculateActivityHeatmap = async (
       throw error;
   }
   if (!data) return [];
-  const activityByDate: Record<string, { categories: Record<string, number>; totalIntensityUnits: number }> = {};
+  const activityByDate: Record<string, { categories: Record<CategoryCode, number>; totalIntensityUnits: number }> = {};
   for (const row of data) {
     if (!row.date || !row.category_code) continue;
     const categoryCode = row.category_code as CategoryCode;
@@ -360,7 +357,7 @@ export const calculateActivityHeatmap = async (
   const maxTotalIntensity = Math.max(...Object.values(activityByDate).map(d => d.totalIntensityUnits), 1); 
   return Object.entries(activityByDate).map(([date, values]) => ({
     date,
-    categories: values.categories as Record<CategoryCode, number>,
+    categories: values.categories,
     total: values.totalIntensityUnits,
     intensity: maxTotalIntensity > 0 ? values.totalIntensityUnits / maxTotalIntensity : 0,
   }));
