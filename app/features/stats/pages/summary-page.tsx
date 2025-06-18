@@ -189,8 +189,20 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<SummaryPa
   const profileId = await getRequiredProfileId(request);
 
   const url = new URL(request.url);
-  const monthParam = url.searchParams.get("month") || DateTime.now().toFormat("yyyy-MM");
-  const selectedMonthStart = DateTime.fromFormat(monthParam, "yyyy-MM").startOf("month");
+  const monthParam = url.searchParams.get("month");
+  
+  let selectedMonthStart: DateTime;
+  if (monthParam) {
+    selectedMonthStart = DateTime.fromISO(`${monthParam}-01`).startOf("month");
+    if (!selectedMonthStart.isValid) {
+      // Fallback to current month if param is invalid
+      selectedMonthStart = DateTime.now().startOf("month");
+    }
+  } else {
+    selectedMonthStart = DateTime.now().startOf("month");
+  }
+
+  const monthForDb = selectedMonthStart.toFormat("yyyy-MM");
   const selectedMonthEnd = selectedMonthStart.endOf("month");
   const prevMonthStart = selectedMonthStart.minus({ months: 1 });
   const prevMonthEnd = prevMonthStart.endOf("month");
@@ -206,7 +218,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<SummaryPa
       prevMonthGoalStats,
       summaryInsights,
   ] = await Promise.all([
-    statsQueries.getStatsCache(client, { profileId, monthDate: monthParam }),
+    statsQueries.getStatsCache(client, { profileId, monthDate: monthForDb }),
     settingsQueries.getUserCategories(client, { profileId }),
     settingsQueries.getUserDefaultCodePreferences(client, { profileId }),
     statsQueries.calculateTimeOfDayDistribution(client, {
@@ -241,22 +253,23 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<SummaryPa
     }),
   ]);
 
-  let categoryDistribution: CategoryDistribution[];
+  let categoryDistribution: CategoryDistribution[] = cachedStats?.category_distribution || [];
 
-  if (cachedStats?.category_distribution) {
-    categoryDistribution = cachedStats.category_distribution;
-  } else {
-    categoryDistribution = await statsQueries.calculateCategoryDistribution(client, {
+  if (!cachedStats?.category_distribution) {
+    const calculatedDist = await statsQueries.calculateCategoryDistribution(client, {
         profileId,
         startDate: selectedMonthStart.toISODate()!,
         endDate: selectedMonthEnd.toISODate()!,
     });
-    // Note: insights are not cached for now, they are calculated on each load.
-    await statsQueries.upsertStatsCache(client, {
-      profileId,
-      monthDate: monthParam,
-      stats: { category_distribution: categoryDistribution },
-    });
+    // Only attempt to upsert if there's actually data to cache.
+    if (calculatedDist && calculatedDist.length > 0) {
+      await statsQueries.upsertStatsCache(client, {
+        profileId,
+        monthDate: monthForDb,
+        stats: { category_distribution: calculatedDist },
+      });
+    }
+    categoryDistribution = calculatedDist;
   }
 
   const categoryDistributionWithPercentage = (() => {
@@ -304,19 +317,19 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<SummaryPa
 
   return {
     profileId,
-    selectedMonthISO: monthParam,
-    categoryDistribution: categoryDistributionWithPercentage,
-    subcodeDistribution,
+    selectedMonthISO: monthForDb,
+    categoryDistribution: categoryDistributionWithPercentage || [],
+    subcodeDistribution: subcodeDistribution || [],
     categories: processedCategories,
-    timeOfDayDistribution,
-    prevMonthCategoryDistribution: prevMonthCategoryDistribution.map(item => ({
+    timeOfDayDistribution: Array.isArray(timeOfDayDistribution) ? timeOfDayDistribution : [timeOfDayDistribution].filter(Boolean),
+    prevMonthCategoryDistribution: (prevMonthCategoryDistribution || []).map(item => ({
       category_code: item.category,
       count: item.count,
       duration: item.duration,
     })),
-    currentMonthGoalStats,
-    prevMonthGoalStats,
-    summaryInsights,
+    currentMonthGoalStats: currentMonthGoalStats || { totalPlans: 0, completedPlans: 0, completionRate: 0, total_goals: 0, completed_goals: 0 },
+    prevMonthGoalStats: prevMonthGoalStats || { totalPlans: 0, completedPlans: 0, completionRate: 0, total_goals: 0, completed_goals: 0 },
+    summaryInsights: summaryInsights || { mostActiveWeekday: null, weekdayVsWeekend: { weekday: 0, weekend: 0 }, most_active_category: null, longest_duration_category: null, most_active_time_slot: null },
     locale: i18next.language,
   };
 };
@@ -432,6 +445,7 @@ export default function SummaryStatsPage() {
   
   const pdfButton = isClient ? (
     <PDFDownloadLink
+      key={selectedMonthISO}
       document={pdfDocument}
       fileName={`summary-report-${selectedMonthISO}.pdf`}
     >

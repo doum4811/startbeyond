@@ -524,6 +524,19 @@ export default function WeeklyPlanPage() {
   } = useLoaderData<typeof loader>();
 
   const { t, i18n } = useTranslation();
+
+  const displayDaysOfWeek = useMemo(() => {
+    const locale = i18n.language;
+    const days = [];
+    for (let i = 1; i <= 7; i++) { // Luxon weekday: 1 is Monday
+        const day = DateTime.local().set({ weekday: i as (1 | 2 | 3 | 4 | 5 | 6 | 7) }).setLocale(locale);
+        // Korean: single character (월), English: 3-letter abbreviation (Mon)
+        const format = locale.startsWith('ko') ? 'ccccc' : 'ccc';
+        days.push(day.toFormat(format));
+    }
+    return days;
+  }, [i18n.language]);
+  
   const editFetcher = useFetcher<Awaited<ReturnType<typeof action>>>();
   const deleteFetcher = useFetcher<Awaited<ReturnType<typeof action>>>();
   const dayToggleFetcher = useFetcher<Awaited<ReturnType<typeof action>>>();
@@ -1019,7 +1032,7 @@ export default function WeeklyPlanPage() {
                 <thead>
                 <tr className="border-b">
                   <th className="py-2 px-1 text-left">{t('weekly_page.table_header_task')}</th>
-                  {DAYS_OF_WEEK.map(day => (
+                  {displayDaysOfWeek.map(day => (
                     <th key={day} className="py-2 px-1 text-center w-px whitespace-nowrap">{day}</th>
                   ))}
                   <th className="py-2 px-1 text-center w-px whitespace-nowrap">{t('weekly_page.table_header_lock')}</th>
@@ -1041,7 +1054,7 @@ export default function WeeklyPlanPage() {
                             </div>
                           </div>
                       </td>
-                      {DAYS_OF_WEEK.map(day => (
+                      {DAYS_OF_WEEK.map((day, index) => (
                         <td key={day} className="py-2 px-1 text-center">
                           <button
                             type="button"
@@ -1053,7 +1066,7 @@ export default function WeeklyPlanPage() {
                             } ${task.is_locked ? 'opacity-50 cursor-not-allowed' : ''}`}
                             disabled={task.is_locked || anyFetcherSubmitting}
                           >
-                            {day}
+                            {displayDaysOfWeek[index]}
                           </button>
                         </td>
                       ))}

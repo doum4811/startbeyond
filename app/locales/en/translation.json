@@ -125,7 +125,8 @@
         "reflection_description": "Reflect on your month and jot down any thoughts.",
         "reflection_placeholder": "How was your month? What did you learn? What are you grateful for?",
         "save_reflection": "Save Reflection",
-        "last_saved": "Last saved"
+        "last_saved": "Last saved",
+        "reflection_saved_success": "Monthly reflection saved successfully."
     },
     "weekly_page": {
         "title": "Weekly Plan",
@@ -165,7 +166,8 @@
         "goal_note_label": "Note for Weekly Goals",
         "goal_note_placeholder": "Additional thoughts or commitments for achieving weekly goals (e.g., Secure 30 minutes of focus time every morning)",
         "saving_notes": "Saving Notes...",
-        "save_notes_button": "Save Weekly Notes"
+        "save_notes_button": "Save Weekly Notes",
+        "notes_saved_success": "Weekly notes saved successfully."
     },
     "plan_hub": {
         "title": "Planning Hub",

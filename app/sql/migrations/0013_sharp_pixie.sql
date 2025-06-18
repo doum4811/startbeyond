@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "stats_cache_profile_month_idx" ON "stats_cache" USING btree ("profile_id","month_date");

@@ -58,9 +58,15 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<RecordsPa
     startDate = DateTime.fromISO(startDateParam);
     endDate = DateTime.fromISO(endDateParam);
   } else {
-    const baseDate = monthParam ? DateTime.fromFormat(monthParam, "yyyy-MM") : DateTime.now();
+    const baseDate = monthParam ? DateTime.fromISO(`${monthParam}-01`) : DateTime.now();
     startDate = baseDate.startOf("month");
     endDate = baseDate.endOf("month");
+  }
+
+  if (!startDate.isValid || !endDate.isValid) {
+    // Fallback to current month if params are invalid
+    startDate = DateTime.now().startOf("month");
+    endDate = DateTime.now().endOf("month");
   }
 
   const [dbRecords, dbNotes, userCategoriesData, userDefaultCodePreferencesData] = await Promise.all([
@@ -78,7 +84,11 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<RecordsPa
     settingsQueries.getUserDefaultCodePreferences(client, { profileId })
   ]);
 
-  const records: DailyRecordUI[] = (dbRecords || []).map((r): DailyRecordUI => ({
+  // Handle cases where future dates might return null data
+  const safeDbRecords = dbRecords || [];
+  const safeDbNotes = dbNotes || [];
+
+  const records: DailyRecordUI[] = safeDbRecords.map((r): DailyRecordUI => ({
     id: r.id!,
     date: r.date,
     category_code: r.category_code as CategoryCode,
@@ -94,6 +104,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<RecordsPa
   const dbMemos = recordIds.length > 0 ? await dailyQueries.getMemosByRecordIds(client, { profileId, recordIds }) : [];
   
   const memosByRecordId = new Map<string, MemoUI[]>();
+  // Handle cases where future dates might return null data
   (dbMemos || []).forEach(memo => {
     const recordId = memo.record_id;
     if (!recordId) return;
@@ -113,7 +124,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<RecordsPa
   });
   
   const notesByDate = new Map<string, string>();
-  (dbNotes || []).forEach(note => {
+  safeDbNotes.forEach(note => {
       notesByDate.set(note.date, note.content);
   });
 
@@ -384,6 +395,7 @@ export default function RecordsPage() {
 
   const pdfButton = isClient ? (
     <PDFDownloadLink
+      key={startDate}
       document={
         <RecordsReportPDF
           data={monthlyRecordsForDisplay as any}

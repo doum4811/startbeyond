@@ -1,7 +1,7 @@
 // import { pgTable, text, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 // import { sql } from "drizzle-orm";
 // import type { Database } from "~/types/supabase";
-import { pgTable, uuid, text, timestamp, varchar, boolean, jsonb, pgPolicy } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, varchar, boolean, jsonb, pgPolicy, uniqueIndex } from "drizzle-orm/pg-core";
 import { profiles } from '../users/schema'; // Assuming profiles schema exists
 import { sql } from 'drizzle-orm';
 import type pkg from '@supabase/supabase-js';
@@ -37,6 +37,7 @@ export const statsCache = pgTable("stats_cache", {
   created_at: timestamp("created_at").notNull().defaultNow(),
   updated_at: timestamp("updated_at").notNull().defaultNow(),
 }, (table) => ({
+  profileMonthUnique: uniqueIndex('stats_cache_profile_month_idx').on(table.profile_id, table.month_date),
   rls: pgPolicy("stats_cache_rls", {
     for: "all",
     to: "authenticated",

@@ -129,6 +129,7 @@
         "reflection_placeholder": "이번 달은 어떠셨나요? 무엇을 배우셨나요? 감사한 일은 무엇이었나요?",
         "save_reflection": "회고 저장",
         "last_saved": "마지막 저장",
+        "reflection_saved_success": "월간 회고가 성공적으로 저장되었습니다.",
         "meta_title": "월간 목표 - StartBeyond",
         "meta_description": "월간 목표를 설정하고 진행 상황을 추적하세요.",
         "page_title": "월간 목표"
@@ -507,7 +508,8 @@
         "goal_note_label": "주간 목표 메모",
         "goal_note_placeholder": "주간 목표 달성을 위한 추가적인 생각이나 다짐 (예: 매일 아침 30분 집중 시간 확보)",
         "saving_notes": "노트 저장 중...",
-        "save_notes_button": "주간 노트 저장"
+        "save_notes_button": "주간 노트 저장",
+        "notes_saved_success": "주간 노트가 성공적으로 저장되었습니다."
     },
     "search_placeholder": "제목, 내용으로 검색..."
 } 
