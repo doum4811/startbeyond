@@ -1,55 +1,43 @@
 // import { pgTable, text, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 // import { sql } from "drizzle-orm";
 // import type { Database } from "~/types/supabase";
-import { pgTable, uuid, text, timestamp, varchar, boolean, jsonb, pgPolicy, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, varchar, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { profiles } from '../users/schema'; // Assuming profiles schema exists
 import { sql } from 'drizzle-orm';
 import type pkg from '@supabase/supabase-js';
 import type { Database } from "../../../database.types"; 
 import { DateTime } from "luxon";
 
-export const shareSettings = pgTable("share_settings", {
-  id: text("id").primaryKey().$defaultFn(() => sql`gen_random_uuid()`),
-  profile_id: text("profile_id").notNull(),
+export const sharedLinks = pgTable("shared_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  profile_id: uuid("profile_id").notNull().references(() => profiles.profile_id, { onDelete: 'cascade' }),
+  // Unique token for the shared link
+  token: text("token").notNull().unique(),
+  page_type: text("page_type").notNull(), // e.g., 'summary', 'records', 'advanced'
+  period: text("period").notNull(), // e.g., '2024-05', '2024'
   is_public: boolean("is_public").notNull().default(false),
-  include_records: boolean("include_records").notNull().default(true),
-  include_daily_notes: boolean("include_daily_notes").notNull().default(true),
-  include_memos: boolean("include_memos").notNull().default(false),
-  include_stats: boolean("include_stats").notNull().default(true),
-  share_link_token: text("share_link_token"),
-  created_at: timestamp("created_at").notNull().defaultNow(),
-  updated_at: timestamp("updated_at").notNull().defaultNow(),
+  settings: jsonb("settings"), // e.g., { includeRecords: true, includeMemos: false }
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
-  rls: pgPolicy("share_settings_rls", {
-    for: "all",
-    to: "authenticated",
-    using: sql`auth.uid()::text = ${table.profile_id}`,
-    withCheck: sql`auth.uid()::text = ${table.profile_id}`,
-  }),
+  profilePeriodUnique: uniqueIndex('shared_links_profile_page_period_idx').on(table.profile_id, table.page_type, table.period),
 }));
 
 export const statsCache = pgTable("stats_cache", {
-  id: text("id").primaryKey().$defaultFn(() => sql`gen_random_uuid()`),
-  profile_id: text("profile_id").notNull(),
+  id: text("id").primaryKey(),
+  profile_id: uuid("profile_id").notNull().references(() => profiles.profile_id, { onDelete: 'cascade' }),
   month_date: text("month_date").notNull(), // YYYY-MM
   category_distribution: jsonb("category_distribution"),
   activity_heatmap: jsonb("activity_heatmap"),
-  created_at: timestamp("created_at").notNull().defaultNow(),
-  updated_at: timestamp("updated_at").notNull().defaultNow(),
+  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   profileMonthUnique: uniqueIndex('stats_cache_profile_month_idx').on(table.profile_id, table.month_date),
-  rls: pgPolicy("stats_cache_rls", {
-    for: "all",
-    to: "authenticated",
-    using: sql`auth.uid()::text = ${table.profile_id}`,
-    withCheck: sql`auth.uid()::text = ${table.profile_id}`,
-  }),
 }));
 
 // Export derived types
-export type ShareSettingsInsert = typeof shareSettings.$inferInsert;
-export type ShareSettingsUpdate = typeof shareSettings.$inferSelect; // Or $inferUpdate if specific update type is needed
+export type SharedLink = typeof sharedLinks.$inferSelect;
+export type SharedLinkInsert = typeof sharedLinks.$inferInsert;
 
-export type StatsCacheRow = typeof statsCache.$inferSelect;
+export type StatsCache = typeof statsCache.$inferSelect;
 export type StatsCacheInsert = typeof statsCache.$inferInsert;
-export type StatsCacheUpdate = typeof statsCache.$inferSelect; // Or $inferUpdate

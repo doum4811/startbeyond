@@ -16,6 +16,7 @@ export default [
         route("advanced", "features/stats/pages/advanced-page.tsx"),
         route("records", "features/stats/pages/records-page.tsx"),
     ]),
+    route("/share/:token", "features/stats/pages/shared-page.tsx"),
     ...prefix("community", [
         index("features/community/pages/community-page.tsx"),
         route("new", "features/community/pages/community-new-post-page.tsx"),

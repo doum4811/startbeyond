@@ -317,7 +317,8 @@
             "delete_subcode_confirm_description": "This will permanently delete the subcode. This action cannot be undone.",
             "toggle_default_category_confirm_title": "Toggle Default Category?",
             "toggle_default_category_confirm_description": "Disabling a default category will hide it from selection menus. Associated data will not be deleted.",
-            "confirm_toggle": "Confirm"
+            "confirm_toggle": "Confirm",
+            "page_title": "Code & Sub-code Settings"
         }
     },
     "notifications": {
@@ -479,21 +480,25 @@
         "weekly_comparison_title": "Weekly Comparison"
     },
     "stats_header": {
-        "share": "Share",
-        "select_period": "Select Period",
+        "share_button": "Share",
         "pdf": {
-            "loading": "Generating PDF...",
-            "download": "Download PDF"
+            "download": "Download PDF",
+            "loading": "Generating..."
         },
         "share_dialog": {
             "title": "Share Statistics",
-            "public_toggle": "Public",
-            "select_info": "Select information to share",
-            "activity_records": "Activity Records",
-            "daily_notes": "Daily Notes",
-            "detailed_memos": "Detailed Memos",
-            "statistics": "Statistics",
-            "share_link": "Share Link"
+            "public_switch_label": "Public to everyone with the link",
+            "share_options_title": "Share Options",
+            "include_summary": "Include Summary",
+            "include_subcode_distribution": "Include Sub-code Distribution",
+            "include_heatmap": "Include Heatmap",
+            "include_comparison": "Include Comparison Data",
+            "include_goals": "Include Goal Achievement Rate",
+            "no_options": "There are no share options for this page.",
+            "generating_link": "Generating share link...",
+            "copy_link": "Copy Link",
+            "copied": "Copied!",
+            "close": "Close"
         }
     },
     "profile": {
@@ -507,5 +512,14 @@
         "posts_tab": "Posts",
         "headline": "Headline",
         "bio": "Bio"
+    },
+    "shared_page": {
+        "meta_title": "{{pageType}} Stats Share - StartBeyond",
+        "meta_description": "A shared statistics page.",
+        "title": "{{pageType}} Statistics",
+        "period": "Period: {{period}}",
+        "not_found": "The shared link could not be found or is no longer valid.",
+        "content_placeholder": "Shared statistics data will be displayed here.",
+        "back_to_app": "Back to App"
     }
 } 

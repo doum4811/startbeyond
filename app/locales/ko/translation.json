@@ -511,5 +511,16 @@
         "save_notes_button": "주간 노트 저장",
         "notes_saved_success": "주간 노트가 성공적으로 저장되었습니다."
     },
-    "search_placeholder": "제목, 내용으로 검색..."
+    "search_placeholder": "제목, 내용으로 검색...",
+    "copied": "복사됨!",
+    "close": "닫기",
+    "shared_page": {
+        "meta_title": "{{pageType}} 통계 공유 - StartBeyond",
+        "meta_description": "공유된 통계 페이지입니다.",
+        "title": "{{pageType}} 통계",
+        "period": "기간: {{period}}",
+        "not_found": "공유된 링크를 찾을 수 없거나 더 이상 유효하지 않습니다.",
+        "content_placeholder": "여기에 공유된 통계 데이터가 표시됩니다.",
+        "back_to_app": "앱으로 돌아가기"
+    }
 } 

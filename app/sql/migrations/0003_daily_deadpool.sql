@@ -1,1 +1,0 @@
-ALTER TABLE "share_settings" ADD COLUMN "share_link_token" text;

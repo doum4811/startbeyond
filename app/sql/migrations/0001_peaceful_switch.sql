@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX "monthly_reflections_profile_month_idx" ON "monthly_reflections" USING btree ("profile_id","month_date");

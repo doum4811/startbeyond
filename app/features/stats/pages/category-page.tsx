@@ -1,7 +1,7 @@
 // app/features/stats/pages/category-page.tsx
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/common/components/ui/tabs";
-import React, { useState, useMemo, Fragment } from "react";
-import { type LoaderFunctionArgs, type MetaFunction, useLoaderData, useNavigate } from "react-router";
+import React, { useState, useMemo, Fragment, useEffect } from "react";
+import { type LoaderFunctionArgs, type MetaFunction, type ActionFunctionArgs, useLoaderData, useNavigate, useFetcher } from "react-router";
 import { DateTime } from "luxon";
 import { Card, CardContent, CardHeader, CardTitle } from "~/common/components/ui/card";
 import { Info, ChevronDown, ChevronRight, ChevronLeft } from "lucide-react";
@@ -47,6 +47,7 @@ import { CATEGORIES as DEFAULT_CATEGORIES } from "~/common/types/daily";
 import { useTranslation } from "react-i18next";
 import { getRequiredProfileId } from "~/features/users/utils";
 import { Button } from "~/common/components/ui/button";
+import type { SharedLink, SharedLinkInsert } from "~/features/stats/types";
 
 interface GoalAchievementStats {
   totalPlans: number;
@@ -63,7 +64,43 @@ export interface CategoryPageLoaderData {
   detailedSummary: DetailedCategorySummary[];
   selectedMonthISO: string;
   goalStats: GoalAchievementStats;
+  sharedLink: SharedLink | null;
 }
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+    const { client } = makeSSRClient(request);
+    const profileId = await getRequiredProfileId(request);
+    const formData = await request.formData();
+    const intent = formData.get("intent");
+
+    if (intent === 'upsertShareSettings') {
+        try {
+            const page_type = 'category';
+            const period = formData.get('period') as string;
+
+            if (!period) {
+                return { ok: false, error: 'Period is required.' };
+            }
+            
+            const sharedLinkData = {
+                profile_id: profileId,
+                page_type,
+                period,
+                is_public: formData.get('is_public') === 'true',
+                settings: {
+                  include_goals: formData.get('include_goals') === 'true',
+                },
+            };
+            // @ts-ignore
+            const result = await statsQueries.upsertSharedLink(client, { sharedLinkData });
+            return { ok: true, sharedLink: result };
+        } catch (error: any) {
+            console.error("Error upserting share settings for category page:", error);
+            return { ok: false, error: error.message };
+        }
+    }
+    return { ok: false, error: 'Unknown intent' };
+};
 
 export const loader = async ({
   request,
@@ -87,7 +124,7 @@ export const loader = async ({
     categoryCompletion: {},
   };
 
-  const [userCategoriesDb, summary, plans, records] = await Promise.all([
+  const [userCategoriesDb, summary, plans, records, sharedLink] = await Promise.all([
     getUserCategories(client, { profileId }),
     statsQueries.calculateDetailedCategorySummary(client, {
       profileId,
@@ -96,6 +133,8 @@ export const loader = async ({
     }),
     planQueries.getDailyPlansByPeriod(client, { profileId, startDate, endDate }),
     dailyQueries.getDailyRecordsByPeriod(client, { profileId, startDate, endDate }),
+    // @ts-ignore
+    statsQueries.getSharedLink(client, { profileId, pageType: 'category', period: monthParam })
   ]);
 
   const finalCategories: UICategory[] = [];
@@ -214,6 +253,8 @@ export const loader = async ({
     detailedSummary,
     selectedMonthISO: monthParam,
     goalStats,
+    // @ts-ignore
+    sharedLink: sharedLink || null,
   };
 };
 
@@ -241,7 +282,8 @@ const COLORS = [
 ];
 
 export default function CategoryStatsPage() {
-  const { categories, detailedSummary, selectedMonthISO, goalStats } = useLoaderData<
+  // @ts-ignore
+  const { categories, detailedSummary, selectedMonthISO, goalStats, sharedLink: initialSharedLink } = useLoaderData<
     typeof loader
   >();
   const [chartType, setChartType] = useState<"bar" | "pie">("bar");
@@ -250,15 +292,28 @@ export default function CategoryStatsPage() {
   const [showCategoryEvidence, setShowCategoryEvidence] = useState<Record<string, boolean>>({});
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const fetcher = useFetcher<typeof action>();
 
-  const [shareSettings, setShareSettings] = useState({
-    showSummary: true,
-    showActivityTrend: true,
-    showGoalProgress: false
-  });
-
+  const [sharedLink, setSharedLink] = useState<SharedLink | null>(initialSharedLink);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
+  
+  useEffect(() => {
+    // @ts-ignore
+    setSharedLink(initialSharedLink);
+  }, [initialSharedLink]);
+  
+  useEffect(() => {
+    // @ts-ignore
+    if (fetcher.state === 'idle' && fetcher.data?.ok && fetcher.data.sharedLink) {
+        // @ts-ignore
+        setSharedLink(fetcher.data.sharedLink);
+        setIsShareDialogOpen(false);
+    } else if(fetcher.state === 'idle' && fetcher.data && !fetcher.data.ok) {
+        // @ts-ignore
+        console.error("Failed to update share settings:", fetcher.data.error);
+    }
+  }, [fetcher.data, fetcher.state]);
 
   const monthName = DateTime.fromFormat(selectedMonthISO, "yyyy-MM")
     .setLocale(i18n.language)
@@ -322,14 +377,26 @@ export default function CategoryStatsPage() {
 
   const [hideUnchecked, setHideUnchecked] = useState(false);
 
-  const handleShareSettingsChange = (key: string, value: boolean) => {
-    setShareSettings(prev => ({ ...prev, [key]: value }));
+  const handleSaveShareSettings = (settings: Partial<SharedLink>) => {
+    const formData = new FormData();
+    formData.append('intent', 'upsertShareSettings');
+    formData.append('period', selectedMonthISO);
+    
+    Object.entries(settings).forEach(([key, value]) => {
+      if (value !== null && value !== undefined) {
+        formData.append(key, String(value));
+      }
+    });
+    fetcher.submit(formData, { method: "post" });
   };
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText("mock/share/link");
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
+    if (typeof window === 'undefined' || !sharedLink?.token) return;
+    const url = `${window.location.origin}/share/${sharedLink.token}`;
+    navigator.clipboard.writeText(url).then(() => {
+        setIsCopied(true);
+        setTimeout(() => setIsCopied(false), 2000);
+    });
   };
 
   const timeUnitHours = t('category_distribution_list.time_unit_hours');
@@ -357,14 +424,14 @@ export default function CategoryStatsPage() {
         title={t('stats_category_page.title')}
         description={t('stats_category_page.description', { month: monthName })}
         periodButton={periodButton}
-        shareSettings={{ isPublic: false, includeRecords: false, includeDailyNotes: false, includeMemos: false, includeStats: false }}
-        onShareSettingsChange={handleShareSettingsChange}
+        // @ts-ignore
+        shareSettings={sharedLink || { page_type: 'category', period: selectedMonthISO, is_public: false, include_goals: true }}
+        onSaveShareSettings={handleSaveShareSettings}
         isShareDialogOpen={isShareDialogOpen}
         setIsShareDialogOpen={setIsShareDialogOpen}
         isCopied={isCopied}
         onCopyLink={handleCopyLink}
-        shareLink="mock/share/link"
-       // pdfFileName={`category-report-${DateTime.now().toFormat("yyyy-MM")}.pdf`}
+        shareLink={sharedLink?.is_public && sharedLink?.token ? (typeof window !== 'undefined' ? `${window.location.origin}/share/${sharedLink.token}` : `/share/${sharedLink.token}`) : undefined}
       />
 
       <Tabs defaultValue="analysis" className="space-y-6">
