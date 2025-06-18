@@ -1,10 +1,10 @@
 // app/features/stats/pages/category-page.tsx
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "~/common/components/ui/tabs";
 import React, { useState, useMemo, Fragment } from "react";
-import { type LoaderFunctionArgs, type MetaFunction, useLoaderData } from "react-router";
+import { type LoaderFunctionArgs, type MetaFunction, useLoaderData, useNavigate } from "react-router";
 import { DateTime } from "luxon";
 import { Card, CardContent, CardHeader, CardTitle } from "~/common/components/ui/card";
-import { Info, ChevronDown, ChevronRight } from "lucide-react";
+import { Info, ChevronDown, ChevronRight, ChevronLeft } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -46,6 +46,7 @@ import type { CategoryCode, UICategory } from "~/common/types/daily";
 import { CATEGORIES as DEFAULT_CATEGORIES } from "~/common/types/daily";
 import { useTranslation } from "react-i18next";
 import { getRequiredProfileId } from "~/features/users/utils";
+import { Button } from "~/common/components/ui/button";
 
 interface GoalAchievementStats {
   totalPlans: number;
@@ -248,6 +249,7 @@ export default function CategoryStatsPage() {
   const [showOverallEvidence, setShowOverallEvidence] = useState(false);
   const [showCategoryEvidence, setShowCategoryEvidence] = useState<Record<string, boolean>>({});
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
 
   const [shareSettings, setShareSettings] = useState({
     showSummary: true,
@@ -261,6 +263,16 @@ export default function CategoryStatsPage() {
   const monthName = DateTime.fromFormat(selectedMonthISO, "yyyy-MM")
     .setLocale(i18n.language)
     .toFormat("MMMM yyyy");
+
+  const handlePrevMonth = () => {
+    const newMonth = DateTime.fromFormat(selectedMonthISO, "yyyy-MM").minus({ months: 1 }).toFormat("yyyy-MM");
+    navigate(`?month=${newMonth}`);
+  };
+
+  const handleNextMonth = () => {
+    const newMonth = DateTime.fromFormat(selectedMonthISO, "yyyy-MM").plus({ months: 1 }).toFormat("yyyy-MM");
+    navigate(`?month=${newMonth}`);
+  };
 
   const toggleCategoryEvidence = (code: string) => {
     setShowCategoryEvidence(prev => ({...prev, [code]: !prev[code]}));
@@ -322,11 +334,29 @@ export default function CategoryStatsPage() {
 
   const timeUnitHours = t('category_distribution_list.time_unit_hours');
 
+  const periodButton = (
+    <div className="flex items-center gap-2">
+      <Button variant="outline" size="icon" onClick={handlePrevMonth}>
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      <span className="w-28 text-center font-semibold">{monthName}</span>
+      <Button 
+        variant="outline" 
+        size="icon" 
+        onClick={handleNextMonth} 
+        disabled={DateTime.fromFormat(selectedMonthISO, "yyyy-MM").startOf('month') >= DateTime.now().startOf('month')}
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+
   return (
     <div className="w-full max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-background min-h-screen space-y-6">
       <StatsPageHeader
         title={t('stats_category_page.title')}
         description={t('stats_category_page.description', { month: monthName })}
+        periodButton={periodButton}
         shareSettings={{ isPublic: false, includeRecords: false, includeDailyNotes: false, includeMemos: false, includeStats: false }}
         onShareSettingsChange={handleShareSettingsChange}
         isShareDialogOpen={isShareDialogOpen}

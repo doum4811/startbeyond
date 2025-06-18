@@ -1,6 +1,6 @@
 // app/features/stats/pages/advanced-page.tsx
 import React, { useState } from "react";
-import { type LoaderFunctionArgs, type MetaFunction } from "react-router";
+import { type LoaderFunctionArgs, type MetaFunction, useNavigate } from "react-router";
 import { DateTime } from "luxon";
 import { Card, CardContent, CardHeader, CardTitle } from "~/common/components/ui/card";
 import { StatsPageHeader } from "~/common/components/stats/stats-page-header";
@@ -15,6 +15,8 @@ import { CATEGORIES as DEFAULT_CATEGORIES } from "~/common/types/daily";
 import { useTranslation } from "react-i18next";
 import { ComparisonCard } from "~/features/stats/components/ComparisonCard";
 import { getRequiredProfileId } from "~/features/users/utils";
+import { Button } from "~/common/components/ui/button";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Mock Categories (fallback if DB fetch fails)
 const MOCK_UI_CATEGORIES: UICategory[] = Object.values(DEFAULT_CATEGORIES).map(cat => ({
@@ -28,29 +30,59 @@ const MOCK_UI_CATEGORIES: UICategory[] = Object.values(DEFAULT_CATEGORIES).map(c
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<AdvancedPageLoaderData> => {
   const { client } = makeSSRClient(request);
   const profileId = await getRequiredProfileId(request);
+  const url = new URL(request.url);
+  const yearParam = url.searchParams.get("year");
+  const currentYear = yearParam ? parseInt(yearParam, 10) : DateTime.now().year;
 
-  let uiCategories: UICategory[] = MOCK_UI_CATEGORIES;
-
+  let uiCategories: UICategory[] = [];
   try {
     const dbUserCategories = await getUserCategories(client, { profileId });
-    if (dbUserCategories && dbUserCategories.length > 0) {
-      const fetchedCategories = dbUserCategories.map(cat => ({
-        code: cat.code as CategoryCode,
-        label: cat.label,
-        icon: cat.icon || '❓',
-        color: cat.color,
-        isCustom: true, 
-        isActive: cat.is_active ?? true,
-        sort_order: cat.sort_order ?? 1000,
-        hasDuration: true, 
-      }));
-      uiCategories = fetchedCategories.length > 0 ? fetchedCategories : MOCK_UI_CATEGORIES;
-    }
+
+    const finalCategories: UICategory[] = [];
+    const defaultCategoriesMap = new Map(Object.values(DEFAULT_CATEGORIES).map((value) => [value.code, { ...value, isCustom: false, isActive: true, color: null }]));
+    const userCategoriesMap = new Map(dbUserCategories.map(c => [c.code, c]));
+
+    defaultCategoriesMap.forEach((defaultCat, code) => {
+      const userOverride = userCategoriesMap.get(code as CategoryCode);
+      if (userOverride) {
+        finalCategories.push({
+          ...defaultCat,
+          label: userOverride.label || defaultCat.label,
+          icon: userOverride.icon || defaultCat.icon,
+          color: userOverride.color || defaultCat.color,
+          isCustom: true,
+          isActive: userOverride.is_active,
+          sort_order: userOverride.sort_order ?? defaultCat.sort_order,
+          hasDuration: true,
+        });
+        userCategoriesMap.delete(code as CategoryCode);
+      } else {
+        finalCategories.push({
+          ...defaultCat,
+          hasDuration: true,
+        });
+      }
+    });
+
+    userCategoriesMap.forEach(userCat => {
+      finalCategories.push({
+        code: userCat.code as CategoryCode,
+        label: userCat.label,
+        icon: userCat.icon || '📝',
+        color: userCat.color,
+        isCustom: true,
+        isActive: userCat.is_active,
+        hasDuration: true,
+        sort_order: userCat.sort_order ?? 1000,
+      });
+    });
+
+    uiCategories = finalCategories.sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
   } catch (error) {
     console.error("Error fetching categories in advanced-page loader:", error);
+    uiCategories = MOCK_UI_CATEGORIES;
   }
-
-  const currentYear = DateTime.now().year;
+  
   const activeCategories = uiCategories.filter(c => c.isActive);
   const activeCategoryCodes = activeCategories.map(c => c.code as CategoryCode);
   
@@ -80,9 +112,9 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<AdvancedP
 
   let maxCategoryIntensity = 1;
   for (const day of yearlyActivity) {
-    for (const catCode in day.categories) {
-      if (day.categories[catCode as CategoryCode] > maxCategoryIntensity) {
-        maxCategoryIntensity = day.categories[catCode as CategoryCode];
+    for (const catCode of Object.keys(day.categories) as CategoryCode[]) {
+      if (day.categories[catCode] > maxCategoryIntensity) {
+        maxCategoryIntensity = day.categories[catCode];
       }
     }
   }
@@ -111,7 +143,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<AdvancedP
     yearlyCategoryHeatmapData[code as CategoryCode].some(day => day.total > 0)
   ));
 
-  const categoriesForGrid = uiCategories.filter(c => usedCategoryCodes.has(c.code));
+  const categoriesForGrid = activeCategories.filter(c => usedCategoryCodes.has(c.code));
 
   const categoryDistribution = await statsQueries.calculateCategoryDistribution(client, {
     profileId,
@@ -160,6 +192,7 @@ export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps
     comparisonStats,
   } = loaderData;
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const [shareSettings, setShareSettings] = useState({
     isPublic: false,
@@ -196,10 +229,31 @@ export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps
       { label: t('stats_summary_page.total_records'), currentValue: comparisonStats.weekly.records.current, previousValue: comparisonStats.weekly.records.prev, unit: 'records' as const }
   ];
 
+  const handlePrevYear = () => {
+    navigate(`?year=${currentYear - 1}`);
+  };
+
+  const handleNextYear = () => {
+    navigate(`?year=${currentYear + 1}`);
+  };
+
+  const periodButton = (
+    <div className="flex items-center gap-2">
+      <Button variant="outline" size="icon" onClick={handlePrevYear}>
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      <span className="w-24 text-center font-semibold">{currentYear}</span>
+      <Button variant="outline" size="icon" onClick={handleNextYear} disabled={currentYear >= DateTime.now().year}>
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+
   return (
     <div className="w-full max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-background min-h-screen space-y-6">
       <StatsPageHeader
         title={t("stats_advanced_page.title", { year: currentYear })}
+        periodButton={periodButton}
         shareSettings={shareSettings as any} 
         onShareSettingsChange={handleShareSettingsChange as any}
         isShareDialogOpen={isShareDialogOpen}
@@ -222,7 +276,7 @@ export default function AdvancedStatsPage({ loaderData }: AdvancedStatsPageProps
               categories={categories} 
             />
           ) : (
-            <p>{t("stats_advanced_page.no_heatmap_data")}</p>
+            <p className="text-center text-muted-foreground pt-12">{t("stats_advanced_page.no_heatmap_data")}</p>
           )}
         </CardContent>
       </Card>
