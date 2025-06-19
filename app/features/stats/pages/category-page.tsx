@@ -47,7 +47,7 @@ import { CATEGORIES as DEFAULT_CATEGORIES } from "~/common/types/daily";
 import { useTranslation } from "react-i18next";
 import { getRequiredProfileId } from "~/features/users/utils";
 import { Button } from "~/common/components/ui/button";
-import type { SharedLink, CategoryPageLoaderData, GoalAchievementStats } from "~/features/stats/types";
+import type { SharedLink, CategoryPageLoaderData, GoalAchievementStats, SharedLinkInsert } from "~/features/stats/types";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
     const { client } = makeSSRClient(request);
@@ -78,8 +78,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 is_public: formData.get('is_public') === 'true',
                 settings,
             };
-            // @ts-ignore
-            const result = await statsQueries.upsertSharedLink(client, { sharedLinkData });
+            const result = await statsQueries.upsertSharedLink(client, { sharedLinkData: sharedLinkData as SharedLinkInsert & { token: string } });
             return { ok: true, sharedLink: result };
         } catch (error: any) {
             console.error("Error upserting share settings for category page:", error);
@@ -120,7 +119,6 @@ export const loader = async ({
     }),
     planQueries.getDailyPlansByPeriod(client, { profileId, startDate, endDate }),
     dailyQueries.getDailyRecordsByPeriod(client, { profileId, startDate, endDate }),
-    // @ts-ignore
     statsQueries.getSharedLink(client, { profileId, pageType: 'category', period: monthParam })
   ]);
 
@@ -240,7 +238,6 @@ export const loader = async ({
     detailedSummary,
     selectedMonthISO: monthParam,
     goalStats,
-    // @ts-ignore
     sharedLink: sharedLink || null,
   };
 };
@@ -269,7 +266,6 @@ const COLORS = [
 ];
 
 export default function CategoryStatsPage() {
-  // @ts-ignore
   const { categories, detailedSummary, selectedMonthISO, goalStats, sharedLink: initialSharedLink } = useLoaderData<
     typeof loader
   >();
@@ -286,17 +282,13 @@ export default function CategoryStatsPage() {
   const [isCopied, setIsCopied] = useState(false);
   
   useEffect(() => {
-    // @ts-ignore
     setSharedLink(initialSharedLink);
   }, [initialSharedLink]);
   
   useEffect(() => {
-    // @ts-ignore
     if (fetcher.state === 'idle' && fetcher.data?.ok && fetcher.data.sharedLink) {
-        // @ts-ignore
         setSharedLink(fetcher.data.sharedLink);
     } else if(fetcher.state === 'idle' && fetcher.data && !fetcher.data.ok) {
-        // @ts-ignore
         console.error("Failed to update share settings:", fetcher.data.error);
     }
   }, [fetcher.data, fetcher.state]);
@@ -416,7 +408,6 @@ export default function CategoryStatsPage() {
         title={t('stats_category_page.title')}
         description={t('stats_category_page.description', { month: monthName })}
         periodButton={periodButton}
-        // @ts-ignore
         shareSettings={sharedLink || { page_type: 'category', period: selectedMonthISO, is_public: false, settings: { include_goals: true } }}
         onSettingsChange={handleSettingsChange}
         isShareDialogOpen={isShareDialogOpen}

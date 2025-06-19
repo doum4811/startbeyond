@@ -89,7 +89,6 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
   }
   
   const { client } = makeSSRClient(request);
-  // @ts-ignore
   const sharedLink = await statsQueries.getSharedLinkByToken(client, { token });
 
   if (!sharedLink || !sharedLink.is_public) {
@@ -133,7 +132,6 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
     })();
 
     return {
-      // @ts-ignore
       sharedLink,
       summaryData: {
         selectedMonthISO: monthForDb,
@@ -193,7 +191,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
         })();
         
         return {
-            sharedLink: sharedLink as SharedLink,
+            sharedLink,
             advancedData: {
                 categories: categoriesForGrid,
                 currentYear,
@@ -289,7 +287,6 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
         }
 
         return {
-            // @ts-ignore
             sharedLink,
             categoryData: {
                 categories: activeCategories,
@@ -371,7 +368,6 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
     }
     
     return {
-        // @ts-ignore
         sharedLink,
         recordsData: {
             categories: activeCategories,
@@ -383,7 +379,6 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
 
   } else {
      return { 
-        // @ts-ignore
         sharedLink 
     };
   }
@@ -418,9 +413,12 @@ export default function SharedPage() {
   const renderContent = () => {
     if (sharedLink.page_type === 'summary' && loaderData.summaryData) {
         const { settings } = sharedLink;
-        // @ts-ignore
-        const { include_summary, include_subcode_distribution } = settings;
+        const { include_summary, include_subcode_distribution } = settings || {};
         const { categoryDistribution, subcodeDistribution, categories } = loaderData.summaryData;
+
+        if (!categories) {
+            return <p className="text-center text-muted-foreground pt-12">{t('stats_summary_page.no_data')}</p>;
+        }
 
         return (
             <div className="space-y-6">
@@ -429,7 +427,6 @@ export default function SharedPage() {
                         <CardHeader><CardTitle>{t('stats_summary_page.category_distribution')}</CardTitle></CardHeader>
                         <CardContent>
                             {categoryDistribution && categoryDistribution.length > 0 ? (
-                                // @ts-ignore
                                 <CategoryDistributionList data={categoryDistribution} categories={categories} />
                             ) : (
                                 <p className="text-center text-muted-foreground pt-12">{t('stats_summary_page.no_data')}</p>
@@ -442,7 +439,6 @@ export default function SharedPage() {
                         <CardHeader><CardTitle>{t('stats_summary_page.subcode_distribution_title')}</CardTitle></CardHeader>
                         <CardContent>
                         {subcodeDistribution && subcodeDistribution.length > 0 ? (
-                            // @ts-ignore
                             <SubcodeDistributionList data={subcodeDistribution} categories={categories} />
                         ) : (
                             <p className="text-center text-muted-foreground pt-12">{t('subcode_distribution_list.no_data')}</p>
@@ -454,11 +450,10 @@ export default function SharedPage() {
         );
     } else if (sharedLink.page_type === 'advanced' && loaderData.advancedData) {
         const { settings } = sharedLink;
-        // @ts-ignore
-        const { include_heatmap, include_comparison } = settings;
+        const { include_heatmap, include_comparison } = settings || {};
         const { categories, currentYear, yearlyCategoryHeatmapData, categoryDistribution, comparisonStats } = loaderData.advancedData;
 
-        if (!categories || !comparisonStats) {
+        if (!categories || !comparisonStats || !categoryDistribution) {
             return <p>Loading advanced data...</p>;
         }
 
@@ -508,8 +503,7 @@ export default function SharedPage() {
         )
     } else if (sharedLink.page_type === 'category' && loaderData.categoryData) {
         const { settings } = sharedLink;
-        // @ts-ignore
-        const { include_goals } = settings;
+        const { include_goals } = settings || {};
         const { categories, detailedSummary, selectedMonthISO, goalStats } = loaderData.categoryData;
 
         if (!categories || !detailedSummary || !goalStats) {
@@ -593,7 +587,6 @@ export default function SharedPage() {
                                         <div className="p-4 bg-muted rounded-md">
                                             <h4 className="font-semibold mb-2">{t('stats_category_page.analysis.subcode_details_title')}</h4>
                                             <ul className="space-y-1">
-                                            {/* @ts-ignore */}
                                             {row.subcodes.map((sc) => (
                                                 <li key={sc.subcode} className="flex justify-between text-sm">
                                                 <span>{sc.subcode}</span>
@@ -692,12 +685,11 @@ export default function SharedPage() {
     } else if (sharedLink.page_type === 'records' && loaderData.recordsData) {
         const { recordsData } = loaderData;
         if (!recordsData || !recordsData.monthlyData || !recordsData.categories) return <p>{t('shared_page.content_placeholder')}</p>;
-        const includeNotes = (sharedLink as any).settings?.include_notes ?? true;
+        const includeNotes = sharedLink.settings?.include_notes ?? true;
         return (
           <>
-            {(sharedLink as any).settings?.include_records_list && (
+            {sharedLink.settings?.include_records_list && (
                 <div className="mt-6">
-                    {/* @ts-ignore */}
                     <MonthlyRecordsTab
                         monthlyRecordsForDisplay={recordsData.monthlyData}
                         categories={recordsData.categories}
@@ -705,7 +697,7 @@ export default function SharedPage() {
                     />
                 </div>
             )}
-            {!(sharedLink as any).settings?.include_records_list && !includeNotes && (
+            {!(sharedLink.settings?.include_records_list) && !includeNotes && (
                  <p>{t('shared_page.content_placeholder')}</p>
             )}
           </>

@@ -14,6 +14,7 @@ import { getUserCategories, getUserDefaultCodePreferences } from "~/features/set
 import * as planQueries from "~/features/plan/queries";
 import type { MonthlyGoalRow as DbMonthlyGoal } from "~/features/plan/queries";
 import * as dailyQueries from "~/features/daily/queries";
+import type { SharedLink as SharedLinkType } from "./types";
 
 // Types from database.types.ts used directly
 type StatsCacheTable = Database['public']['Tables']['stats_cache'];
@@ -59,7 +60,7 @@ export interface StatsCache {
   weekdayVsWeekend?: { weekday: number, weekend: number };
 }
 
-export async function getSharedLink(client: SupabaseClient<Database>, args: { profileId: string, pageType: string, period: string }): Promise<SharedLink | null> {
+export async function getSharedLink(client: SupabaseClient<Database>, args: { profileId: string, pageType: string, period: string }): Promise<SharedLinkType | null> {
     const { profileId, pageType, period } = args;
     const { data, error } = await client
       .from('shared_links')
@@ -78,13 +79,13 @@ export async function getSharedLink(client: SupabaseClient<Database>, args: { pr
         return null;
     }
 
-    return data as unknown as SharedLink;
+    return data as unknown as SharedLinkType;
 }
 
 export const getSharedLinkByToken = async (
   client: pkg.SupabaseClient<Database>,
   { token }: { token: string; }
-): Promise<SharedLink | null> => {
+): Promise<SharedLinkType | null> => {
   const { data, error } = await client
     // @ts-ignore - Waiting for `database.types.ts` to be regenerated
     .from("shared_links")
@@ -98,17 +99,15 @@ export const getSharedLinkByToken = async (
     if (error.code === 'PGRST116') return null; // Not found is not an error
     throw error;
   }
-  return data as unknown as SharedLink | null;
+  return data as unknown as SharedLinkType | null;
 };
 
 export const upsertSharedLink = async (
   client: pkg.SupabaseClient<Database>,
   { sharedLinkData }: { 
-    // @ts-ignore
-    sharedLinkData: Omit<SharedLinkInsert, 'token'>;
+    sharedLinkData: SharedLinkInsert;
   }
-): Promise<SharedLink> => {
-  // @ts-ignore
+): Promise<SharedLinkType> => {
   const { data: existingLink } = await client
     .from("shared_links")
     .select("id, token")
@@ -119,11 +118,12 @@ export const upsertSharedLink = async (
 
   if (existingLink) {
     // Update existing link
-    // @ts-ignore
+    const { created_at, updated_at, ...restOfData } = sharedLinkData;
     const { data: updatedData, error: updateError } = await client
       .from("shared_links")
       .update({
-        ...(sharedLinkData as any),
+        ...restOfData,
+        settings: restOfData.settings as any,
         updated_at: new Date().toISOString(),
       })
       .eq("id", existingLink.id)
@@ -135,20 +135,21 @@ export const upsertSharedLink = async (
       throw updateError;
     }
     if (!updatedData) throw new Error("Update operation did not return data.");
-    return updatedData as unknown as SharedLink;
+    return updatedData as unknown as SharedLinkType;
 
   } else {
     // Create new link with a new token
     const token = randomBytes(16).toString('hex');
+    const { created_at, updated_at, ...restOfData } = sharedLinkData;
     const dataToInsert = {
-      ...sharedLinkData,
+      ...restOfData,
+      settings: restOfData.settings as any,
       token,
     };
 
-    // @ts-ignore
     const { data: insertedData, error: insertError } = await client
       .from("shared_links")
-      .insert(dataToInsert as any)
+      .insert(dataToInsert)
       .select()
       .single();
 
@@ -157,7 +158,7 @@ export const upsertSharedLink = async (
       throw insertError;
     }
     if (!insertedData) throw new Error("Insert operation did not return data.");
-    return insertedData as unknown as SharedLink;
+    return insertedData as unknown as SharedLinkType;
   }
 };
 

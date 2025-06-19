@@ -417,6 +417,8 @@
         "apply_period": "기간 적용",
         "description_month": "{{month}}의 데이터를 표시합니다.",
         "description_period": "{{startDate}}부터 {{endDate}}까지의 데이터를 표시합니다.",
+        "pdf_title_month": "{{month}} 활동 기록 리포트",
+        "pdf_title_period": "{{startDate}} - {{endDate}} 활동 기록 리포트",
         "include_records_list_desc": "공유 페이지에 기록 목록을 포함할지 여부를 제어합니다.",
         "include_notes_label": "일일 노트 포함",
         "include_notes_desc": "공유 페이지에 일일 노트를 포함할지 여부를 제어합니다.",

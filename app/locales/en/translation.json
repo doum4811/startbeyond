@@ -442,6 +442,8 @@
         "apply_period": "Apply Period",
         "description_month": "Displaying data for {{month}}.",
         "description_period": "Displaying data from {{startDate}} to {{endDate}}.",
+        "pdf_title_month": "Activity Report for {{month}}",
+        "pdf_title_period": "Activity Report from {{startDate}} to {{endDate}}",
         "include_records_list_desc": "Controls if the list of records is included on the shared page.",
         "include_notes_label": "Include Daily Notes",
         "include_notes_desc": "Controls if the daily notes are included on the shared page.",

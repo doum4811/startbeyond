@@ -52,6 +52,17 @@ export interface StatsPageLoaderData {
   categories: UICategory[];
 } 
 
+export interface SharedLinkSettings {
+  allow_export?: boolean;
+  include_summary?: boolean;
+  include_subcode_distribution?: boolean;
+  include_heatmap?: boolean;
+  include_comparison?: boolean;
+  include_goals?: boolean;
+  include_records_list?: boolean;
+  include_notes?: boolean;
+}
+
 export interface SharedLink {
   id: string;
   token: string;
@@ -60,15 +71,8 @@ export interface SharedLink {
   page_type: 'summary' | 'advanced' | 'category' | 'records';
   period: string;
   is_public: boolean;
-  settings?: unknown; // JSONB field
+  settings?: SharedLinkSettings;
   updated_at?: string | Date;
-  // Page-specific settings from the form, make them optional
-  allow_export?: boolean;
-  include_summary?: boolean;
-  include_subcode_distribution?: boolean;
-  include_heatmap?: boolean;
-  include_comparison?: boolean;
-  include_goals?: boolean;
 }
 
 export type SharedLinkInsert = Omit<SharedLink, 'id' | 'created_at' | 'updated_at' | 'token'>;

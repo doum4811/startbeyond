@@ -226,7 +226,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 settings,
             };
 
-            const result = await statsQueries.upsertSharedLink(client, { sharedLinkData });
+            const result = await statsQueries.upsertSharedLink(client, { sharedLinkData: sharedLinkData as SharedLinkInsert & { token: string } });
             return { ok: true, sharedLink: result };
         } catch (error: any) {
             console.error("Error upserting share settings:", error);
@@ -472,14 +472,10 @@ export default function SummaryStatsPage() {
   }, [selectedMonthISO, initialSharedLink]);
 
   useEffect(() => {
-    if (fetcher.state === 'idle' && fetcher.data && fetcher.data.ok && fetcher.data.sharedLink) {
-      setSharedLink(fetcher.data.sharedLink as SharedLink);
-      // setIsShareDialogOpen(false); // Close dialog on success
-    } else if (fetcher.state === 'idle' && fetcher.data && !fetcher.data.ok) {
-      // Handle error, e.g., show a toast
-      console.error("Failed to update share settings:", fetcher.data.error);
+    if (fetcher.state === 'idle' && fetcher.data?.ok && fetcher.data.sharedLink) {
+        setSharedLink(fetcher.data.sharedLink);
     }
-  }, [fetcher.data, fetcher.state]);
+  }, [fetcher.state, fetcher.data]);
 
   function handleSettingsChange(newSettings: Partial<SharedLink>) {
     const formData = new FormData();

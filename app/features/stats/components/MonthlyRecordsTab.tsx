@@ -69,47 +69,58 @@ export default function MonthlyRecordsTab({ monthlyRecordsForDisplay, categories
   const collapseAll = () => setExpandedDates(new Set());
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[250px_1fr] gap-6">
-      {/* Left Column: Filters */}
-      <div className="space-y-4">
-        <Input
-          placeholder={t("stats_records_page.search_placeholder")}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-        <MonthlyRecordsFilter
-            categories={categories}
-            selectedCategories={selectedCategories}
-            onToggleCategory={toggleCategoryFilter}
-            onClear={clearFilters}
-        />
+    <div className="w-full">
+      {/* Filters and Controls */}
+      <div className="mb-6 flex flex-col gap-4">
+        {/* Category Filters */}
+        <div>
+          <MonthlyRecordsFilter
+              categories={categories}
+              selectedCategories={selectedCategories}
+              onToggleCategory={toggleCategoryFilter}
+              onClear={clearFilters}
+          />
+        </div>
+
+        {/* Search and View Controls */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          {/* Search Input */}
+          <div className="w-full md:w-1/3">
+            <Input
+              placeholder={t("stats_records_page.search_placeholder")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
+          {/* View Controls */}
+          <div className="flex items-center justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={expandAll}>{t('stats_records_page.expand_all')}</Button>
+              <Button variant="ghost" size="sm" onClick={collapseAll}>{t('stats_records_page.collapse_all')}</Button>
+              <div className="flex items-center rounded-md bg-muted p-1">
+                   <Button
+                      variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                      size="icon"
+                      onClick={() => setViewMode('list')}
+                      className="h-8 w-8"
+                  >
+                      <List className="h-4 w-4" />
+                  </Button>
+                  <Button
+                      variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                      size="icon"
+                      onClick={() => setViewMode('grid')}
+                      className="h-8 w-8"
+                  >
+                      <Grid className="h-4 w-4" />
+                  </Button>
+              </div>
+          </div>
+        </div>
       </div>
 
-      {/* Right Column: Content */}
+      {/* Content */}
       <div className="space-y-4">
-        <div className="flex items-center justify-end gap-2">
-            <Button variant="ghost" size="sm" onClick={expandAll}>{t('stats_records_page.expand_all')}</Button>
-            <Button variant="ghost" size="sm" onClick={collapseAll}>{t('stats_records_page.collapse_all')}</Button>
-            <div className="flex items-center rounded-md bg-muted p-1">
-                 <Button
-                    variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                    size="icon"
-                    onClick={() => setViewMode('list')}
-                    className="h-8 w-8"
-                >
-                    <List className="h-4 w-4" />
-                </Button>
-                <Button
-                    variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                    size="icon"
-                    onClick={() => setViewMode('grid')}
-                    className="h-8 w-8"
-                >
-                    <Grid className="h-4 w-4" />
-                </Button>
-            </div>
-        </div>
-      
         {viewMode === 'list' ? (
           <MonthlyRecordsListView 
             data={filteredData} 

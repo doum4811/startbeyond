@@ -103,12 +103,12 @@ export function StatsPageHeader({
 
   return (
     <div className="mb-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex-1">
+      <div className="flex flex-col gap-4">
+        <div className="text-center">
           <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-        {description && <p className="text-muted-foreground">{description}</p>}
+        {description && <p className="mt-2 text-muted-foreground">{description}</p>}
       </div>
-        <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2">
+        <div className="flex flex-wrap items-center justify-center gap-2">
         {periodButton}
             {actionButton}
         <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>

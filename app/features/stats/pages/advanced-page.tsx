@@ -57,7 +57,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 is_public: formData.get('is_public') === 'true',
                 settings,
             };
-            const result = await statsQueries.upsertSharedLink(client, { sharedLinkData });
+            const result = await statsQueries.upsertSharedLink(client, { sharedLinkData: sharedLinkData as SharedLinkInsert & { token: string } });
             return { ok: true, sharedLink: result };
         } catch (error: any) {
             console.error("Error upserting share settings for advanced page:", error);
@@ -238,11 +238,8 @@ function AdvancedStatsPage() {
   }, [initialSharedLink]);
 
   useEffect(() => {
-    const fetcherData = fetcher.data as { ok: boolean, sharedLink?: SharedLink, error?: string } | undefined;
-    if (fetcher.state === 'idle' && fetcherData?.ok && fetcherData.sharedLink) {
-        setSharedLink(fetcherData.sharedLink);
-    } else if(fetcher.state === 'idle' && fetcherData && !fetcherData.ok) {
-        console.error("Failed to update share settings:", fetcherData.error);
+    if (fetcher.state === 'idle' && fetcher.data?.ok && fetcher.data.sharedLink) {
+        setSharedLink(fetcher.data.sharedLink);
     }
   }, [fetcher.data, fetcher.state]);
 

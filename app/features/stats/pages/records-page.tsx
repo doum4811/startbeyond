@@ -19,7 +19,7 @@ import * as dailyQueries from "~/features/daily/queries";
 import * as statsQueries from "~/features/stats/queries";
 import * as settingsQueries from "~/features/settings/queries";
 import { CATEGORIES } from "~/common/types/daily";
-import type { SharedLink } from "~/features/stats/types";
+import type { SharedLink, SharedLinkInsert } from "~/features/stats/types";
 
 // Re-register fonts for this page's PDF generation
 Font.register({
@@ -74,7 +74,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 is_public: formData.get('is_public') === 'true',
                 settings,
             };
-            const result = await statsQueries.upsertSharedLink(client, { sharedLinkData });
+            const result = await statsQueries.upsertSharedLink(client, { sharedLinkData: sharedLinkData as SharedLinkInsert & { token: string } });
             return { ok: true, sharedLink: result };
         } catch (error: any) {
             console.error("Error upserting share settings for records page:", error);
@@ -412,13 +412,10 @@ export default function RecordsPage() {
   }, [initialSharedLink]);
 
   useEffect(() => {
-    const fetcherData = fetcher.data as { ok: boolean, sharedLink?: SharedLink, error?: string } | undefined;
-    if (fetcher.state === 'idle' && fetcherData?.ok && fetcherData.sharedLink) {
-        setSharedLink(fetcherData.sharedLink);
-    } else if(fetcher.state === 'idle' && fetcherData && !fetcherData.ok) {
-        console.error("Failed to update share settings:", fetcherData.error);
+    if (fetcher.state === 'idle' && fetcher.data?.ok && fetcher.data.sharedLink) {
+      setSharedLink(fetcher.data.sharedLink);
     }
-  }, [fetcher.data, fetcher.state]);
+  }, [fetcher.state, fetcher.data]);
 
   const periodControl = (
     <div className="flex items-center gap-1">
@@ -536,7 +533,7 @@ export default function RecordsPage() {
 
   return (
     <div className="w-full max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-background min-h-screen">
-      <div className="mb-4">
+      <div className="mb-4 flex flex-col items-center">
       <StatsPageHeader
         title={t("stats_records_page.title")}
         description={description}
