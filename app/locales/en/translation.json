@@ -342,7 +342,7 @@
         "meta_title": "Monthly Summary {{monthName}} - StartBeyond",
         "meta_description": "Activity summary for {{monthName}}.",
         "page_title": "Monthly Summary",
-        "page_description_free": "This page provides a basic statistical summary for free plan users.",
+        "page_description_free": "Here's a summary of your activities for this month.",
         "monthly_activity_summary": "Monthly Activity Summary",
         "vs_last_month": "vs. last month",
         "vs_last_month_new": "New activity",
@@ -350,7 +350,7 @@
         "total_records": "Total Records",
         "total_hours": "Total Hours",
         "goal_achievement_rate": "Goal Achievement Rate",
-        "most_active_category_title": "Most Active",
+        "most_active_category_title": "Most Active Category",
         "most_active_category_desc": "{{percentage}}% of total time",
         "key_insights": "Key Insights",
         "most_active_category": "Most Active Category",
@@ -387,13 +387,15 @@
         "monthly_summary_title": "Monthly Summary",
         "most_active_weekday": "This month, you were most active on <span class=\"font-semibold text-primary\">{{day}}</span> (total {{count}} times).",
         "not_enough_data": "Not enough activity data to generate a summary for this month.",
-        "weekday_vs_weekend": "The activity ratio for weekdays vs. weekends is <span class=\"font-semibold text-primary\">{{weekday}}</span> (weekday) / <span class=\"font-semibold text-primary\">{{weekend}}</span> (weekend)."
+        "weekday_vs_weekend": "The activity ratio for weekdays vs. weekends is <span class=\"font-semibold text-primary\">{{weekday}}</span> (weekday) / <span class=\"font-semibold text-primary\">{{weekend}}</span> (weekend).",
+        "category_distribution_title": "Category Distribution"
     },
     "category_distribution_list": {
         "no_data": "No activity data for this month.",
         "count_unit": "times",
         "time_unit_hours": "h",
-        "time_unit_minutes": "m"
+        "time_unit_minutes": "m",
+        "title": "Category Distribution"
     },
     "subcode_distribution_list": {
         "no_data": "No sub-code records available.",
@@ -548,5 +550,10 @@
         "title": "Page Not Found",
         "description": "Sorry, we couldn't find the page you were looking for.",
         "go_home": "Go back home"
-    }
+    },
+    "pdf": {
+        "download": "Download PDF",
+        "loading": "Generating..."
+    },
+    "share": "공유하기"
 } 

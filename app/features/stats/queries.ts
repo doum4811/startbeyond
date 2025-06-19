@@ -59,28 +59,27 @@ export interface StatsCache {
   weekdayVsWeekend?: { weekday: number, weekend: number };
 }
 
-export const getSharedLink = async (
-  client: pkg.SupabaseClient<Database>,
-  { profileId, pageType, period }: { 
-    profileId: string; 
-    pageType: string;
-    period: string;
-  }
-): Promise<SharedLink | null> => {
-  const { data, error } = await client
-    // @ts-ignore - Waiting for `database.types.ts` to be regenerated
-    .from("shared_links")
-    .select("*")
-    .eq("profile_id", profileId)
-    .eq("page_type", pageType)
-    .eq("period", period)
-    .single();
-  if (error && error.code !== 'PGRST116') {
-    console.error("Error fetching shared link:", error);
-    throw error;
-  }
-  return data as unknown as SharedLink | null;
-};
+export async function getSharedLink(client: SupabaseClient<Database>, args: { profileId: string, pageType: string, period: string }): Promise<SharedLink | null> {
+    const { profileId, pageType, period } = args;
+    const { data, error } = await client
+      .from('shared_links')
+      .select("*")
+      .eq("profile_id", profileId)
+      .eq("page_type", pageType)
+      .eq("period", period)
+      .maybeSingle();
+
+    if (error) {
+        console.error("Error fetching shared link:", error);
+        throw error;
+    }
+
+    if (!data) {
+        return null;
+    }
+
+    return data as unknown as SharedLink;
+}
 
 export const getSharedLinkByToken = async (
   client: pkg.SupabaseClient<Database>,

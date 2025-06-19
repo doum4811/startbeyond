@@ -113,9 +113,9 @@ export function StatsPageHeader({
             {actionButton}
         <Dialog open={isShareDialogOpen} onOpenChange={setIsShareDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" size="sm" className="flex items-center gap-2">
-                        <Share2 className="w-4 h-4" />
-                        {t("stats_header.share")}
+            <Button variant="outline" size="sm">
+              <Share2 className="w-4 h-4 mr-2" />
+              {t('stats_header.share_button')}
             </Button>
           </DialogTrigger>
                 <DialogContent className="sm:max-w-[425px]">

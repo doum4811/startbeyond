@@ -14,7 +14,15 @@ import * as settingsQueries from "~/features/settings/queries";
 import type { CategoryCode, UICategory } from "~/common/types/daily";
 import { CATEGORIES } from "~/common/types/daily";
 import { makeSSRClient } from "~/supa-client";
-import type { CategoryDistribution, TimeOfDayDistribution, SubcodeDistribution, SummaryInsights, SharedLink } from "../types";
+import type { 
+  CategoryDistribution, 
+  TimeOfDayDistribution, 
+  SubcodeDistribution, 
+  SummaryInsights, 
+  SharedLink,
+  GoalCompletionStats,
+  SharedLinkInsert
+} from "../types";
 import { StatsPageHeader } from "~/common/components/stats/stats-page-header";
 import { SubcodeDistributionChart } from "~/common/components/stats/subcode-distribution-chart";
 import { CategoryDistributionList } from "../components/CategoryDistributionList";
@@ -210,14 +218,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
                 }
             }
             
-            const sharedLinkData = {
+            const sharedLinkData: SharedLinkInsert = {
                 profile_id: profileId,
-                page_type,
+                page_type: 'summary',
                 period,
                 is_public: formData.get('is_public') === 'true',
                 settings,
             };
-            // @ts-ignore
+
             const result = await statsQueries.upsertSharedLink(client, { sharedLinkData });
             return { ok: true, sharedLink: result };
         } catch (error: any) {
@@ -296,7 +304,6 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<SummaryPa
         startDate: selectedMonthStart.toISODate()!,
         endDate: selectedMonthEnd.toISODate()!,
     }),
-    // @ts-ignore
     statsQueries.getSharedLink(client, { profileId, pageType: 'summary', period: monthForDb })
   ]);
 
@@ -362,7 +369,6 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<SummaryPa
   
   processedCategories.sort((a, b) => (a.sort_order ?? 999) - (b.sort_order ?? 999));
 
-  // @ts-ignore - Bypassing type mismatch issue until types.ts is fixed
   return {
     profileId,
     selectedMonthISO: monthForDb,
@@ -379,8 +385,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<SummaryPa
     prevMonthGoalStats: prevMonthGoalStats || { totalPlans: 0, completedPlans: 0, completionRate: 0, total_goals: 0, completed_goals: 0 },
     summaryInsights: summaryInsights || { mostActiveWeekday: null, weekdayVsWeekend: { weekday: 0, weekend: 0 }, most_active_category: null, longest_duration_category: null, most_active_time_slot: null },
     locale: i18next.language,
-    // @ts-ignore
-    sharedLink: sharedLink || null,
+    sharedLink: sharedLink as SharedLink | null,
   };
 };
 
@@ -413,7 +418,7 @@ export default function SummaryStatsPage() {
       prevMonthGoalStats,
       summaryInsights,
       sharedLink: initialSharedLink,
-  } = useLoaderData<typeof loader>();
+  } = useLoaderData<SummaryPageLoaderData>();
   
   const [sharedLink, setSharedLink] = useState<SharedLink | null>(initialSharedLink);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
@@ -459,21 +464,19 @@ export default function SummaryStatsPage() {
     : 0;
 
   useEffect(() => {
-    // @ts-ignore
-    if(initialSharedLink) {
-      setSharedLink(initialSharedLink);
-    }
-  }, [initialSharedLink]);
+    setSharedLink(initialSharedLink);
+    // When the month (and thus the initialSharedLink) changes,
+    // close the share dialog and reset the copy status.
+    setIsShareDialogOpen(false);
+    setIsCopied(false);
+  }, [selectedMonthISO, initialSharedLink]);
 
   useEffect(() => {
-    // @ts-ignore
     if (fetcher.state === 'idle' && fetcher.data && fetcher.data.ok && fetcher.data.sharedLink) {
-      // @ts-ignore
-      setSharedLink(fetcher.data.sharedLink);
+      setSharedLink(fetcher.data.sharedLink as SharedLink);
       // setIsShareDialogOpen(false); // Close dialog on success
     } else if (fetcher.state === 'idle' && fetcher.data && !fetcher.data.ok) {
       // Handle error, e.g., show a toast
-      // @ts-ignore
       console.error("Failed to update share settings:", fetcher.data.error);
     }
   }, [fetcher.data, fetcher.state]);
@@ -557,7 +560,6 @@ export default function SummaryStatsPage() {
         <StatsPageHeader
           title={t('stats_summary_page.page_title')}
           description={t('stats_summary_page.page_description_free')}
-          // @ts-ignore
           shareSettings={sharedLink || { page_type: 'summary', period: selectedMonthISO, is_public: false, settings: { include_summary: true, include_subcode_distribution: true } }}
           onSettingsChange={handleSettingsChange}
           isShareDialogOpen={isShareDialogOpen}

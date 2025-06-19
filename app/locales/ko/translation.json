@@ -318,15 +318,15 @@
         "meta_title": "월간 요약 {{monthName}} - StartBeyond",
         "meta_description": "{{monthName}} 활동 요약입니다.",
         "page_title": "월간 요약",
-        "page_description_free": "이 페이지는 무료 플랜 사용자에게 제공되는 기본 통계 요약입니다.",
+        "page_description_free": "이번 달 활동 요약입니다.",
         "monthly_activity_summary": "월간 활동 요약",
         "vs_last_month": "지난달 대비",
         "vs_last_month_new": "새 활동",
         "vs_last_month_no_change": "변화 없음",
-        "total_records": "총 기록",
-        "total_hours": "총 시간",
+        "total_records": "총 기록 수",
+        "total_hours": "총 활동 시간",
         "goal_achievement_rate": "목표 달성률",
-        "most_active_category_title": "가장 많은 활동",
+        "most_active_category_title": "가장 활발했던 카테고리",
         "most_active_category_desc": "총 시간의 {{percentage}}%",
         "key_insights": "주요 인사이트",
         "most_active_category": "가장 활동적인 카테고리",
@@ -362,13 +362,15 @@
         "monthly_summary_title": "월간 요약",
         "most_active_weekday": "이번 달에는 <span class=\"font-semibold text-primary\">{{day}}</span>에 가장 활발하게 활동하셨습니다. (총 {{count}}회)",
         "not_enough_data": "이번 달 활동 기록이 요약을 만들기에 충분하지 않습니다.",
-        "weekday_vs_weekend": "주중과 주말 활동 비율은 각각 <span class=\"font-semibold text-primary\">{{weekday}}</span>회(주중) / <span class=\"font-semibold text-primary\">{{weekend}}</span>회(주말) 입니다."
+        "weekday_vs_weekend": "주중과 주말 활동 비율은 각각 <span class=\"font-semibold text-primary\">{{weekday}}</span>회(주중) / <span class=\"font-semibold text-primary\">{{weekend}}</span>회(주말) 입니다.",
+        "category_distribution_title": "카테고리별 분포"
     },
     "category_distribution_list": {
         "no_data": "이번 달 활동 데이터가 없습니다.",
         "count_unit": "회",
         "time_unit_hours": "시간",
-        "time_unit_minutes": "분"
+        "time_unit_minutes": "분",
+        "title": "카테고리별 분포"
     },
     "subcode_distribution_list": {
         "no_data": "세부코드 기록이 없습니다.",
@@ -475,7 +477,7 @@
         "weekly_comparison_title": "주간 비교"
     },
     "stats_header": {
-        "share": "공유하기",
+        "share_button": "공유하기",
         "select_period": "기간 선택",
         "pdf": {
             "loading": "PDF 생성 중...",
@@ -549,5 +551,9 @@
         "title": "페이지를 찾을 수 없습니다",
         "description": "죄송합니다. 요청하신 페이지를 찾을 수 없습니다.",
         "go_home": "홈으로 돌아가기"
+    },
+    "pdf": {
+        "download": "PDF 다운로드",
+        "loading": "생성 중..."
     }
 } 
