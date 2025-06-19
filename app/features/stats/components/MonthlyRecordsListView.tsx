@@ -76,7 +76,7 @@ export function MonthlyRecordsListView({ data, categories, expandedDates, onTogg
                       );
                     })}
                   {showNotes && day.dailyNote && (
-                  <div className="mt-4 pt-4 border-t">
+                  <div className="mt-4 pt-4">
                     <div className="text-sm font-medium mb-2">{t("daily_notes")}</div>
                     <div className="text-sm text-muted-foreground whitespace-pre-wrap">
                       {day.dailyNote}

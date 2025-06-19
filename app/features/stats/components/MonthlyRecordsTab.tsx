@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Input } from "~/common/components/ui/input";
 import { Button } from "~/common/components/ui/button";
-import { List, Grid } from "lucide-react";
+import { List, Grid, ArrowDownWideNarrow, ArrowUpWideNarrow } from "lucide-react";
 import { MonthlyRecordsFilter } from "./MonthlyRecordsFilter";
 import { MonthlyRecordsListView } from "./MonthlyRecordsListView";
 import { MonthlyRecordsGridView } from "./MonthlyRecordsGridView";
@@ -21,6 +21,7 @@ export default function MonthlyRecordsTab({ monthlyRecordsForDisplay, categories
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const toggleDateExpansion = (date: string) => {
     setExpandedDates(prev => {
@@ -65,6 +66,16 @@ export default function MonthlyRecordsTab({ monthlyRecordsForDisplay, categories
     return null;
   }).filter((day): day is MonthlyDayRecord => day !== null);
 
+  const sortedData = useMemo(() => {
+    const dataToSort = [...filteredData];
+    return dataToSort.sort((a, b) => {
+      if (sortOrder === 'asc') {
+        return a.date.localeCompare(b.date);
+      }
+      return b.date.localeCompare(a.date);
+    });
+  }, [filteredData, sortOrder]);
+
   const expandAll = () => setExpandedDates(new Set(filteredData.map(d => d.date)));
   const collapseAll = () => setExpandedDates(new Set());
 
@@ -97,6 +108,9 @@ export default function MonthlyRecordsTab({ monthlyRecordsForDisplay, categories
         <div className="flex items-center justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={expandAll}>{t('stats_records_page.expand_all')}</Button>
             <Button variant="ghost" size="sm" onClick={collapseAll}>{t('stats_records_page.collapse_all')}</Button>
+            <Button variant="ghost" size="icon" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')} className="h-9 w-9">
+                {sortOrder === 'desc' ? <ArrowDownWideNarrow className="h-4 w-4" /> : <ArrowUpWideNarrow className="h-4 w-4" />}
+            </Button>
             <div className="flex items-center rounded-md bg-muted p-1">
                  <Button
                     variant={viewMode === 'list' ? 'secondary' : 'ghost'}
@@ -123,7 +137,7 @@ export default function MonthlyRecordsTab({ monthlyRecordsForDisplay, categories
       <div className="space-y-4">
         {viewMode === 'list' ? (
           <MonthlyRecordsListView 
-            data={filteredData} 
+            data={sortedData} 
             categories={categories}
             expandedDates={expandedDates}
             onToggleDate={toggleDateExpansion}

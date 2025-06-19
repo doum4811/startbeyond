@@ -241,7 +241,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
         const [detailedSummary, plans, records] = await Promise.all([
             statsQueries.calculateDetailedCategorySummary(client, { profileId, startDate, endDate }),
             planQueries.getDailyPlansByPeriod(client, { profileId, startDate, endDate }),
-            dailyQueries.getDailyRecordsByPeriod(client, { profileId, startDate, endDate, onlyPublic: true }),
+            dailyQueries.getDailyRecordsByPeriod(client, { profileId, startDate, endDate }),
         ]);
         
         const activeCategoryCodes = new Set(activeCategories.map(c => c.code));
@@ -273,10 +273,13 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
                 if (isCompleted) {
                     plansByDate[plan.plan_date].completed++;
                 } else {
-                    goalStats.uncheckedPlans.push({
-                        plan,
-                        category: categories.find(c => c.code === plan.category_code)
-                    });
+                    const categoryForUnchecked = categories.find(c => c.code === plan.category_code);
+                    if (categoryForUnchecked) {
+                        goalStats.uncheckedPlans.push({
+                            plan,
+                            category: categoryForUnchecked
+                        });
+                    }
                 }
                 
                 if (plan.category_code && plansByCategory[plan.category_code]) {
@@ -303,8 +306,9 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
             
             let currentStreak = 0;
             let longestStreak = 0;
-            for (let day = monthStart; day <= monthStart.endOf("month"); day = day.plus({ days: 1 })) {
-                const dateStr = day.toISODate()!;
+            let currentDay = monthStart;
+            while(currentDay <= monthStart.endOf("month")) {
+                const dateStr = currentDay.toISODate()!;
                 const dayPlans = plansByDate[dateStr];
                 if (dayPlans && dayPlans.total > 0 && dayPlans.total === dayPlans.completed) {
                     currentStreak++;
@@ -312,6 +316,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
                     longestStreak = Math.max(longestStreak, currentStreak);
                     currentStreak = 0;
                 }
+                currentDay = currentDay.plus({ days: 1 });
             }
             longestStreak = Math.max(longestStreak, currentStreak);
             goalStats.longestStreak = longestStreak;
@@ -334,11 +339,11 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
     const endDate = DateTime.fromISO(endDateStr);
 
     const [dbRecords, dbNotes] = await Promise.all([
-        dailyQueries.getDailyRecordsByPeriod(client, { profileId, startDate: startDate.toISODate()!, endDate: endDate.toISODate()!, onlyPublic: true }),
+        dailyQueries.getDailyRecordsByPeriod(client, { profileId, startDate: startDate.toISODate()!, endDate: endDate.toISODate()! }),
         dailyQueries.getDailyNotesByPeriod(client, { profileId, startDate: startDate.toISODate()!, endDate: endDate.toISODate()! }),
     ]);
     
-    const records: DailyRecordUI[] = dbRecords.map((r): DailyRecordUI => ({
+    const records: DailyRecordUI[] = (dbRecords || []).map((r): DailyRecordUI => ({
         id: r.id!,
         date: r.date,
         category_code: r.category_code as CategoryCode,
@@ -375,7 +380,7 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
     });
     
     const monthlyRecordsForDisplay: MonthlyDayRecord[] = [];
-    const notesByDate = new Map(dbNotes.map(n => [n.date, n.content]));
+    const notesByDate = new Map((dbNotes || []).map(n => [n.date, n.content]));
     const recordsByDate = new Map<string, DailyRecordUI[]>();
 
     records.forEach(rec => {
