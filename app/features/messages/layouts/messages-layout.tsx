@@ -2,7 +2,7 @@ import { getConversations } from "../queries";
 import { makeSSRClient } from "~/supa-client";
 import { getProfileId } from "~/features/users/utils";
 import type { LoaderFunctionArgs } from "react-router";
-import { Link, NavLink, Outlet, useLoaderData } from "react-router";
+import { Link, NavLink, Outlet, useLoaderData, useOutlet } from "react-router";
 import { cn } from "~/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "~/common/components/ui/avatar";
 import { timeAgo } from "~/lib/utils";
@@ -12,12 +12,13 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const { client } = makeSSRClient(request);
     const profileId = await getProfileId(request);
     const conversations = await getConversations(client, profileId);
-    return { conversations };
+    return { conversations, profileId };
 }
 
 export default function MessagesLayout() {
-    const { conversations } = useLoaderData<typeof loader>();
+    const { conversations, profileId } = useLoaderData<typeof loader>();
     const { t } = useTranslation();
+    const outlet = useOutlet();
 
     return (
         <div className="max-w-7xl mx-auto py-12 px-4 pt-24 min-h-screen">
@@ -37,11 +38,13 @@ export default function MessagesLayout() {
                             >
                                 <Avatar>
                                     <AvatarImage src={conv.other_user.avatar_url ?? undefined} />
-                                    <AvatarFallback>{conv.other_user.username?.[0]}</AvatarFallback>
+                                    <AvatarFallback>
+                                        {conv.other_user.full_name?.[0] || conv.other_user.username?.[0] || 'U'}
+                                    </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 overflow-hidden">
                                     <div className="flex justify-between items-center">
-                                        <p className="font-semibold truncate">{conv.other_user.username}</p>
+                                        <p className="font-semibold truncate">{conv.other_user.full_name || conv.other_user.username}</p>
                                         <p className="text-xs text-muted-foreground flex-shrink-0">
                                             {conv.last_message ? timeAgo(conv.last_message.created_at) : ""}
                                         </p>

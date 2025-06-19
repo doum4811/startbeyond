@@ -275,10 +275,10 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
                 } else {
                     const categoryForUnchecked = categories.find(c => c.code === plan.category_code);
                     if (categoryForUnchecked) {
-                        goalStats.uncheckedPlans.push({
-                            plan,
+                    goalStats.uncheckedPlans.push({
+                        plan,
                             category: categoryForUnchecked
-                        });
+                    });
                     }
                 }
                 
@@ -430,7 +430,7 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
     const pageData = data as SharedPageLoaderData | undefined;
 
     if (!pageData?.meta) {
-      const pageType = pageData?.sharedLink?.page_type || 'Stats';
+    const pageType = pageData?.sharedLink?.page_type || 'Stats';
       return [
         { title: `Shared ${pageType.charAt(0).toUpperCase() + pageType.slice(1)}` },
         { name: "description", content: "View shared stats from StartMore." },

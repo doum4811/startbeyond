@@ -21,6 +21,8 @@ import { makeSSRClient } from "./supa-client";
 import { cn } from "./common/lib/utils";
 
 import { getUserById } from "./features/users/queries";
+import { getUnreadNotificationCount } from "./features/notifications/queries";
+import { getUnreadMessageCount } from "./features/messages/queries";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -57,18 +59,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </body>
     </html>
   );
-}
-
-// export default function App() {
+}// export default function App() {
 export const loader = async ({ request }: Route.LoaderArgs) => {
   const { client } = makeSSRClient(request);
   const { data: { user } } = await client.auth.getUser();
   // return { user };
   if (user) {
     const profile = await getUserById(client, { id: user?.id });
-    return { user, profile };
+    const unreadNotifications = await getUnreadNotificationCount(client, { userId: user.id });
+    const unreadMessages = await getUnreadMessageCount(client, user.id);
+    return { user, profile, hasNotifications: unreadNotifications > 0, hasMessages: unreadMessages > 0 };
   }
-  return { user: null, profile: null };
+  return { user: null, profile: null, hasNotifications: false, hasMessages: false };
 };
 
 export default function App({ loaderData }: Route.ComponentProps) {
@@ -90,8 +92,8 @@ export default function App({ loaderData }: Route.ComponentProps) {
           username={loaderData.profile?.username}
           avatar={loaderData.profile?.avatar_url}
           name={loaderData.profile?.full_name}
-          hasNotifications={false}
-          hasMessages={false}
+          hasNotifications={loaderData.hasNotifications}
+          hasMessages={loaderData.hasMessages}
         />
       )}
       <Outlet />
@@ -127,3 +129,4 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
     </main>
   );
 }
+

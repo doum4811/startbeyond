@@ -58,6 +58,10 @@ export async function getConversations(
         const p1 = Array.isArray(conv.participant1) ? conv.participant1[0] : conv.participant1;
         const p2 = Array.isArray(conv.participant2) ? conv.participant2[0] : conv.participant2;
 
+        if (!p1 || !p2) {
+            return null;
+        }
+
         const other_user = p1.profile_id === userId ? p2 : p1;
         const last_message = Array.isArray(conv.last_message) && conv.last_message.length > 0 ? conv.last_message[0] : null;
 
@@ -67,10 +71,43 @@ export async function getConversations(
             other_user: other_user,
             last_message: last_message,
         };
-    });
+    }).filter(Boolean);
 
 
-    return processedConversations;
+    return processedConversations as any[];
+}
+
+export async function getConversationById(
+    client: SupabaseClient<any>,
+    conversationId: string,
+    userId: string
+) {
+    const { data: conv, error } = await client
+        .from('conversations')
+        .select(`
+            id,
+            created_at,
+            participant1:profiles!conversations_participant1_id_fkey(profile_id, username, full_name, avatar_url),
+            participant2:profiles!conversations_participant2_id_fkey(profile_id, username, full_name, avatar_url)
+        `)
+        .eq('id', conversationId)
+        .single();
+    
+    if (error) {
+        console.error("Error fetching conversation:", error);
+        return null;
+    }
+
+    const p1 = Array.isArray(conv.participant1) ? conv.participant1[0] : conv.participant1;
+    const p2 = Array.isArray(conv.participant2) ? conv.participant2[0] : conv.participant2;
+
+    const other_user = p1.profile_id === userId ? p2 : p1;
+
+    return {
+        id: conv.id,
+        created_at: conv.created_at,
+        other_user: other_user,
+    };
 }
 
 export async function getMessages(
@@ -86,6 +123,7 @@ export async function getMessages(
             sender_id,
             sender:profiles (
                 username,
+                full_name,
                 avatar_url
             )
         `)
@@ -104,22 +142,62 @@ export async function createMessage(
     client: SupabaseClient<any>,
     { conversationId, senderId, content }: { conversationId: string; senderId: string; content: string }
 ) {
-    const { data, error } = await client
+    // 1. Get conversation participants to notify the other user
+    const { data: conversationData, error: convError } = await client
+        .from('conversations')
+        .select('participant1_id, participant2_id')
+        .eq('id', conversationId)
+        .single();
+
+    if (convError || !conversationData) {
+        console.error("Could not fetch conversation to create message notification", convError);
+        // We can still proceed to create the message, but notification will fail.
+    }
+
+    // 2. Insert the message
+    const { data: newMessage, error } = await client
         .from('messages')
         .insert({
             conversation_id: conversationId,
             sender_id: senderId,
             content: content,
-        } as any)
-        .select()
+        })
+        .select(`
+            *,
+            sender:profiles (
+                username,
+                full_name,
+                avatar_url
+            )
+        `)
         .single();
-
+    
     if (error) {
         console.error("Error creating message:", error);
         throw error;
     }
 
-    return data;
+    // 3. Create a notification for the recipient
+    if (newMessage && conversationData) {
+        const recipientId = conversationData.participant1_id === senderId 
+            ? conversationData.participant2_id 
+            : conversationData.participant1_id;
+
+        const { error: notificationError } = await client.from('notifications').insert({
+            recipient_id: recipientId,
+            actor_id: senderId,
+            type: 'new_message',
+            message: `새로운 메시지가 도착했습니다.`,
+            resource_url: `/messages/${conversationId}`
+        });
+
+        if (notificationError) {
+            // Log the error but don't block the message from being returned
+            console.error("Failed to create notification:", notificationError);
+        }
+    }
+
+    return newMessage;
 }
 
 export async function getUnreadMessageCount(client: SupabaseClient<any>, userId: string) {

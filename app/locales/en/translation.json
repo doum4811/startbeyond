@@ -246,13 +246,30 @@
     },
     "settings": {
         "profile": {
-            "title": "Public Profile",
-            "description": "This is how others will see you on the site.",
+            "title": "Edit profile",
+            "description": "Update your public profile information.",
             "name": "Name",
             "headline": "Headline",
             "bio": "Bio",
+            "save_changes": "Save changes",
             "saving": "Saving...",
-            "save_changes": "Save Changes"
+            "avatar": "Avatar",
+            "avatar_hint": "PNG, JPG, GIF, WEBP. Max 5MB.",
+            "form_title": "Profile Information",
+            "form_description": "This information will be displayed to other users.",
+            "name_hint": "Your public display name.",
+            "headline_hint": "A brief introduction to yourself.",
+            "bio_hint": "Your public bio, which will be displayed on your profile page.",
+            "update_profile_button": "Update profile",
+            "avatar_title": "Avatar",
+            "avatar_description": "This is your public avatar.",
+            "avatar_size_hint": "Recommended size: 128x128px",
+            "avatar_formats_hint": "Allowed formats: PNG, JPEG, WEBP",
+            "avatar_max_size_hint": "Max file size: 1MB",
+            "update_avatar_button": "Update avatar",
+            "errors": {
+                "name_too_short": "Name must be at least 2 characters long."
+            }
         },
         "categories": {
             "meta_title": "Code Settings - StartBeyond",
@@ -325,10 +342,11 @@
         "title": "Notifications",
         "mark_all_read": "Mark all as read",
         "anonymous": "Someone",
-        "new_follower": "<strong>{{actor}}</strong> started following you.",
-        "new_comment": "<strong>{{actor}}</strong> commented on your post.",
+        "new_follower": "<b>{{actor}}</b> started following you.",
+        "new_comment": "<b>{{actor}}</b> commented on your post.",
+        "new_message": "<b>{{actor}}</b>: {{message}}",
         "default": "You have a new notification.",
-        "no_notifications": "You have no notifications."
+        "no_notifications": "No notifications yet."
     },
     "messages": {
         "title": "Messages",
@@ -336,7 +354,8 @@
         "no_messages_yet": "No messages yet.",
         "no_conversations_yet": "No conversations yet.",
         "select_conversation": "Select a conversation",
-        "select_conversation_description": "Choose a conversation from the list on the left to see the messages."
+        "select_conversation_description": "Choose a conversation from the list on the left to see the messages.",
+        "start_conversation": "Start a conversation."
     },
     "stats_summary_page": {
         "meta_title": "Monthly Summary {{monthName}} - StartBeyond",

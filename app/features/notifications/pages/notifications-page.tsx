@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "~/common/components/ui/avat
 import { Button } from "~/common/components/ui/button";
 import { timeAgo } from "~/lib/utils";
 import { cn } from "~/lib/utils";
-import { Bell, UserPlus, MessageSquare } from "lucide-react";
+import { Bell, UserPlus, MessageSquare, CalendarCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -31,6 +31,10 @@ function getNotificationMessage(notification: notificationQueries.Notification, 
             return <p dangerouslySetInnerHTML={{ __html: t('notifications.new_follower', { actor: actorUsername }) }} />;
         case 'new_comment':
             return <p dangerouslySetInnerHTML={{ __html: t('notifications.new_comment', { actor: actorUsername }) }} />;
+        case 'weekly_summary':
+            return <p>{notification.message}</p>;
+        case 'new_message':
+            return <p dangerouslySetInnerHTML={{ __html: t('notifications.new_message', { actor: actorUsername, message: notification.message }) }} />;
         default:
             return <p>{t('notifications.default')}</p>;
     }
@@ -42,6 +46,10 @@ function getNotificationIcon(notification: notificationQueries.Notification) {
             return <UserPlus className="h-6 w-6 text-blue-500" />;
         case 'new_comment':
             return <MessageSquare className="h-6 w-6 text-green-500" />;
+        case 'weekly_summary':
+            return <CalendarCheck className="h-6 w-6 text-purple-500" />;
+        case 'new_message':
+            return <MessageSquare className="h-6 w-6 text-pink-500" />;
         default:
             return <Bell className="h-6 w-6 text-gray-500" />;
     }
@@ -79,10 +87,12 @@ export default function NotificationsPage() {
                 <div className="w-8 pt-1">{getNotificationIcon(notification)}</div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
+                    {notification.actor && (
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={notification.actor?.avatar_url ?? undefined} />
                       <AvatarFallback>{notification.actor?.username?.[0]}</AvatarFallback>
                     </Avatar>
+                    )}
                     <div className="text-sm">{getNotificationMessage(notification, t)}</div>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">{timeAgo(notification.created_at)}</p>

@@ -9,6 +9,7 @@ import { Input } from "~/common/components/ui/input";
 import { useEffect, useRef } from "react";
 import { cn } from "~/lib/utils";
 import { timeAgo } from "~/lib/utils";
+import { Link } from "react-router";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
     const { conversationId } = params;
@@ -17,12 +18,19 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     const { client } = makeSSRClient(request);
     const profileId = await getProfileId(request);
 
-    const messages = await messageQueries.getMessages(client, conversationId);
+    const [messages, conversation] = await Promise.all([
+        messageQueries.getMessages(client, conversationId),
+        messageQueries.getConversationById(client, conversationId, profileId)
+    ]);
     
     // Mark messages as read
     await messageQueries.markMessagesAsRead(client, conversationId, profileId);
 
-    return { messages, profileId };
+    if (!conversation) {
+        throw new Response("Conversation not found", { status: 404 });
+    }
+
+    return { messages, profileId, otherUser: conversation.other_user };
 }
 
 export async function action({ request, params }: ActionFunctionArgs) {
@@ -48,14 +56,21 @@ export async function action({ request, params }: ActionFunctionArgs) {
 }
 
 export default function ConversationPage() {
-    const { messages, profileId } = useLoaderData<typeof loader>();
-    const fetcher = useFetcher();
+    const { messages, profileId, otherUser } = useLoaderData<typeof loader>();
+    const fetcher = useFetcher<typeof action>();
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const formRef = useRef<HTMLFormElement>(null);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
     
+    useEffect(() => {
+        if(fetcher.state === 'idle' && fetcher.data?.ok) {
+            formRef.current?.reset();
+        }
+    }, [fetcher.state, fetcher.data]);
+
     const allMessages = [...messages];
     if (fetcher.formData?.get('intent') === 'sendMessage' && fetcher.data?.newMessage) {
         // This is optimistic UI, but needs more robust handling for duplicates
@@ -64,6 +79,15 @@ export default function ConversationPage() {
 
     return (
         <div className="flex flex-col h-[calc(100vh-12rem)]">
+            <div className="p-4 border-b flex items-center gap-4">
+                <Avatar>
+                    <AvatarImage src={otherUser.avatar_url ?? undefined} />
+                    <AvatarFallback>{otherUser.username?.[0]}</AvatarFallback>
+                </Avatar>
+                <Link to={`/users/${otherUser.username}`} className="font-semibold hover:underline">
+                    {otherUser.full_name || otherUser.username}
+                </Link>
+            </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {allMessages.map((msg, index) => {
                     const isSender = msg.sender_id === profileId;
@@ -76,7 +100,7 @@ export default function ConversationPage() {
                             {!isSender && (
                                 <Avatar className="w-8 h-8">
                                     <AvatarImage src={sender?.avatar_url ?? undefined} />
-                                    <AvatarFallback>{sender?.username?.[0]}</AvatarFallback>
+                                    <AvatarFallback>{sender?.full_name?.[0] || sender?.username?.[0]}</AvatarFallback>
                                 </Avatar>
                             )}
                             <div
@@ -93,7 +117,7 @@ export default function ConversationPage() {
                             {isSender && (
                                 <Avatar className="w-8 h-8">
                                     <AvatarImage src={sender?.avatar_url ?? undefined} />
-                                    <AvatarFallback>{sender?.username?.[0] || 'Me'}</AvatarFallback>
+                                    <AvatarFallback>{sender?.full_name?.[0] || sender?.username?.[0] || 'Me'}</AvatarFallback>
                                 </Avatar>
                             )}
                         </div>
@@ -102,7 +126,7 @@ export default function ConversationPage() {
                 <div ref={messagesEndRef} />
             </div>
             <div className="p-4 border-t">
-                <fetcher.Form method="post" className="flex gap-2">
+                <fetcher.Form ref={formRef} method="post" className="flex gap-2">
                     <Input name="content" placeholder="Type a message..." autoComplete="off" />
                     <Button type="submit" name="intent" value="sendMessage">Send</Button>
                 </fetcher.Form>
@@ -110,124 +134,3 @@ export default function ConversationPage() {
         </div>
     );
 } 
-// import { Form, useFetcher, useLoaderData } from "react-router";
-// import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
-// import { makeSSRClient } from "~/supa-client";
-// import * as messageQueries from "../queries";
-// import { getProfileId } from "~/features/users/utils";
-// import { MessageBubble } from "../components/message-bubble";
-// import { Button } from "~/common/components/ui/button";
-// import { Input } from "~/common/components/ui/input";
-// import { SendIcon } from "lucide-react";
-// import { useEffect, useRef } from "react";
-// import { useTranslation } from "react-i18next";
-// import type { Profile } from "~/features/users/queries";
-
-// // A simplified profile type for this page's context
-// type SimpleProfile = Pick<Profile, 'profile_id' | 'username' | 'full_name' | 'avatar_url'>;
-
-// export async function loader({ request, params }: LoaderFunctionArgs) {
-//   const { conversationId } = params;
-//   if (!conversationId) {
-//     throw new Response("Conversation not found", { status: 404 });
-//   }
-
-//   const { client } = makeSSRClient(request);
-//   const currentUserId = await getProfileId(request);
-
-//   const { data: convData, error: convError } = await client
-//     .from('conversations')
-//     .select(`
-//       id,
-//       participant1:profiles!conversations_participant1_id_fkey(*),
-//       participant2:profiles!conversations_participant2_id_fkey(*)
-//     `)
-//     .eq('id', conversationId)
-//     .single();
-
-//   if (convError || !convData) {
-//     throw new Response("Conversation not found", { status: 404 });
-//   }
-
-//   const otherUser = convData.participant1.profile_id === currentUserId 
-//     ? convData.participant2 as SimpleProfile
-//     : convData.participant1 as SimpleProfile;
-
-//   if (!otherUser) {
-//     throw new Response("Conversation partner not found", { status: 404 });
-//   }
-
-//   const messages = await messageQueries.getMessages(client, conversationId);
-
-//   return { messages, currentUserId, otherUser, conversationId };
-// }
-
-// export async function action({ request, params }: ActionFunctionArgs) {
-//     const { conversationId } = params;
-//     if (!conversationId) {
-//       throw new Response("Conversation not found", { status: 404 });
-//     }
-  
-//     const { client } = makeSSRClient(request);
-//     const senderId = await getProfileId(request);
-//     const formData = await request.formData();
-//     const content = formData.get("content") as string;
-  
-//     if (content?.trim()) {
-//       await messageQueries.createMessage(client, {
-//         conversationId,
-//         senderId,
-//         content,
-//       });
-//     }
-  
-//     return { ok: true };
-// }
-
-// type MessageWithAuthor = Awaited<ReturnType<typeof messageQueries.getMessages>>[number];
-
-// export default function ConversationPage() {
-//     const { messages, currentUserId, otherUser, conversationId } = useLoaderData<typeof loader>();
-//     const fetcher = useFetcher();
-//     const { t } = useTranslation();
-//     const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-//     useEffect(() => {
-//         if (scrollContainerRef.current) {
-//             scrollContainerRef.current.scrollTop = scrollContainerRef.current.scrollHeight;
-//         }
-//     }, [messages]);
-
-//     const currentUserProfile: SimpleProfile = {
-//       profile_id: currentUserId,
-//       username: 'You',
-//       full_name: 'You',
-//       avatar_url: null,
-//     };
-
-//     return (
-//         <div className="flex flex-col h-[calc(100vh-10rem)]">
-//             <div className="p-4 border-b">
-//                 <h2 className="text-xl font-semibold">{otherUser.full_name ?? otherUser.username}</h2>
-//             </div>
-//             <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-//                 {messages.map((msg: MessageWithAuthor) => (
-//                     <MessageBubble 
-//                         key={msg.id}
-//                         message={msg.content}
-//                         isCurrentUser={msg.sender_id === currentUserId}
-//                         author={msg.sender_id === currentUserId ? currentUserProfile : otherUser}
-//                     />
-//                 ))}
-//             </div>
-//             <div className="p-4 border-t">
-//                 <fetcher.Form method="post" action={`/messages/${conversationId}`} className="flex items-center gap-2">
-//                     <Input name="content" placeholder={t('messages.type_a_message')} autoComplete="off" />
-//                     <Button type="submit" size="icon" disabled={fetcher.state === "submitting"}>
-//                         <SendIcon className="size-4" />
-//                     </Button>
-//                 </fetcher.Form>
-//             </div>
-//         </div>
-//     );
-// } 

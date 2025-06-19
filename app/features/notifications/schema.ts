@@ -25,10 +25,26 @@ export const notifications = pgTable("notifications", {
     .defaultNow()
     .notNull(),
 }, (table) => ({
-  rls: pgPolicy("notifications_rls", {
-    for: "all",
-    to: "authenticated",
-    using: sql`auth.uid() = ${table.recipient_id}`,
-    withCheck: sql`auth.uid() = ${table.recipient_id}`,
-  }),
+    rls: [
+        pgPolicy("Allow authenticated users to create notifications", {
+            for: "insert",
+            to: "authenticated",
+            withCheck: sql`true`,
+        }),
+        pgPolicy("Allow users to view their own notifications", {
+            for: "select",
+            to: "authenticated",
+            using: sql`auth.uid() = ${table.recipient_id}`,
+        }),
+        pgPolicy("Allow users to update their own notifications", {
+            for: "update",
+            to: "authenticated",
+            using: sql`auth.uid() = ${table.recipient_id}`,
+        }),
+        pgPolicy("Allow users to delete their own notifications", {
+            for: "delete",
+            to: "authenticated",
+            using: sql`auth.uid() = ${table.recipient_id}`,
+        }),
+    ]
 })); 
