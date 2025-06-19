@@ -33,6 +33,16 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from "~/common/components/ui/radio-group";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogCancel,
+  AlertDialogTrigger,
+} from "~/common/components/ui/alert-dialog";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { client } = makeSSRClient(request);
@@ -91,6 +101,17 @@ export async function action({ request }: ActionFunctionArgs) {
     return { ok: false, error: { message: "Invalid visibility value" } };
   }
 
+  if (intent === "delete_account") {
+    const { error } = await client.rpc('delete_user');
+    if (error) {
+      console.error("Failed to delete account:", error);
+      return { ok: false, error: { message: "Failed to delete account." } };
+    }
+    // On successful deletion, Supabase handles session invalidation.
+    // Redirecting to home page.
+    return redirect("/");
+  }
+
   // Default intent is "update_profile"
   const fullName = formData.get("full_name") as string;
 
@@ -127,6 +148,7 @@ export default function ProfileSettingsPage() {
   const profileFetcher = useFetcher<typeof action>();
   const avatarFetcher = useFetcher<typeof action>();
   const privacyFetcher = useFetcher<typeof action>();
+  const deleteAccountFetcher = useFetcher<typeof action>();
   const { t } = useTranslation();
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const { revalidate } = useRevalidator();
@@ -296,9 +318,47 @@ export default function ProfileSettingsPage() {
                 </Button>
             </CardFooter>
             </privacyFetcher.Form>
-      </Card>
+          </Card>
         </div>
       </div>
+
+      <div className="mt-8">
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-destructive">{t("settings.account.delete_account_title")}</CardTitle>
+            <CardDescription>{t("settings.account.delete_account_description")}</CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">{t("settings.account.delete_account_button")}</Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t("settings.account.delete_confirm_title")}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t("settings.account.delete_confirm_description")}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
+                  <deleteAccountFetcher.Form method="post" className="inline-block">
+                    <input type="hidden" name="intent" value="delete_account" />
+                    <Button
+                      type="submit"
+                      variant="destructive"
+                      disabled={deleteAccountFetcher.state === "submitting"}
+                    >
+                      {deleteAccountFetcher.state === "submitting" ? t("settings.profile.saving") : t("settings.account.delete_confirm_button")}
+                    </Button>
+                  </deleteAccountFetcher.Form>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </CardFooter>
+        </Card>
+      </div>
+
     </div>
   );
 } 

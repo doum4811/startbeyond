@@ -342,6 +342,14 @@
             "followers_only": "팔로워만",
             "public": "전체 공개",
             "save_button": "설정 저장"
+        },
+        "account": {
+            "delete_account_title": "계정 삭제",
+            "delete_account_description": "계정과 모든 콘텐츠를 영구적으로 삭제합니다. 이 작업은 되돌릴 수 없습니다.",
+            "delete_account_button": "내 계정 삭제",
+            "delete_confirm_title": "정말로 삭제하시겠습니까?",
+            "delete_confirm_description": "이 작업은 취소할 수 없습니다. 계정이 영구적으로 삭제되며 서버에서 모든 데이터가 제거됩니다.",
+            "delete_confirm_button": "네, 계정을 삭제합니다"
         }
     },
     "notifications": {

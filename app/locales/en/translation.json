@@ -354,6 +354,14 @@
             "followers_only": "Followers only",
             "public": "Public",
             "save_button": "Save Privacy"
+        },
+        "account": {
+            "delete_account_title": "Delete Account",
+            "delete_account_description": "Permanently delete your account and all of your content. This action is not reversible.",
+            "delete_account_button": "Delete My Account",
+            "delete_confirm_title": "Are you absolutely sure?",
+            "delete_confirm_description": "This action cannot be undone. This will permanently delete your account and remove your data from our servers.",
+            "delete_confirm_button": "Yes, delete my account"
         }
     },
     "notifications": {
