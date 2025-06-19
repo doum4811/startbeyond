@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from "~/common/components/ui/card";
 import { Button } from "~/common/components/ui/button";
 import { Input } from "~/common/components/ui/input";
@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "~/common/components/ui/
 import { Calendar } from "~/common/components/ui/calendar";
 import { useTranslation } from "react-i18next";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "~/common/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/common/components/ui/tooltip";
 
 import * as planQueries from "~/features/plan/queries";
 import type { 
@@ -66,6 +67,8 @@ function getWeekRangeString(startDateISO: string, locale?: string): string {
 }
 
 const DAYS_OF_WEEK = ["월", "화", "수", "목", "금", "토", "일"];
+
+const getPendingUpdatesStorageKey = (profileId: string) => `weekly-task-pending-updates-${profileId}`;
 
 const isValidCategoryCode = (code: string, activeCategories: UICategory[]): boolean => {
     return activeCategories.some(c => c.code === code && c.isActive);
@@ -351,12 +354,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         const comment = formData.get("comment") as string | null;
         const isLocked = formData.get("is_locked") === "true";
         const daysStr = formData.get("days") as string | null; 
-        if (!taskId) return { ok: false, error: "Task ID is required.", intent };
-        if (categoryCodeStr && !isValidCategoryCode(categoryCodeStr, activeCategoriesForAction)) return { ok: false, error: "Invalid active category code for update.", intent};
+        if (!taskId) return { ok: false, error: "Task ID is required.", intent, taskId };
+        if (categoryCodeStr && !isValidCategoryCode(categoryCodeStr, activeCategoriesForAction)) return { ok: false, error: "Invalid active category code for update.", intent, taskId };
         let daysUpdate: Record<string, boolean> | undefined = undefined;
         if (daysStr) {
             try { daysUpdate = JSON.parse(daysStr); } 
-            catch (e) { return { ok: false, error: "Invalid days format.", intent}; }
+            catch (e) { return { ok: false, error: "Invalid days format.", intent, taskId }; }
         }
         const updates: Partial<WeeklyTaskUpdate> = {};
         if (categoryCodeStr) updates.category_code = categoryCodeStr;
@@ -493,7 +496,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   } catch (error: any) {
     console.error("WeeklyPage Action error:", error);
     const intentVal = formData.get("intent") as string | null;
-    return { ok: false, error: error.message || "An unexpected error occurred.", intent: intentVal || "error" };
+    const taskIdVal = formData.get("taskId") as string | null;
+    return { ok: false, error: error.message || "An unexpected error occurred.", intent: intentVal || "error", taskId: taskIdVal };
   }
 };
 
@@ -545,11 +549,35 @@ export default function WeeklyPlanPage() {
   const notesFetcher = useFetcher<Awaited<ReturnType<typeof action>>>();
   const navigate = useNavigate();
 
-  const [weeklyTasks, setWeeklyTasks] = useState<WeeklyTaskUI[]>(() => sortWeeklyTasksArray(initialWeeklyTasks));
+  const [weeklyTasks, setWeeklyTasks] = useState<WeeklyTaskUI[]>(() => {
+    if (typeof window !== 'undefined') {
+        try {
+            const storageKey = getPendingUpdatesStorageKey(profileId);
+            const pendingUpdatesJSON = localStorage.getItem(storageKey);
+            const pendingUpdates: Record<string, { days: Record<string, boolean> }> = pendingUpdatesJSON ? JSON.parse(pendingUpdatesJSON) : {};
+
+            if (Object.keys(pendingUpdates).length > 0) {
+                const updatedTasks = initialWeeklyTasks.map(task => {
+                    if (pendingUpdates[task.id]) {
+                        return { ...task, days: pendingUpdates[task.id].days };
+                    }
+                    return task;
+                });
+                return sortWeeklyTasksArray(updatedTasks);
+            }
+        } catch (e) {
+            console.error("Failed to read or parse pending updates from localStorage", e);
+        }
+    }
+    return sortWeeklyTasksArray(initialWeeklyTasks);
+  });
+
   const weeklyTasksRef = useRef(weeklyTasks);
   useEffect(() => {
     weeklyTasksRef.current = weeklyTasks;
   }, [weeklyTasks]);
+
+  const debounceTimers = useRef<Record<string, NodeJS.Timeout>>({});
 
   const [weeklyNote, setWeeklyNote] = useState<WeeklyNoteUI | null>(initialWeeklyNote);
   const [newTaskCategory, setNewTaskCategory] = useState<CategoryCode>(DEFAULT_TASK_CATEGORY);
@@ -566,13 +594,51 @@ export default function WeeklyPlanPage() {
   
   const [pageAlert, setPageAlert] = useState<{ type: 'error' | 'warning' | 'info' | 'success'; message: string; } | null>(null);
   
+  const [failedTaskIds, setFailedTaskIds] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+        try {
+            const storageKey = getPendingUpdatesStorageKey(profileId);
+            const pendingUpdatesJSON = localStorage.getItem(storageKey);
+            const pendingUpdates = pendingUpdatesJSON ? JSON.parse(pendingUpdatesJSON) : {};
+            return new Set(Object.keys(pendingUpdates));
+        } catch (e) {
+            return new Set();
+        }
+    }
+    return new Set();
+  });
+  
   const [isMonthlyGoalsCollapsed, setIsMonthlyGoalsCollapsed] = useState(monthlyGoalsForWeek.length === 0);
   const [addedMonthlyGoalTaskIds, setAddedMonthlyGoalTaskIds] = useState<Set<string>>(() => 
     new Set(initialWeeklyTasks.filter(t => !!t.from_monthly_goal_id).map(t => t.from_monthly_goal_id!))
   );
   
   useEffect(() => {
-    setWeeklyTasks(sortWeeklyTasksArray(initialWeeklyTasks));
+    // Re-initialize state when loader data changes (e.g., navigating weeks)
+    // but respect pending changes from localStorage for the *new* set of tasks.
+    if (typeof window !== 'undefined') {
+        try {
+            const storageKey = getPendingUpdatesStorageKey(profileId);
+            const pendingUpdatesJSON = localStorage.getItem(storageKey);
+            const pendingUpdates: Record<string, { days: Record<string, boolean> }> = pendingUpdatesJSON ? JSON.parse(pendingUpdatesJSON) : {};
+
+            const updatedTasks = initialWeeklyTasks.map(task => {
+                if (pendingUpdates[task.id]) {
+                    return { ...task, days: pendingUpdates[task.id].days };
+                }
+                return task;
+            });
+            setWeeklyTasks(sortWeeklyTasksArray(updatedTasks));
+            setFailedTaskIds(new Set(Object.keys(pendingUpdates).filter(id => initialWeeklyTasks.some(t => t.id === id))));
+
+        } catch (e) {
+            console.error("Failed to process pending updates on navigation", e);
+            setWeeklyTasks(sortWeeklyTasksArray(initialWeeklyTasks));
+        }
+    } else {
+        setWeeklyTasks(sortWeeklyTasksArray(initialWeeklyTasks));
+    }
+
     setWeeklyNote(initialWeeklyNote);
     setCsfInput(initialWeeklyNote?.critical_success_factor || "");
     setSeeInput(initialWeeklyNote?.weekly_see || "");
@@ -581,7 +647,12 @@ export default function WeeklyPlanPage() {
     setAddedMonthlyGoalTaskIds(new Set(initialWeeklyTasks.filter(t => !!t.from_monthly_goal_id).map(t => t.from_monthly_goal_id!)));
     setIsMonthlyGoalsCollapsed(monthlyGoalsForWeek.length === 0);
     setPageAlert(null);
-  }, [initialWeeklyTasks, initialWeeklyNote, monthlyGoalsForWeek]);
+    
+    // Cleanup debounce timers on unmount
+    return () => {
+        Object.values(debounceTimers.current).forEach(clearTimeout);
+    };
+  }, [initialWeeklyTasks, initialWeeklyNote, monthlyGoalsForWeek, profileId]);
 
   // Edit/Add Fetcher Effect
   useEffect(() => {
@@ -635,19 +706,75 @@ export default function WeeklyPlanPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deleteFetcher.data, deleteFetcher.state]);
 
+  const processNextPendingUpdate = useCallback(() => {
+    if (dayToggleFetcher.state !== 'idle') {
+      return;
+    }
+    
+    const storageKey = getPendingUpdatesStorageKey(profileId);
+    const pendingUpdatesJSON = localStorage.getItem(storageKey);
+    const pendingUpdates: Record<string, { days: Record<string, boolean> }> = pendingUpdatesJSON ? JSON.parse(pendingUpdatesJSON) : {};
+    const taskIdToProcess = Object.keys(pendingUpdates)[0];
+
+    if (taskIdToProcess) {
+      const taskInState = weeklyTasksRef.current.find(t => t.id === taskIdToProcess);
+      if (taskInState) {
+          const formData = new FormData();
+          formData.append("intent", "updateWeeklyTask");
+          formData.append("taskId", taskIdToProcess);
+          formData.append("days", JSON.stringify(taskInState.days));
+          formData.append("is_locked", String(taskInState.is_locked || false));
+          formData.append("category_code", taskInState.category_code);
+          formData.append("comment", taskInState.comment || "");
+          if (taskInState.subcode) {
+              formData.append("subcode", taskInState.subcode);
+          }
+          dayToggleFetcher.submit(formData, { method: "post" });
+      } else {
+        delete pendingUpdates[taskIdToProcess];
+        localStorage.setItem(storageKey, JSON.stringify(pendingUpdates));
+        setTimeout(() => processNextPendingUpdate(), 100);
+      }
+    }
+  }, [dayToggleFetcher, profileId]);
+  
+  // Effect to kick off processing pending updates on mount
+  useEffect(() => {
+    processNextPendingUpdate();
+  }, [processNextPendingUpdate]);
+
   // Day Toggle Fetcher Effect
   useEffect(() => {
       if (dayToggleFetcher.data && dayToggleFetcher.state === "idle") {
-          const res = dayToggleFetcher.data;
+          const res = dayToggleFetcher.data as any;
           if (res instanceof Response) return;
-          if (res.ok && res.intent === "updateWeeklyTask" && res.updatedTask) {
-              setWeeklyTasks(prev => sortWeeklyTasksArray(prev.map(t => t.id === res.taskId ? res.updatedTask as WeeklyTaskUI : t)));
+
+          const taskId = res.taskId;
+          if (!taskId) return;
+
+          const storageKey = getPendingUpdatesStorageKey(profileId);
+          const pendingUpdatesJSON = localStorage.getItem(storageKey);
+          const pendingUpdates = pendingUpdatesJSON ? JSON.parse(pendingUpdatesJSON) : {};
+
+          if (res.ok && res.intent === "updateWeeklyTask") {
+              delete pendingUpdates[taskId];
+              localStorage.setItem(storageKey, JSON.stringify(pendingUpdates));
+              
+              setFailedTaskIds(prev => {
+                  if (!prev.has(taskId)) return prev;
+                  const newSet = new Set(prev);
+                  newSet.delete(taskId);
+                  return newSet;
+              });
           } else if (res.error) {
               console.error("Day Toggle Error:", res.error, "Intent:", res.intent);
-              setPageAlert({ type: 'error', message: `Error (${res.intent || 'Unknown'}): ${res.error}` });
+              setPageAlert({ type: 'error', message: `저장 실패: '${weeklyTasksRef.current.find(t => t.id === taskId)?.comment}' 항목을 다시 확인해주세요.` });
+              setFailedTaskIds(prev => new Set(prev).add(taskId));
           }
+          
+          setTimeout(() => processNextPendingUpdate(), 100);
       }
-  }, [dayToggleFetcher.data, dayToggleFetcher.state]);
+  }, [dayToggleFetcher.data, dayToggleFetcher.state, profileId, processNextPendingUpdate]);
 
   // Lock Fetcher Effect
   useEffect(() => {
@@ -753,21 +880,57 @@ export default function WeeklyPlanPage() {
   }
   
   function handleToggleTaskDay(taskId: string, day: string) {
-    const taskToUpdate = weeklyTasks.find(t => t.id === taskId);
+    const taskToUpdate = weeklyTasksRef.current.find(t => t.id === taskId);
     if (!taskToUpdate || taskToUpdate.is_locked) return;
+    
+    const newDays = { ...(taskToUpdate.days || {}), [day]: !taskToUpdate.days?.[day] };
+    const updatedTask = { ...taskToUpdate, days: newDays };
 
-    const currentDays = taskToUpdate.days || {};
-    const newDays = { ...currentDays, [day]: !currentDays[day] };
-    const formData = new FormData();
-    formData.append("intent", "updateWeeklyTask");
-    formData.append("taskId", taskId);
-    formData.append("days", JSON.stringify(newDays));
-    formData.append("is_locked", String(taskToUpdate.is_locked || false));
-    formData.append("category_code", taskToUpdate.category_code);
-    formData.append("comment", taskToUpdate.comment || "");
-    if(taskToUpdate.subcode) formData.append("subcode", taskToUpdate.subcode);
+    setWeeklyTasks(prevTasks =>
+      sortWeeklyTasksArray(prevTasks.map(t => t.id === taskId ? updatedTask : t))
+    );
 
-    dayToggleFetcher.submit(formData, { method: "post" });
+    const storageKey = getPendingUpdatesStorageKey(profileId);
+    try {
+      const pendingUpdatesJSON = localStorage.getItem(storageKey);
+      const pendingUpdates = pendingUpdatesJSON ? JSON.parse(pendingUpdatesJSON) : {};
+      pendingUpdates[taskId] = { days: newDays };
+      localStorage.setItem(storageKey, JSON.stringify(pendingUpdates));
+    } catch(e) {
+      console.error("Failed to write pending updates to localStorage", e);
+      setPageAlert({ type: 'error', message: 'Failed to save pending changes locally. They might be lost on refresh.' });
+    }
+    
+    setFailedTaskIds(prev => {
+        if (!prev.has(taskId)) return prev;
+        const newSet = new Set(prev);
+        newSet.delete(taskId);
+        return newSet;
+    });
+
+    if (debounceTimers.current[taskId]) {
+      clearTimeout(debounceTimers.current[taskId]);
+    }
+
+    debounceTimers.current[taskId] = setTimeout(() => {
+      const taskDataForSubmission = weeklyTasksRef.current.find(t => t.id === taskId);
+      if (!taskDataForSubmission) return;
+      
+      const formData = new FormData();
+      formData.append("intent", "updateWeeklyTask");
+      formData.append("taskId", taskId);
+      formData.append("days", JSON.stringify(taskDataForSubmission.days));
+      formData.append("is_locked", String(taskDataForSubmission.is_locked || false));
+      formData.append("category_code", taskDataForSubmission.category_code);
+      formData.append("comment", taskDataForSubmission.comment || "");
+      if (taskDataForSubmission.subcode) {
+        formData.append("subcode", taskDataForSubmission.subcode);
+      }
+      
+      dayToggleFetcher.submit(formData, { method: "post" });
+      
+      delete debounceTimers.current[taskId];
+    }, 800);
   }
 
   function handleToggleTaskLock(taskId: string, newLockState: boolean) {
@@ -819,7 +982,7 @@ export default function WeeklyPlanPage() {
   const anyFetcherSubmitting =
     editFetcher.state !== 'idle' ||
     deleteFetcher.state !== 'idle' ||
-    dayToggleFetcher.state !== 'idle' ||
+    // dayToggleFetcher is handled optimistically and doesn't need to disable the UI
     lockFetcher.state !== 'idle' ||
     monthlyGoalFetcher.state !== 'idle' ||
     notesFetcher.state !== 'idle';
@@ -1043,11 +1206,28 @@ export default function WeeklyPlanPage() {
                 {weeklyTasks.map((task) => {
                   const dynamicCategoryInfo = categories.find(c => c.code === task.category_code);
                   const isEditingThis = editingTaskId === task.id;
+                  const hasError = failedTaskIds.has(task.id);
                   return (
-                    <tr key={task.id} className={`border-b ${isEditingThis ? 'bg-amber-50 dark:bg-amber-900/30' : ''}`}>
+                    <tr 
+                      key={task.id} 
+                      className={`border-b transition-colors ${isEditingThis ? 'bg-amber-50 dark:bg-amber-900/30' : ''} ${hasError ? 'bg-red-50 dark:bg-red-900/20' : ''}`}
+                    >
                       <td className="py-2 px-1">
                         <div className="flex items-center gap-2">
-                            <span className={`text-xl flex-shrink-0 ${dynamicCategoryInfo ? getCategoryColor(dynamicCategoryInfo, task.category_code) : getCategoryColor(undefined, task.category_code)}`}>{dynamicCategoryInfo?.icon || '❓'}</span>
+                            {hasError ? (
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger>
+                                            <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>저장에 실패했습니다. 다시 시도해주세요.</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            ) : (
+                              <span className={`text-xl flex-shrink-0 ${dynamicCategoryInfo ? getCategoryColor(dynamicCategoryInfo, task.category_code) : getCategoryColor(undefined, task.category_code)}`}>{dynamicCategoryInfo?.icon || '❓'}</span>
+                            )}
                             <div className="min-w-0">
                                 <span className="font-medium break-keep">{task.comment}</span>
                                 {task.subcode && <span className="text-xs text-muted-foreground block"> ({task.subcode})</span>}
@@ -1083,7 +1263,7 @@ export default function WeeklyPlanPage() {
                           <Button variant="outline" size="icon" onClick={() => handleStartEdit(task)} disabled={isEditingThis || anyFetcherSubmitting} className="h-7 w-7">
                             <Edit className="h-3.5 w-3.5" />
                               </Button>
-                          <deleteFetcher.Form method="post" style={{display: 'inline-block'}}>
+                          <deleteFetcher.Form method="post" style={{display: 'inline-block'}} onSubmit={() => processNextPendingUpdate()}>
                             <input type="hidden" name="intent" value="deleteWeeklyTask" />
                             <input type="hidden" name="taskId" value={task.id} />
                             <Button variant="destructive" size="icon" type="submit" disabled={anyFetcherSubmitting} className="h-7 w-7">
@@ -1107,7 +1287,7 @@ export default function WeeklyPlanPage() {
           <CardTitle>{t('weekly_page.reflections_title')}</CardTitle>
           <CardDescription>{t('weekly_page.reflections_desc')}</CardDescription>
             </CardHeader>
-        <notesFetcher.Form method="post">
+        <notesFetcher.Form method="post" onSubmit={() => processNextPendingUpdate()}>
             <input type="hidden" name="intent" value="upsertWeeklyGoals" />
             {weeklyNote && weeklyNote.id && <input type="hidden" name="existingGoalId" value={weeklyNote.id} />}
             <CardContent className="space-y-6">
