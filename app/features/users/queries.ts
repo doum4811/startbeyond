@@ -349,11 +349,11 @@ export async function getVisibleDailyRecords(
   }
 
   const { data, error } = await client
-    .from("daily_records")
+      .from("daily_records")
     .select("*, memos (*)")
     .eq("profile_id", profileId)
-    .eq("is_public", true)
-    .order("date", { ascending: false })
+      .eq("is_public", true)
+      .order("date", { ascending: false })
     .limit(30);
 
   if (error) {

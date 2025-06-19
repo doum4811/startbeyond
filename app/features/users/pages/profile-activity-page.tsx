@@ -39,18 +39,18 @@ function ActivityCard({ record }: { record: any }) {
 
   return (
     <Card>
-      <CardHeader>
+            <CardHeader>
         <div className="flex justify-between items-start">
           <div>
             <CardTitle className="text-lg">{record.comment || t('profile.activity.no_comment')}</CardTitle>
             <p className="text-sm text-muted-foreground">{record.date}</p>
-          </div>
+                        </div>
           {record.duration_minutes && (
             <div className="text-sm font-medium bg-secondary text-secondary-foreground rounded-md px-2 py-1">
               {t('profile.activity.duration', { minutes: record.duration_minutes })}
-            </div>
+                    </div>
           )}
-        </div>
+                    </div>
       </CardHeader>
       {hasMemos && (
         <CardContent>
@@ -71,9 +71,9 @@ function ActivityCard({ record }: { record: any }) {
               ))}
             </CollapsibleContent>
           </Collapsible>
-        </CardContent>
+                </CardContent>
       )}
-    </Card>
+          </Card>
   );
 }
 

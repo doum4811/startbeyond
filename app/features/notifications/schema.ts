@@ -43,8 +43,8 @@ export const notifications = pgTable("notifications", {
         }),
         pgPolicy("Allow users to delete their own notifications", {
             for: "delete",
-            to: "authenticated",
-            using: sql`auth.uid() = ${table.recipient_id}`,
-        }),
+    to: "authenticated",
+    using: sql`auth.uid() = ${table.recipient_id}`,
+  }),
     ]
 })); 

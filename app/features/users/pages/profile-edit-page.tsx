@@ -356,7 +356,7 @@ export default function ProfileSettingsPage() {
               </AlertDialogContent>
             </AlertDialog>
           </CardFooter>
-        </Card>
+      </Card>
       </div>
 
     </div>
