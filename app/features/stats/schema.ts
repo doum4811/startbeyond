@@ -1,7 +1,7 @@
 // import { pgTable, text, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 // import { sql } from "drizzle-orm";
 // import type { Database } from "~/types/supabase";
-import { pgTable, uuid, text, timestamp, varchar, boolean, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, varchar, boolean, jsonb, uniqueIndex, pgPolicy } from "drizzle-orm/pg-core";
 import { profiles } from '../users/schema'; // Assuming profiles schema exists
 import { sql } from 'drizzle-orm';
 import type pkg from '@supabase/supabase-js';
@@ -21,6 +21,12 @@ export const sharedLinks = pgTable("shared_links", {
   updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   profilePeriodUnique: uniqueIndex('shared_links_profile_page_period_idx').on(table.profile_id, table.page_type, table.period),
+  rls: pgPolicy("Allow users to manage their own shared links", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid() = ${table.profile_id}`,
+    withCheck: sql`auth.uid() = ${table.profile_id}`,
+  }),
 }));
 
 export const statsCache = pgTable("stats_cache", {
@@ -33,6 +39,12 @@ export const statsCache = pgTable("stats_cache", {
   updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({
   profileMonthUnique: uniqueIndex('stats_cache_profile_month_idx').on(table.profile_id, table.month_date),
+  rls: pgPolicy("Allow users to manage their own stats cache", {
+    for: "all",
+    to: "authenticated",
+    using: sql`auth.uid() = ${table.profile_id}`,
+    withCheck: sql`auth.uid() = ${table.profile_id}`,
+  }),
 }));
 
 // Export derived types

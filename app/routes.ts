@@ -54,8 +54,8 @@ export default [
       layout("features/users/layouts/profile-layout.tsx", [
         ...prefix("/users/:username", [
           index("features/users/pages/profile-page.tsx"),
-          route("/posts", "features/users/pages/profile-posts-page.tsx"), // 필요함
-          route("/activity", "features/users/pages/profile-activity-page.tsx"),
+          route("posts", "features/users/pages/profile-posts-page.tsx"),
+          route("activity", "features/users/pages/profile-activity-page.tsx"),
           route("edit", "features/users/pages/profile-edit-page.tsx"),
         ]),
       ]),

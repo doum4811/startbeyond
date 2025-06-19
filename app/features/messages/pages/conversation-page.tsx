@@ -70,7 +70,7 @@ export default function ConversationPage() {
             formRef.current?.reset();
         }
     }, [fetcher.state, fetcher.data]);
-
+    
     const allMessages = [...messages];
     if (fetcher.formData?.get('intent') === 'sendMessage' && fetcher.data?.newMessage) {
         // This is optimistic UI, but needs more robust handling for duplicates

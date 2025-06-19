@@ -125,6 +125,10 @@ export default function ProfileLayout({
             label: "Posts",
             to: `/users/${user.username}/posts`,
           },
+          {
+            label: "Activity",
+            to: `/users/${user.username}/activity`,
+          },
         ].map((item) => (
           <NavLink
             end

@@ -29,6 +29,10 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "~/common/components/ui/avatar";
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "~/common/components/ui/radio-group";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { client } = makeSSRClient(request);
@@ -75,6 +79,18 @@ export async function action({ request }: ActionFunctionArgs) {
     return { ok: false, error: { message: "No file provided" } };
   }
 
+  if (intent === "update_privacy") {
+    const visibility = formData.get("daily_record_visibility") as "public" | "followers" | "private";
+    if (["public", "followers", "private"].includes(visibility)) {
+      await userQueries.updateUserProfile(client, {
+        profileId,
+        updates: { daily_record_visibility: visibility },
+      });
+      return { ok: true };
+    }
+    return { ok: false, error: { message: "Invalid visibility value" } };
+  }
+
   // Default intent is "update_profile"
   const fullName = formData.get("full_name") as string;
 
@@ -87,7 +103,7 @@ export async function action({ request }: ActionFunctionArgs) {
         } 
     };
   }
-
+  
   const updates = {
     full_name: fullName,
     headline: formData.get("headline") as string,
@@ -98,7 +114,7 @@ export async function action({ request }: ActionFunctionArgs) {
     profileId,
     updates,
   });
-
+  
   if (!user) {
     return { ok: false, message: "Failed to update profile." };
   }
@@ -110,6 +126,7 @@ export default function ProfileSettingsPage() {
   const { user } = useLoaderData<typeof loader>();
   const profileFetcher = useFetcher<typeof action>();
   const avatarFetcher = useFetcher<typeof action>();
+  const privacyFetcher = useFetcher<typeof action>();
   const { t } = useTranslation();
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const { revalidate } = useRevalidator();
@@ -127,6 +144,13 @@ export default function ProfileSettingsPage() {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
       setAvatarPreview(URL.createObjectURL(file));
+      const formData = new FormData();
+      formData.append("avatar", file);
+      formData.append("intent", "update_avatar");
+      avatarFetcher.submit(formData, {
+        method: "post",
+        encType: "multipart/form-data",
+      });
     }
   };
 
@@ -151,15 +175,15 @@ export default function ProfileSettingsPage() {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-2">
-          <Card>
+       <Card>
             <profileFetcher.Form method="post">
               <input type="hidden" name="intent" value="update_profile" />
-              <CardHeader>
+            <CardHeader>
                 <CardTitle>{t("settings.profile.form_title")}</CardTitle>
                 <CardDescription>
                   {t("settings.profile.form_description")}
                 </CardDescription>
-              </CardHeader>
+            </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="full_name">{t("settings.profile.name")}</Label>
@@ -213,7 +237,7 @@ export default function ProfileSettingsPage() {
             </profileFetcher.Form>
           </Card>
         </div>
-        <div className="md:col-span-1">
+        <div className="md:col-span-1 space-y-8">
           <Card>
             <avatarFetcher.Form method="post" encType="multipart/form-data">
               <input type="hidden" name="intent" value="update_avatar" />
@@ -232,23 +256,47 @@ export default function ProfileSettingsPage() {
                 </Avatar>
                 <div className="w-full space-y-2">
                     <Label htmlFor="avatar" className="sr-only">Choose file</Label>
-                    <Input id="avatar" name="avatar" type="file" accept="image/png, image/jpeg, image/webp" onChange={handleAvatarChange} />
+                    <Input id="avatar" name="avatar" type="file" accept="image/png, image/jpeg, image/webp" onChange={handleAvatarChange} disabled={avatarFetcher.state === "submitting"} />
                 </div>
                 <div className="text-xs text-muted-foreground text-center">
                   <p>{t("settings.profile.avatar_size_hint")}</p>
                   <p>{t("settings.profile.avatar_formats_hint")}</p>
                   <p>{t("settings.profile.avatar_max_size_hint")}</p>
                 </div>
+                {avatarFetcher.state === "submitting" && <p>{t("settings.profile.saving")}</p>}
               </CardContent>
-              <CardFooter>
-                <Button className="w-full" type="submit" disabled={avatarFetcher.state === "submitting"}>
-                  {avatarFetcher.state === "submitting"
-                    ? t("settings.profile.saving")
-                    : t("settings.profile.update_avatar_button")}
-                </Button>
-              </CardFooter>
             </avatarFetcher.Form>
           </Card>
+          <Card>
+            <privacyFetcher.Form method="post">
+              <input type="hidden" name="intent" value="update_privacy" />
+              <CardHeader>
+                <CardTitle>{t("settings.privacy.title")}</CardTitle>
+                <CardDescription>
+                  {t("settings.privacy.description")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <RadioGroup name="daily_record_visibility" defaultValue={userProfile.daily_record_visibility}>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="followers" id="followers" />
+                    <Label htmlFor="followers">{t("settings.privacy.followers_only")}</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="public" id="public" />
+                    <Label htmlFor="public">{t("settings.privacy.public")}</Label>
+                  </div>
+                </RadioGroup>
+            </CardContent>
+            <CardFooter>
+                <Button type="submit" disabled={privacyFetcher.state === "submitting"}>
+                  {privacyFetcher.state === "submitting"
+                    ? t("settings.profile.saving")
+                    : t("settings.privacy.save_button")}
+                </Button>
+            </CardFooter>
+            </privacyFetcher.Form>
+      </Card>
         </div>
       </div>
     </div>

@@ -12,16 +12,10 @@ export const communityPosts = pgTable("community_posts", {
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
 }, (table) => ({
   rls: [
-    pgPolicy("Allow all users to read community posts", {
-        for: "select",
-        using: sql`true`,
-    }),
-    pgPolicy("Allow authenticated users to manage their own posts", {
-        for: "all",
-        to: "authenticated",
-        using: sql`auth.uid() = ${table.profile_id}`,
-        withCheck: sql`auth.uid() = ${table.profile_id}`,
-    }),
+    pgPolicy("Allow read access to everyone", { for: "select", to: "all", using: sql`true` }),
+    pgPolicy("Allow insert for authenticated users", { for: "insert", to: "authenticated", withCheck: sql`auth.uid() = ${table.profile_id}` }),
+    pgPolicy("Allow update for owners", { for: "update", to: "authenticated", using: sql`auth.uid() = ${table.profile_id}` }),
+    pgPolicy("Allow delete for owners", { for: "delete", to: "authenticated", using: sql`auth.uid() = ${table.profile_id}` }),
   ]
 }));
 
@@ -33,10 +27,10 @@ export const communityComments = pgTable("community_comments", {
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
 }, (table) => ({
-  rls: pgPolicy("community_comments_rls", {
-    for: "all",
-    to: "authenticated",
-    using: sql`auth.uid() = ${table.profile_id}`,
-    withCheck: sql`auth.uid() = ${table.profile_id}`,
-  }),
+  rls: [
+    pgPolicy("Allow read access to everyone for comments", { for: "select", to: "all", using: sql`true` }),
+    pgPolicy("Allow insert for authenticated users for comments", { for: "insert", to: "authenticated", withCheck: sql`auth.uid() = ${table.profile_id}` }),
+    pgPolicy("Allow update for comment owners", { for: "update", to: "authenticated", using: sql`auth.uid() = ${table.profile_id}` }),
+    pgPolicy("Allow delete for comment owners", { for: "delete", to: "authenticated", using: sql`auth.uid() = ${table.profile_id}` }),
+  ]
 })); 

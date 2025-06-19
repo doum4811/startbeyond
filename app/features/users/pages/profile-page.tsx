@@ -19,7 +19,12 @@ export const loader = async ({ request, params }: Route.LoaderArgs) => {
 
 export async function action({ request, params }: Route.ActionArgs) {
     const { client } = makeSSRClient(request);
-    const currentUserId = await getProfileId(request);
+    let currentUserId;
+    try {
+      currentUserId = await getProfileId(request);
+    } catch (error) {
+      return redirect("/login");
+    }
     const { username } = params;
 
     const [targetUser, currentUser] = await Promise.all([

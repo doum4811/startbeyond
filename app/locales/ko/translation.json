@@ -218,8 +218,8 @@
         "following": "{{count}} 팔로잉",
         "about_tab": "소개",
         "posts_tab": "게시물",
-        "headline": "헤드라인",
-        "bio": "소개",
+        "headline": "소개",
+        "bio": "자기소개",
         "avatar": "프로필 사진",
         "avatar_hint": "PNG, JPG, GIF, WEBP. 최대 5MB.",
         "saving": "저장 중...",
@@ -231,6 +231,17 @@
             "public": "전체 공개",
             "followers": "팔로워만",
             "private": "비공개"
+        },
+        "activity": {
+            "not_following_title": "비공개 계정입니다",
+            "not_following_description": "활동을 보려면 이 계정을 팔로우하세요.",
+            "private_title": "비공개 활동",
+            "private_description": "이 사용자의 활동은 비공개입니다.",
+            "go_to_profile": "프로필로 이동",
+            "no_activity": "아직 표시할 활동이 없습니다.",
+            "view_memos": "메모 {{count}}개 보기",
+            "duration": "{{minutes}}분",
+            "no_comment": "코멘트 없음"
         }
     },
     "settings": {
@@ -324,6 +335,13 @@
             "toggle_default_category_confirm_title": "기본 카테고리 전환?",
             "toggle_default_category_confirm_description": "기본 카테고리를 비활성화하면 선택 메뉴에서 숨겨집니다. 연관된 데이터는 삭제되지 않습니다.",
             "confirm_toggle": "확인"
+        },
+        "privacy": {
+            "title": "공개 범위 설정",
+            "description": "다른 사용자에게 내 활동이 어떻게 보일지 설정합니다.",
+            "followers_only": "팔로워만",
+            "public": "전체 공개",
+            "save_button": "설정 저장"
         }
     },
     "notifications": {

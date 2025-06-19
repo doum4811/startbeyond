@@ -123,8 +123,7 @@ export async function action({ request }: ActionFunctionArgs) {
         const categoryCodeStr = formData.get("category_code") as string | null;
         const durationStr = formData.get("duration") as string | null;
         const comment = formData.get("comment") as string | null;
-        const isPublicFormVal = formData.get("is_public");
-        const isPublic = typeof isPublicFormVal === 'string' ? isPublicFormVal === "true" : false;
+        const isPublic = formData.get("is_public") === "on";
 
         if (!recordId) return { ok: false, error: "Record ID is required." };
         if (!categoryCodeStr || !isValidCategoryCode(categoryCodeStr, activeCategoriesForAction)) {

@@ -310,90 +310,56 @@ export type DailyRecordWithCategory =
 export async function getVisibleDailyRecords(
   client: SupabaseClient<Database>,
   {
-    profileUsername,
+    profileId,
     viewerId,
-  }: { profileUsername: string; viewerId: string | null }
-): Promise<DailyRecordWithCategory[]> {
-  // 1. Get the profile being viewed
-  const { data: profileData } = await client
+  }: {
+    profileId: string;
+    viewerId: string | null;
+  }
+) {
+  const { data: profile } = await client
     .from("profiles")
-    .select("profile_id, daily_record_visibility")
-    .eq("username", profileUsername)
+    .select("daily_record_visibility")
+    .eq("profile_id", profileId)
     .single();
 
-  if (!profileData) {
-    return [];
+  if (!profile) {
+    return { error: "Profile not found", data: null };
   }
-  // NOTE: The profile object type might be stale until migrations are run.
-  const profile = profileData as any;
 
-  const isOwner = viewerId === profile.profile_id;
+  if (profile.daily_record_visibility === "private") {
+    return { error: "private", data: [] };
+  }
 
-  // 2. Determine if the viewer has permission
-  let canView = false;
-  if (isOwner) {
-    canView = true;
-  } else if (profile.daily_record_visibility === "public") {
-    canView = true;
-  } else if (profile.daily_record_visibility === "followers") {
-    if (viewerId) {
-      const { isFollowing } = await getFollowStatus(client, {
-        followerId: viewerId,
-        followingId: profile.profile_id,
-      });
-      if (isFollowing) {
-        canView = true;
+  if (profile.daily_record_visibility === "followers") {
+    if (!viewerId || profileId === viewerId) {
+      // Show records if it's the owner's profile
+    } else {
+      const { data: followStatus } = await client
+        .from("follows")
+        .select("follower_id")
+        .eq("follower_id", viewerId)
+        .eq("following_id", profileId)
+        .maybeSingle();
+
+      if (!followStatus) {
+        return { error: "not_following", data: [] };
       }
     }
   }
 
-  if (!canView) {
-    return [];
+  const { data, error } = await client
+    .from("daily_records")
+    .select("*, memos (*)")
+    .eq("profile_id", profileId)
+    .eq("is_public", true)
+    .order("date", { ascending: false })
+    .limit(30);
+
+  if (error) {
+    console.error("Error fetching daily records:", error);
+    return { error: error.message, data: null };
   }
 
-  // 3. Fetch records and categories in parallel
-  const [recordsResult, userCategories] = await Promise.all([
-    client
-      .from("daily_records")
-      .select("*")
-      .eq("profile_id", profile.profile_id)
-      .eq("is_public", true)
-      .order("date", { ascending: false })
-      .limit(100),
-    getUserCategories(client, { profileId: profile.profile_id }),
-  ]);
-  
-  const { data: records, error: recordsError } = recordsResult;
-
-  if (recordsError || !records) {
-    console.error("Error fetching visible daily records:", recordsError);
-    return [];
-  }
-
-  // 4. Combine default and user categories into a single map
-  const categoryMap = new Map();
-  for (const cat of Object.values(DEFAULT_CATEGORIES)) {
-    categoryMap.set(cat.code, { icon: cat.icon, label: cat.label });
-  }
-  for (const cat of userCategories) {
-    if (cat.is_active) {
-      categoryMap.set(cat.code, { icon: cat.icon, label: cat.label });
-    } else {
-      // If user made a default category inactive, remove it
-      categoryMap.delete(cat.code);
-    }
-  }
-
-  // 5. Join records with categories
-  const recordsWithCategory: DailyRecordWithCategory[] = records.map(
-    (record) => {
-      const categoryInfo = categoryMap.get(record.category_code);
-      return {
-        ...record,
-        category: categoryInfo || null,
-      };
-    }
-  );
-
-  return recordsWithCategory;
+  return { data, error: null };
 }

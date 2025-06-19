@@ -1,9 +1,88 @@
 {
-  "id": "00000000-0000-0000-0000-000000000000",
-  "prevId": "",
+  "id": "725a2bf9-9c09-4c7b-8ef7-66bef179699d",
+  "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "public.community_comments": {
+      "name": "community_comments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "post_id": {
+          "name": "post_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "profile_id": {
+          "name": "profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "community_comments_post_id_community_posts_id_fk": {
+          "name": "community_comments_post_id_community_posts_id_fk",
+          "tableFrom": "community_comments",
+          "tableTo": "community_posts",
+          "columnsFrom": [
+            "post_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "community_comments_profile_id_profiles_profile_id_fk": {
+          "name": "community_comments_profile_id_profiles_profile_id_fk",
+          "tableFrom": "community_comments",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "profile_id"
+          ],
+          "columnsTo": [
+            "profile_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.community_posts": {
       "name": "community_posts",
       "schema": "",
@@ -60,7 +139,6 @@
           "name": "community_posts_profile_id_profiles_profile_id_fk",
           "tableFrom": "community_posts",
           "tableTo": "profiles",
-          "schemaTo": "public",
           "columnsFrom": [
             "profile_id"
           ],
@@ -73,180 +151,8 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {},
-      "policies": {
-        "community_posts_rls": {
-          "name": "community_posts_rls",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": [
-            "authenticated"
-          ],
-          "withCheck": "(auth.uid() = profile_id)",
-          "using": "(auth.uid() = profile_id)"
-        },
-        "Allow all users to read community posts": {
-          "name": "Allow all users to read community posts",
-          "as": "PERMISSIVE",
-          "for": "SELECT",
-          "to": [
-            "public"
-          ]
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.community_comments": {
-      "name": "community_comments",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "post_id": {
-          "name": "post_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "profile_id": {
-          "name": "profile_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "content": {
-          "name": "content",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "community_comments_post_id_community_posts_id_fk": {
-          "name": "community_comments_post_id_community_posts_id_fk",
-          "tableFrom": "community_comments",
-          "tableTo": "community_posts",
-          "schemaTo": "public",
-          "columnsFrom": [
-            "post_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "community_comments_profile_id_profiles_profile_id_fk": {
-          "name": "community_comments_profile_id_profiles_profile_id_fk",
-          "tableFrom": "community_comments",
-          "tableTo": "profiles",
-          "schemaTo": "public",
-          "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "profile_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {},
-      "policies": {
-        "community_comments_rls": {
-          "name": "community_comments_rls",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": [
-            "authenticated"
-          ],
-          "withCheck": "(auth.uid() = profile_id)",
-          "using": "(auth.uid() = profile_id)"
-        }
-      },
-      "isRLSEnabled": true
-    },
-    "public.follows": {
-      "name": "follows",
-      "schema": "",
-      "columns": {
-        "follower_id": {
-          "name": "follower_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "following_id": {
-          "name": "following_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "follows_follower_id_profiles_profile_id_fk": {
-          "name": "follows_follower_id_profiles_profile_id_fk",
-          "tableFrom": "follows",
-          "tableTo": "profiles",
-          "schemaTo": "public",
-          "columnsFrom": [
-            "follower_id"
-          ],
-          "columnsTo": [
-            "profile_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "follows_following_id_profiles_profile_id_fk": {
-          "name": "follows_following_id_profiles_profile_id_fk",
-          "tableFrom": "follows",
-          "tableTo": "profiles",
-          "schemaTo": "public",
-          "columnsFrom": [
-            "following_id"
-          ],
-          "columnsTo": [
-            "profile_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {},
       "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.daily_notes": {
@@ -299,7 +205,6 @@
           "name": "daily_notes_profile_id_profiles_profile_id_fk",
           "tableFrom": "daily_notes",
           "tableTo": "profiles",
-          "schemaTo": "public",
           "columnsFrom": [
             "profile_id"
           ],
@@ -312,7 +217,6 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {},
       "policies": {
         "daily_notes_rls": {
           "name": "daily_notes_rls",
@@ -321,11 +225,12 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(auth.uid() = profile_id)",
-          "using": "(auth.uid() = profile_id)"
+          "using": "auth.uid() = \"daily_notes\".\"profile_id\"",
+          "withCheck": "auth.uid() = \"daily_notes\".\"profile_id\""
         }
       },
-      "isRLSEnabled": true
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.daily_records": {
       "name": "daily_records",
@@ -408,7 +313,6 @@
           "name": "daily_records_profile_id_profiles_profile_id_fk",
           "tableFrom": "daily_records",
           "tableTo": "profiles",
-          "schemaTo": "public",
           "columnsFrom": [
             "profile_id"
           ],
@@ -421,7 +325,6 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {},
       "policies": {
         "daily_records_rls": {
           "name": "daily_records_rls",
@@ -430,11 +333,12 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(auth.uid() = profile_id)",
-          "using": "(auth.uid() = profile_id)"
+          "using": "auth.uid() = \"daily_records\".\"profile_id\"",
+          "withCheck": "auth.uid() = \"daily_records\".\"profile_id\""
         }
       },
-      "isRLSEnabled": true
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.memos": {
       "name": "memos",
@@ -488,25 +392,10 @@
       },
       "indexes": {},
       "foreignKeys": {
-        "memos_profile_id_profiles_profile_id_fk": {
-          "name": "memos_profile_id_profiles_profile_id_fk",
-          "tableFrom": "memos",
-          "tableTo": "profiles",
-          "schemaTo": "public",
-          "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "profile_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "memos_record_id_daily_records_id_fk": {
           "name": "memos_record_id_daily_records_id_fk",
           "tableFrom": "memos",
           "tableTo": "daily_records",
-          "schemaTo": "public",
           "columnsFrom": [
             "record_id"
           ],
@@ -515,11 +404,23 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "memos_profile_id_profiles_profile_id_fk": {
+          "name": "memos_profile_id_profiles_profile_id_fk",
+          "tableFrom": "memos",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "profile_id"
+          ],
+          "columnsTo": [
+            "profile_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {},
       "policies": {
         "memos_rls": {
           "name": "memos_rls",
@@ -528,211 +429,12 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(auth.uid() = profile_id)",
-          "using": "(auth.uid() = profile_id)"
+          "using": "auth.uid() = \"memos\".\"profile_id\"",
+          "withCheck": "auth.uid() = \"memos\".\"profile_id\""
         }
       },
-      "isRLSEnabled": true
-    },
-    "public.profiles": {
-      "name": "profiles",
-      "schema": "",
-      "columns": {
-        "profile_id": {
-          "name": "profile_id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "avatar_url": {
-          "name": "avatar_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "full_name": {
-          "name": "full_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "username": {
-          "name": "username",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "headline": {
-          "name": "headline",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "bio": {
-          "name": "bio",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "stats": {
-          "name": "stats",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "views": {
-          "name": "views",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "daily_record_visibility": {
-          "name": "daily_record_visibility",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'followers'"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "profiles_profile_id_users_id_fk": {
-          "name": "profiles_profile_id_users_id_fk",
-          "tableFrom": "profiles",
-          "tableTo": "users",
-          "schemaTo": "auth",
-          "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
       "checkConstraints": {},
-      "policies": {},
       "isRLSEnabled": false
-    },
-    "public.user_default_code_preferences": {
-      "name": "user_default_code_preferences",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "profile_id": {
-          "name": "profile_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "default_category_code": {
-          "name": "default_category_code",
-          "type": "varchar(10)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "is_active": {
-          "name": "is_active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "user_default_pref_profile_code_idx": {
-          "name": "user_default_pref_profile_code_idx",
-          "columns": [
-            {
-              "expression": "profile_id",
-              "asc": true,
-              "nulls": "last",
-              "opclass": "text_ops",
-              "isExpression": false
-            },
-            {
-              "expression": "default_category_code",
-              "asc": true,
-              "nulls": "last",
-              "opclass": "text_ops",
-              "isExpression": false
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "user_default_code_preferences_profile_id_profiles_profile_id_fk": {
-          "name": "user_default_code_preferences_profile_id_profiles_profile_id_fk",
-          "tableFrom": "user_default_code_preferences",
-          "tableTo": "profiles",
-          "schemaTo": "public",
-          "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "profile_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {},
-      "policies": {
-        "user_default_code_preferences_rls": {
-          "name": "user_default_code_preferences_rls",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": [
-            "authenticated"
-          ],
-          "withCheck": "(auth.uid() = profile_id)",
-          "using": "(auth.uid() = profile_id)"
-        }
-      },
-      "isRLSEnabled": true
     },
     "public.conversations": {
       "name": "conversations",
@@ -771,7 +473,6 @@
           "name": "conversations_participant1_id_fkey",
           "tableFrom": "conversations",
           "tableTo": "profiles",
-          "schemaTo": "public",
           "columnsFrom": [
             "participant1_id"
           ],
@@ -785,7 +486,6 @@
           "name": "conversations_participant2_id_fkey",
           "tableFrom": "conversations",
           "tableTo": "profiles",
-          "schemaTo": "public",
           "columnsFrom": [
             "participant2_id"
           ],
@@ -798,7 +498,6 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {},
       "policies": {
         "conversations_rls": {
           "name": "conversations_rls",
@@ -807,102 +506,12 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "((auth.uid() = participant1_id) OR (auth.uid() = participant2_id))",
-          "using": "((auth.uid() = participant1_id) OR (auth.uid() = participant2_id))"
+          "using": "auth.uid() = \"conversations\".\"participant1_id\" OR auth.uid() = \"conversations\".\"participant2_id\"",
+          "withCheck": "auth.uid() = \"conversations\".\"participant1_id\" OR auth.uid() = \"conversations\".\"participant2_id\""
         }
       },
-      "isRLSEnabled": true
-    },
-    "public.stats_cache": {
-      "name": "stats_cache",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "profile_id": {
-          "name": "profile_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "month_date": {
-          "name": "month_date",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "category_distribution": {
-          "name": "category_distribution",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "activity_heatmap": {
-          "name": "activity_heatmap",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "stats_cache_profile_month_idx": {
-          "name": "stats_cache_profile_month_idx",
-          "columns": [
-            {
-              "expression": "profile_id",
-              "asc": true,
-              "nulls": "last",
-              "opclass": "text_ops",
-              "isExpression": false
-            },
-            {
-              "expression": "month_date",
-              "asc": true,
-              "nulls": "last",
-              "opclass": "text_ops",
-              "isExpression": false
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
       "checkConstraints": {},
-      "policies": {
-        "stats_cache_rls": {
-          "name": "stats_cache_rls",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": [
-            "public"
-          ],
-          "using": "(auth.uid() = profile_id)"
-        }
-      },
-      "isRLSEnabled": true
+      "isRLSEnabled": false
     },
     "public.messages": {
       "name": "messages",
@@ -954,7 +563,6 @@
           "name": "messages_conversation_id_conversations_id_fk",
           "tableFrom": "messages",
           "tableTo": "conversations",
-          "schemaTo": "public",
           "columnsFrom": [
             "conversation_id"
           ],
@@ -968,7 +576,6 @@
           "name": "messages_sender_id_profiles_profile_id_fk",
           "tableFrom": "messages",
           "tableTo": "profiles",
-          "schemaTo": "public",
           "columnsFrom": [
             "sender_id"
           ],
@@ -981,7 +588,6 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {},
       "policies": {
         "messages_rls": {
           "name": "messages_rls",
@@ -990,11 +596,103 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "((auth.uid() = sender_id) AND ( SELECT true\n   FROM conversations c\n  WHERE ((c.id = messages.conversation_id) AND ((c.participant1_id = auth.uid()) OR (c.participant2_id = auth.uid())))))",
-          "using": "((auth.uid() = sender_id) OR ( SELECT true\n   FROM conversations c\n  WHERE ((c.id = messages.conversation_id) AND ((c.participant1_id = auth.uid()) OR (c.participant2_id = auth.uid())))))"
+          "using": "\n            auth.uid() = \"messages\".\"sender_id\" OR\n            (\n                SELECT true\n                FROM conversations c\n                WHERE c.id = \"messages\".\"conversation_id\"\n                AND (c.participant1_id = auth.uid() OR c.participant2_id = auth.uid())\n            )\n        ",
+          "withCheck": "\n            auth.uid() = \"messages\".\"sender_id\" AND\n            (\n                SELECT true\n                FROM conversations c\n                WHERE c.id = \"messages\".\"conversation_id\"\n                AND (c.participant1_id = auth.uid() OR c.participant2_id = auth.uid())\n            )\n        "
         }
       },
-      "isRLSEnabled": true
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.notifications": {
+      "name": "notifications",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "recipient_id": {
+          "name": "recipient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_id": {
+          "name": "actor_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "message": {
+          "name": "message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resource_url": {
+          "name": "resource_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_read": {
+          "name": "is_read",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "notifications_recipient_id_profiles_profile_id_fk": {
+          "name": "notifications_recipient_id_profiles_profile_id_fk",
+          "tableFrom": "notifications",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "recipient_id"
+          ],
+          "columnsTo": [
+            "profile_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "notifications_actor_id_profiles_profile_id_fk": {
+          "name": "notifications_actor_id_profiles_profile_id_fk",
+          "tableFrom": "notifications",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "actor_id"
+          ],
+          "columnsTo": [
+            "profile_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.daily_plans": {
       "name": "daily_plans",
@@ -1077,7 +775,6 @@
           "name": "daily_plans_profile_id_profiles_profile_id_fk",
           "tableFrom": "daily_plans",
           "tableTo": "profiles",
-          "schemaTo": "public",
           "columnsFrom": [
             "profile_id"
           ],
@@ -1090,7 +787,6 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {},
       "policies": {
         "daily_plans_rls": {
           "name": "daily_plans_rls",
@@ -1099,11 +795,12 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(auth.uid() = profile_id)",
-          "using": "(auth.uid() = profile_id)"
+          "using": "auth.uid() = \"daily_plans\".\"profile_id\"",
+          "withCheck": "auth.uid() = \"daily_plans\".\"profile_id\""
         }
       },
-      "isRLSEnabled": true
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.monthly_goals": {
       "name": "monthly_goals",
@@ -1186,7 +883,6 @@
           "name": "monthly_goals_profile_id_profiles_profile_id_fk",
           "tableFrom": "monthly_goals",
           "tableTo": "profiles",
-          "schemaTo": "public",
           "columnsFrom": [
             "profile_id"
           ],
@@ -1199,7 +895,6 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {},
       "policies": {
         "monthly_goals_rls": {
           "name": "monthly_goals_rls",
@@ -1208,11 +903,12 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(auth.uid() = profile_id)",
-          "using": "(auth.uid() = profile_id)"
+          "using": "auth.uid() = \"monthly_goals\".\"profile_id\"",
+          "withCheck": "auth.uid() = \"monthly_goals\".\"profile_id\""
         }
       },
-      "isRLSEnabled": true
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.monthly_reflections": {
       "name": "monthly_reflections",
@@ -1237,14 +933,14 @@
           "primaryKey": false,
           "notNull": true
         },
-        "monthly_notes": {
-          "name": "monthly_notes",
+        "monthly_reflection": {
+          "name": "monthly_reflection",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "monthly_reflection": {
-          "name": "monthly_reflection",
+        "monthly_notes": {
+          "name": "monthly_notes",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1270,17 +966,15 @@
           "columns": [
             {
               "expression": "profile_id",
+              "isExpression": false,
               "asc": true,
-              "nulls": "last",
-              "opclass": "date_ops",
-              "isExpression": false
+              "nulls": "last"
             },
             {
               "expression": "month_date",
+              "isExpression": false,
               "asc": true,
-              "nulls": "last",
-              "opclass": "date_ops",
-              "isExpression": false
+              "nulls": "last"
             }
           ],
           "isUnique": true,
@@ -1294,7 +988,6 @@
           "name": "monthly_reflections_profile_id_profiles_profile_id_fk",
           "tableFrom": "monthly_reflections",
           "tableTo": "profiles",
-          "schemaTo": "public",
           "columnsFrom": [
             "profile_id"
           ],
@@ -1307,7 +1000,6 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {},
       "policies": {
         "monthly_reflections_rls": {
           "name": "monthly_reflections_rls",
@@ -1316,11 +1008,12 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(auth.uid() = profile_id)",
-          "using": "(auth.uid() = profile_id)"
+          "using": "auth.uid() = \"monthly_reflections\".\"profile_id\"",
+          "withCheck": "auth.uid() = \"monthly_reflections\".\"profile_id\""
         }
       },
-      "isRLSEnabled": true
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.weekly_notes": {
       "name": "weekly_notes",
@@ -1390,7 +1083,6 @@
           "name": "weekly_notes_profile_id_profiles_profile_id_fk",
           "tableFrom": "weekly_notes",
           "tableTo": "profiles",
-          "schemaTo": "public",
           "columnsFrom": [
             "profile_id"
           ],
@@ -1403,7 +1095,6 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {},
       "policies": {
         "weekly_notes_rls": {
           "name": "weekly_notes_rls",
@@ -1412,11 +1103,12 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(auth.uid() = profile_id)",
-          "using": "(auth.uid() = profile_id)"
+          "using": "auth.uid() = \"weekly_notes\".\"profile_id\"",
+          "withCheck": "auth.uid() = \"weekly_notes\".\"profile_id\""
         }
       },
-      "isRLSEnabled": true
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.weekly_tasks": {
       "name": "weekly_tasks",
@@ -1506,7 +1198,6 @@
           "name": "weekly_tasks_profile_id_profiles_profile_id_fk",
           "tableFrom": "weekly_tasks",
           "tableTo": "profiles",
-          "schemaTo": "public",
           "columnsFrom": [
             "profile_id"
           ],
@@ -1519,7 +1210,6 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {},
       "policies": {
         "weekly_tasks_rls": {
           "name": "weekly_tasks_rls",
@@ -1528,204 +1218,12 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(auth.uid() = profile_id)",
-          "using": "(auth.uid() = profile_id)"
-        }
-      },
-      "isRLSEnabled": true
-    },
-    "public.user_code_settings": {
-      "name": "user_code_settings",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "profile_id": {
-          "name": "profile_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "enable_autocomplete": {
-          "name": "enable_autocomplete",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "enable_recommendation": {
-          "name": "enable_recommendation",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "recommendation_source": {
-          "name": "recommendation_source",
-          "type": "varchar(20)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'frequency'"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "user_code_settings_profile_id_profiles_profile_id_fk": {
-          "name": "user_code_settings_profile_id_profiles_profile_id_fk",
-          "tableFrom": "user_code_settings",
-          "tableTo": "profiles",
-          "schemaTo": "public",
-          "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "profile_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "user_code_settings_profile_id_unique": {
-          "columns": [
-            "profile_id"
-          ],
-          "nullsNotDistinct": false,
-          "name": "user_code_settings_profile_id_unique"
+          "using": "auth.uid() = \"weekly_tasks\".\"profile_id\"",
+          "withCheck": "auth.uid() = \"weekly_tasks\".\"profile_id\""
         }
       },
       "checkConstraints": {},
-      "policies": {
-        "user_code_settings_rls": {
-          "name": "user_code_settings_rls",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": [
-            "authenticated"
-          ],
-          "withCheck": "(auth.uid() = profile_id)",
-          "using": "(auth.uid() = profile_id)"
-        }
-      },
-      "isRLSEnabled": true
-    },
-    "public.user_subcodes": {
-      "name": "user_subcodes",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "profile_id": {
-          "name": "profile_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "parent_category_code": {
-          "name": "parent_category_code",
-          "type": "varchar(10)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "subcode": {
-          "name": "subcode",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "frequency_score": {
-          "name": "frequency_score",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "is_favorite": {
-          "name": "is_favorite",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "user_subcodes_profile_id_profiles_profile_id_fk": {
-          "name": "user_subcodes_profile_id_profiles_profile_id_fk",
-          "tableFrom": "user_subcodes",
-          "tableTo": "profiles",
-          "schemaTo": "public",
-          "columnsFrom": [
-            "profile_id"
-          ],
-          "columnsTo": [
-            "profile_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {},
-      "policies": {
-        "user_subcodes_rls": {
-          "name": "user_subcodes_rls",
-          "as": "PERMISSIVE",
-          "for": "ALL",
-          "to": [
-            "authenticated"
-          ],
-          "withCheck": "(auth.uid() = profile_id)",
-          "using": "(auth.uid() = profile_id)"
-        }
-      },
-      "isRLSEnabled": true
+      "isRLSEnabled": false
     },
     "public.user_categories": {
       "name": "user_categories",
@@ -1803,7 +1301,6 @@
           "name": "user_categories_profile_id_profiles_profile_id_fk",
           "tableFrom": "user_categories",
           "tableTo": "profiles",
-          "schemaTo": "public",
           "columnsFrom": [
             "profile_id"
           ],
@@ -1816,7 +1313,6 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {},
       "policies": {
         "user_categories_rls": {
           "name": "user_categories_rls",
@@ -1825,14 +1321,15 @@
           "to": [
             "authenticated"
           ],
-          "withCheck": "(auth.uid() = profile_id)",
-          "using": "(auth.uid() = profile_id)"
+          "using": "auth.uid() = \"user_categories\".\"profile_id\"",
+          "withCheck": "auth.uid() = \"user_categories\".\"profile_id\""
         }
       },
-      "isRLSEnabled": true
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
-    "public.notifications": {
-      "name": "notifications",
+    "public.user_code_settings": {
+      "name": "user_code_settings",
       "schema": "",
       "columns": {
         "id": {
@@ -1842,32 +1339,233 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "recipient_id": {
-          "name": "recipient_id",
+        "profile_id": {
+          "name": "profile_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "actor_id": {
-          "name": "actor_id",
+        "enable_autocomplete": {
+          "name": "enable_autocomplete",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "enable_recommendation": {
+          "name": "enable_recommendation",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "recommendation_source": {
+          "name": "recommendation_source",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'frequency'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "user_code_settings_profile_id_profiles_profile_id_fk": {
+          "name": "user_code_settings_profile_id_profiles_profile_id_fk",
+          "tableFrom": "user_code_settings",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "profile_id"
+          ],
+          "columnsTo": [
+            "profile_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "user_code_settings_profile_id_unique": {
+          "name": "user_code_settings_profile_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "profile_id"
+          ]
+        }
+      },
+      "policies": {
+        "user_code_settings_rls": {
+          "name": "user_code_settings_rls",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "auth.uid() = \"user_code_settings\".\"profile_id\"",
+          "withCheck": "auth.uid() = \"user_code_settings\".\"profile_id\""
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.user_default_code_preferences": {
+      "name": "user_default_code_preferences",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "profile_id": {
+          "name": "profile_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
-        "type": {
-          "name": "type",
+        "default_category_code": {
+          "name": "default_category_code",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "user_default_pref_profile_code_idx": {
+          "name": "user_default_pref_profile_code_idx",
+          "columns": [
+            {
+              "expression": "profile_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "default_category_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "user_default_code_preferences_profile_id_profiles_profile_id_fk": {
+          "name": "user_default_code_preferences_profile_id_profiles_profile_id_fk",
+          "tableFrom": "user_default_code_preferences",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "profile_id"
+          ],
+          "columnsTo": [
+            "profile_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "user_default_code_preferences_rls": {
+          "name": "user_default_code_preferences_rls",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "auth.uid() = \"user_default_code_preferences\".\"profile_id\"",
+          "withCheck": "auth.uid() = \"user_default_code_preferences\".\"profile_id\""
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.user_subcodes": {
+      "name": "user_subcodes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "profile_id": {
+          "name": "profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parent_category_code": {
+          "name": "parent_category_code",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subcode": {
+          "name": "subcode",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "resource_url": {
-          "name": "resource_url",
+        "description": {
+          "name": "description",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "is_read": {
-          "name": "is_read",
+        "frequency_score": {
+          "name": "frequency_score",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "is_favorite": {
+          "name": "is_favorite",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
@@ -1880,36 +1578,22 @@
           "notNull": true,
           "default": "now()"
         },
-        "message": {
-          "name": "message",
-          "type": "text",
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "notifications_actor_id_profiles_profile_id_fk": {
-          "name": "notifications_actor_id_profiles_profile_id_fk",
-          "tableFrom": "notifications",
+        "user_subcodes_profile_id_profiles_profile_id_fk": {
+          "name": "user_subcodes_profile_id_profiles_profile_id_fk",
+          "tableFrom": "user_subcodes",
           "tableTo": "profiles",
-          "schemaTo": "public",
           "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
             "profile_id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "notifications_recipient_id_profiles_profile_id_fk": {
-          "name": "notifications_recipient_id_profiles_profile_id_fk",
-          "tableFrom": "notifications",
-          "tableTo": "profiles",
-          "schemaTo": "public",
-          "columnsFrom": [
-            "recipient_id"
           ],
           "columnsTo": [
             "profile_id"
@@ -1920,20 +1604,20 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {},
       "policies": {
-        "notifications_rls": {
-          "name": "notifications_rls",
+        "user_subcodes_rls": {
+          "name": "user_subcodes_rls",
           "as": "PERMISSIVE",
           "for": "ALL",
           "to": [
             "authenticated"
           ],
-          "withCheck": "(auth.uid() = recipient_id)",
-          "using": "(auth.uid() = recipient_id)"
+          "using": "auth.uid() = \"user_subcodes\".\"profile_id\"",
+          "withCheck": "auth.uid() = \"user_subcodes\".\"profile_id\""
         }
       },
-      "isRLSEnabled": true
+      "checkConstraints": {},
+      "isRLSEnabled": false
     },
     "public.shared_links": {
       "name": "shared_links",
@@ -2004,24 +1688,21 @@
           "columns": [
             {
               "expression": "profile_id",
+              "isExpression": false,
               "asc": true,
-              "nulls": "last",
-              "opclass": "uuid_ops",
-              "isExpression": false
+              "nulls": "last"
             },
             {
               "expression": "page_type",
+              "isExpression": false,
               "asc": true,
-              "nulls": "last",
-              "opclass": "text_ops",
-              "isExpression": false
+              "nulls": "last"
             },
             {
               "expression": "period",
+              "isExpression": false,
               "asc": true,
-              "nulls": "last",
-              "opclass": "uuid_ops",
-              "isExpression": false
+              "nulls": "last"
             }
           ],
           "isUnique": true,
@@ -2030,19 +1711,312 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "shared_links_profile_id_profiles_profile_id_fk": {
+          "name": "shared_links_profile_id_profiles_profile_id_fk",
+          "tableFrom": "shared_links",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "profile_id"
+          ],
+          "columnsTo": [
+            "profile_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "shared_links_token_unique": {
+          "name": "shared_links_token_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "token"
+          ]
+        }
+      },
+      "policies": {
+        "Allow users to manage their own shared links": {
+          "name": "Allow users to manage their own shared links",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
           ],
-          "nullsNotDistinct": false,
-          "name": "shared_links_token_unique"
+          "using": "auth.uid() = \"shared_links\".\"profile_id\"",
+          "withCheck": "auth.uid() = \"shared_links\".\"profile_id\""
         }
       },
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.stats_cache": {
+      "name": "stats_cache",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "profile_id": {
+          "name": "profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "month_date": {
+          "name": "month_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category_distribution": {
+          "name": "category_distribution",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "activity_heatmap": {
+          "name": "activity_heatmap",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "stats_cache_profile_month_idx": {
+          "name": "stats_cache_profile_month_idx",
+          "columns": [
+            {
+              "expression": "profile_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "month_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "stats_cache_profile_id_profiles_profile_id_fk": {
+          "name": "stats_cache_profile_id_profiles_profile_id_fk",
+          "tableFrom": "stats_cache",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "profile_id"
+          ],
+          "columnsTo": [
+            "profile_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {
+        "Allow users to manage their own stats cache": {
+          "name": "Allow users to manage their own stats cache",
+          "as": "PERMISSIVE",
+          "for": "ALL",
+          "to": [
+            "authenticated"
+          ],
+          "using": "auth.uid() = \"stats_cache\".\"profile_id\"",
+          "withCheck": "auth.uid() = \"stats_cache\".\"profile_id\""
+        }
+      },
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.follows": {
+      "name": "follows",
+      "schema": "",
+      "columns": {
+        "follower_id": {
+          "name": "follower_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "following_id": {
+          "name": "following_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "follows_follower_id_profiles_profile_id_fk": {
+          "name": "follows_follower_id_profiles_profile_id_fk",
+          "tableFrom": "follows",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "follower_id"
+          ],
+          "columnsTo": [
+            "profile_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "follows_following_id_profiles_profile_id_fk": {
+          "name": "follows_following_id_profiles_profile_id_fk",
+          "tableFrom": "follows",
+          "tableTo": "profiles",
+          "columnsFrom": [
+            "following_id"
+          ],
+          "columnsTo": [
+            "profile_id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "follows_follower_id_following_id_pk": {
+          "name": "follows_follower_id_following_id_pk",
+          "columns": [
+            "follower_id",
+            "following_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
       "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.profiles": {
+      "name": "profiles",
+      "schema": "",
+      "columns": {
+        "profile_id": {
+          "name": "profile_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "avatar_url": {
+          "name": "avatar_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "full_name": {
+          "name": "full_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "username": {
+          "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "headline": {
+          "name": "headline",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bio": {
+          "name": "bio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "daily_record_visibility": {
+          "name": "daily_record_visibility",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'followers'"
+        },
+        "stats": {
+          "name": "stats",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "views": {
+          "name": "views",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "profiles_profile_id_users_id_fk": {
+          "name": "profiles_profile_id_users_id_fk",
+          "tableFrom": "profiles",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     }
   },
@@ -2053,11 +2027,8 @@
   "policies": {},
   "views": {},
   "_meta": {
+    "columns": {},
     "schemas": {},
-    "tables": {},
-    "columns": {}
-  },
-  "internal": {
     "tables": {}
   }
 }

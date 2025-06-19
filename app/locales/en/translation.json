@@ -266,9 +266,20 @@
             "avatar_size_hint": "Recommended size: 128x128px",
             "avatar_formats_hint": "Allowed formats: PNG, JPEG, WEBP",
             "avatar_max_size_hint": "Max file size: 1MB",
-            "update_avatar_button": "Update avatar",
+            "update_avatar_button": "Update Avatar",
             "errors": {
                 "name_too_short": "Name must be at least 2 characters long."
+            },
+            "go_to_profile": "Go to Profile",
+            "activity": {
+                "not_following_title": "This account is private",
+                "not_following_description": "Follow this account to see their activity.",
+                "private_title": "Private Activity",
+                "private_description": "This user's activity is private.",
+                "no_activity": "No activity to show yet.",
+                "view_memos": "View {{count}} memo(s)",
+                "duration": "{{minutes}} min",
+                "no_comment": "No comment"
             }
         },
         "categories": {
@@ -336,6 +347,13 @@
             "toggle_default_category_confirm_description": "Disabling a default category will hide it from selection menus. Associated data will not be deleted.",
             "confirm_toggle": "Confirm",
             "page_title": "Code & Sub-code Settings"
+        },
+        "privacy": {
+            "title": "Privacy Settings",
+            "description": "Control how others see your activity.",
+            "followers_only": "Followers only",
+            "public": "Public",
+            "save_button": "Save Privacy"
         }
     },
     "notifications": {
@@ -576,5 +594,9 @@
         "download": "Download PDF",
         "loading": "Generating..."
     },
-    "share": "공유하기"
+    "share": "공유하기",
+    "posts": {
+        "title": "Posts",
+        "no_posts": "No posts yet."
+    }
 } 

@@ -171,7 +171,7 @@ export async function createMessage(
             )
         `)
         .single();
-    
+
     if (error) {
         console.error("Error creating message:", error);
         throw error;

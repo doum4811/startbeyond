@@ -6,6 +6,8 @@ import {
     text,
     timestamp,
     uuid,
+    pgPolicy,
+    primaryKey,
   } from "drizzle-orm/pg-core";
 import { sql } from 'drizzle-orm';
 import { authUsers } from "drizzle-orm/supabase";
@@ -43,14 +45,46 @@ export const profiles = pgTable("profiles", {
     views: jsonb('views'),
     created_at: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updated_at: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow().$onUpdateFn(() => sql`now()`),
-  });
+  }, (table) => ({
+    rls: [
+        pgPolicy("Allow public read-only access to profiles", {
+            for: "select",
+            to: "all",
+            using: sql`true`,
+        }),
+        pgPolicy("Allow users to update their own profile", {
+            for: "update",
+            to: "authenticated",
+            using: sql`auth.uid() = ${table.profile_id}`,
+        }),
+    ]
+  }));
   
   export const follows = pgTable("follows", {
-    follower_id: uuid().references(() => profiles.profile_id, {
+    follower_id: uuid("follower_id").notNull().references(() => profiles.profile_id, {
       onDelete: "cascade",
     }),
-    following_id: uuid().references(() => profiles.profile_id, {
+    following_id: uuid("following_id").notNull().references(() => profiles.profile_id, {
       onDelete: "cascade",
     }),
-    created_at: timestamp().notNull().defaultNow(),
-  });
+    created_at: timestamp("created_at").notNull().defaultNow(),
+  }, (table) => ({
+    pk: primaryKey({ columns: [table.follower_id, table.following_id] }),
+    rls: [
+      pgPolicy("Allow users to see their own follow relationships", {
+        for: "select",
+        to: "authenticated",
+        using: sql`auth.uid() = ${table.follower_id} OR auth.uid() = ${table.following_id}`,
+      }),
+      pgPolicy("Allow users to follow others", {
+        for: "insert",
+        to: "authenticated",
+        withCheck: sql`auth.uid() = ${table.follower_id}`,
+      }),
+      pgPolicy("Allow users to unfollow others", {
+        for: "delete",
+        to: "authenticated",
+        using: sql`auth.uid() = ${table.follower_id}`,
+      }),
+    ]
+  }));
