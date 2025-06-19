@@ -45,7 +45,7 @@ const menuKeys = [
 
 const profileMenuKeys = [
     { name: "profile", to: (username?: string) => `/users/${username}`, icon: UserIcon },
-    //{ name: "settings", to: () => `/settings`, icon: SettingsIcon },
+    // { name: "settings", to: () => `/settings`, icon: SettingsIcon },
     { name: "logout", to: () => "/auth/logout", icon: LogOutIcon },
 ];
 
@@ -155,7 +155,7 @@ export default function Navigation({
                 </Link>
            </Button>
                     <DropdownMenu> 
-            <DropdownMenuTrigger asChild>
+            <DropdownMenuTrigger>
                     <Avatar> 
                         {/* <AvatarImage src="https://github.com/doum4811.png" />
                         <AvatarFallback>
@@ -180,7 +180,7 @@ export default function Navigation({
                 <DropdownMenuSeparator />
                 {profileMenus.map((item) => (
                     <DropdownMenuItem key={item.name} asChild className="cursor-pointer">
-                        <Link to={item.to(username)}>
+                        <Link to={item.to(username)} className="flex items-center">
                             <item.icon className="size-4 mr-2" />
                             {item.name}
                         </Link>
@@ -248,29 +248,41 @@ export default function Navigation({
                   <Avatar>
                     {avatar ? <AvatarImage src={avatar} /> : <AvatarFallback>{name?.[0]}</AvatarFallback>}
                   </Avatar>
-                  <div className="flex flex-col text-left">
-                      <span className="font-medium truncate">{name}</span>
-                      <span className="text-xs text-muted-foreground truncate">@{username}</span>
+                  <div className="flex-1 overflow-hidden">
+                      <div className="font-medium truncate">{name}</div>
+                      <div className="text-sm text-muted-foreground truncate">@{username}</div>
                   </div>
                 </Link>
               </SheetClose>
-              <LanguageSwitcher />
+              <div className="flex items-center">
+                <SheetClose asChild>
+                    <Button variant="ghost" size="icon" asChild className="relative">
+                        <Link to="/notifications">
+                            <BellIcon className="h-5 w-5" />
+                        {hasNotifications && <div className="absolute top-1.5 right-1.5 size-2 bg-red-500 rounded-full"></div>}
+                        </Link>
+                    </Button>
+                </SheetClose>
+                <SheetClose asChild>
+                    <Button variant="ghost" size="icon" asChild className="relative">
+                        <Link to="/messages">
+                            <MessageCircleIcon className="h-5 w-5" />
+                        {hasMessages && <div className="absolute top-1.5 right-1.5 size-2 bg-red-500 rounded-full"></div>}
+                        </Link>
+                   </Button>
+                </SheetClose>
+                <LanguageSwitcher />
+              </div>
             </div>
           ) : (
-            <div className="flex justify-between w-full items-center">
-              <div className="flex gap-2">
+            <div className="flex items-center w-full gap-2">
                 <Button asChild variant="secondary" className="flex-1">
-                  <SheetClose asChild>
-                    <Link to="/auth/login">{t('nav.login')}</Link>
-                  </SheetClose>
+                    <SheetClose asChild><Link to="/auth/login">{t('nav.login')}</Link></SheetClose>
                 </Button>
                 <Button asChild className="flex-1">
-                  <SheetClose asChild>
-                    <Link to="/auth/join">{t('nav.join')}</Link>
-                  </SheetClose>
+                    <SheetClose asChild><Link to="/auth/join">{t('nav.join')}</Link></SheetClose>
                 </Button>
-              </div>
-              <LanguageSwitcher />
+                <LanguageSwitcher />
             </div>
           )}
         </SheetFooter>
