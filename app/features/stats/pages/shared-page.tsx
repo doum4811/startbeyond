@@ -7,6 +7,10 @@ import * as planQueries from '~/features/plan/queries';
 import * as settingsQueries from '~/features/settings/queries';
 import type { SharedLink, SummaryPageLoaderData, AdvancedPageLoaderData, CategoryPageLoaderData, HeatmapData, RecordsPageLoaderData as RecordsPageSharedData, MonthlyDayRecord } from '~/features/stats/types';
 import { useTranslation } from 'react-i18next';
+import { createInstance } from 'i18next';
+import i18n from '~/i18n';
+import ko from '~/locales/ko/translation.json';
+import en from '~/locales/en/translation.json';
 import { Card, CardContent, CardHeader, CardTitle } from '~/common/components/ui/card';
 import { Button } from '~/common/components/ui/button';
 import { CategoryDistributionList } from '../components/CategoryDistributionList';
@@ -37,6 +41,11 @@ interface SharedPageLoaderData {
   advancedData?: Partial<Omit<AdvancedPageLoaderData, 'profileId' | 'sharedLink'>>;
   categoryData?: Partial<Omit<CategoryPageLoaderData, 'profileId' | 'sharedLink'>>;
   recordsData?: Partial<RecordsPageSharedData>;
+  lng: 'ko' | 'en';
+  meta: {
+    title: string;
+    description: string;
+  }
 }
 
 async function getProcessedCategories(client: any, profileId: string): Promise<UICategory[]> {
@@ -88,6 +97,19 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
     throw new Response("Not Found", { status: 404 });
   }
   
+  const acceptLanguage = request.headers.get('accept-language') || 'ko';
+  const lng = acceptLanguage.startsWith('ko') ? 'ko' : 'en';
+
+  const i18next = createInstance();
+  await i18next.init({
+      resources: {
+          en: { translation: en },
+          ko: { translation: ko },
+      },
+      lng,
+      fallbackLng: 'ko',
+  });
+  
   const { client } = makeSSRClient(request);
   const sharedLink = await statsQueries.getSharedLinkByToken(client, { token });
 
@@ -98,6 +120,11 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
   const profileId = sharedLink.profile_id;
   const categories = await getProcessedCategories(client, profileId);
   const activeCategories = categories.filter(c => c.isActive);
+
+  const pageType = sharedLink.page_type || 'Stats';
+  const metaTitle = i18next.t('shared_page.meta_title', { pageType: pageType.charAt(0).toUpperCase() + pageType.slice(1) });
+  const metaDescription = i18next.t('shared_page.meta_description');
+  const meta = { title: metaTitle, description: metaDescription };
 
   // Based on page_type, fetch the corresponding data
   if (sharedLink.page_type === 'summary') {
@@ -133,6 +160,8 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
 
     return {
       sharedLink,
+      lng,
+      meta,
       summaryData: {
         selectedMonthISO: monthForDb,
         categoryDistribution: categoryDistributionWithPercentage,
@@ -192,6 +221,8 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
         
         return {
             sharedLink,
+            lng,
+            meta,
             advancedData: {
                 categories: categoriesForGrid,
                 currentYear,
@@ -288,6 +319,8 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
 
         return {
             sharedLink,
+            lng,
+            meta,
             categoryData: {
                 categories: activeCategories,
                 detailedSummary: filteredSummary,
@@ -369,6 +402,8 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
     
     return {
         sharedLink,
+        lng,
+        meta,
         recordsData: {
             categories: activeCategories,
             monthlyData: monthlyRecordsForDisplay.sort((a, b) => b.date.localeCompare(a.date)),
@@ -379,24 +414,39 @@ export const loader = async ({ params, request }: LoaderFunctionArgs): Promise<S
 
   } else {
      return { 
-        sharedLink 
+        sharedLink,
+        lng,
+        meta,
     };
   }
 };
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
-    const { t } = useTranslation();
     const pageData = data as SharedPageLoaderData | undefined;
-    const pageType = pageData?.sharedLink?.page_type || 'Stats';
+
+    if (!pageData?.meta) {
+      const pageType = pageData?.sharedLink?.page_type || 'Stats';
+      return [
+        { title: `Shared ${pageType.charAt(0).toUpperCase() + pageType.slice(1)}` },
+        { name: "description", content: "View shared stats from StartMore." },
+      ];
+    }
     
     return [
-      { title: t('shared_page.meta_title', { pageType: pageType.charAt(0).toUpperCase() + pageType.slice(1) }) },
-      { name: "description", content: t('shared_page.meta_description') },
+      { title: pageData.meta.title },
+      { name: "description", content: pageData.meta.description },
     ];
 };
 
 export default function SharedPage() {
-  const { sharedLink } = useLoaderData<typeof loader>();
+  const { sharedLink, lng } = useLoaderData<typeof loader>();
+  
+  React.useEffect(() => {
+    if (lng && i18n.language !== lng) {
+      i18n.changeLanguage(lng);
+    }
+  }, [lng]);
+
   const { t } = useTranslation();
 
   if (!sharedLink) {

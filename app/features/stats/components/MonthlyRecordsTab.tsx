@@ -74,13 +74,13 @@ export default function MonthlyRecordsTab({ monthlyRecordsForDisplay, categories
       <div className="mb-6 flex flex-col gap-4">
         {/* Category Filters */}
         <div>
-          <MonthlyRecordsFilter
-              categories={categories}
-              selectedCategories={selectedCategories}
-              onToggleCategory={toggleCategoryFilter}
-              onClear={clearFilters}
-          />
-        </div>
+        <MonthlyRecordsFilter
+            categories={categories}
+            selectedCategories={selectedCategories}
+            onToggleCategory={toggleCategoryFilter}
+            onClear={clearFilters}
+        />
+      </div>
 
         {/* Search and View Controls */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
@@ -94,31 +94,31 @@ export default function MonthlyRecordsTab({ monthlyRecordsForDisplay, categories
           </div>
 
           {/* View Controls */}
-          <div className="flex items-center justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={expandAll}>{t('stats_records_page.expand_all')}</Button>
-              <Button variant="ghost" size="sm" onClick={collapseAll}>{t('stats_records_page.collapse_all')}</Button>
-              <div className="flex items-center rounded-md bg-muted p-1">
-                   <Button
-                      variant={viewMode === 'list' ? 'secondary' : 'ghost'}
-                      size="icon"
-                      onClick={() => setViewMode('list')}
-                      className="h-8 w-8"
-                  >
-                      <List className="h-4 w-4" />
-                  </Button>
-                  <Button
-                      variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
-                      size="icon"
-                      onClick={() => setViewMode('grid')}
-                      className="h-8 w-8"
-                  >
-                      <Grid className="h-4 w-4" />
-                  </Button>
+        <div className="flex items-center justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={expandAll}>{t('stats_records_page.expand_all')}</Button>
+            <Button variant="ghost" size="sm" onClick={collapseAll}>{t('stats_records_page.collapse_all')}</Button>
+            <div className="flex items-center rounded-md bg-muted p-1">
+                 <Button
+                    variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+                    size="icon"
+                    onClick={() => setViewMode('list')}
+                    className="h-8 w-8"
+                >
+                    <List className="h-4 w-4" />
+                </Button>
+                <Button
+                    variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+                    size="icon"
+                    onClick={() => setViewMode('grid')}
+                    className="h-8 w-8"
+                >
+                    <Grid className="h-4 w-4" />
+                </Button>
               </div>
           </div>
+            </div>
         </div>
-      </div>
-
+      
       {/* Content */}
       <div className="space-y-4">
         {viewMode === 'list' ? (

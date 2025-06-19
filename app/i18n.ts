@@ -17,6 +17,11 @@ if (!i18n.isInitialized) {
           translation: ko,
         },
       },
+      detection: {
+        order: ['cookie', 'navigator', 'htmlTag', 'path', 'subdomain'],
+        caches: ['cookie'],
+        lookupCookie: 'i18next',
+      },
       fallbackLng: "ko",
       debug: true,
       interpolation: {

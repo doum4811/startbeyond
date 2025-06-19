@@ -248,41 +248,29 @@ export default function Navigation({
                   <Avatar>
                     {avatar ? <AvatarImage src={avatar} /> : <AvatarFallback>{name?.[0]}</AvatarFallback>}
                   </Avatar>
-                  <div className="flex-1 overflow-hidden">
-                      <div className="font-medium truncate">{name}</div>
-                      <div className="text-sm text-muted-foreground truncate">@{username}</div>
+                  <div className="flex flex-col text-left">
+                      <span className="font-medium truncate">{name}</span>
+                      <span className="text-xs text-muted-foreground truncate">@{username}</span>
                   </div>
                 </Link>
               </SheetClose>
-              <div className="flex items-center">
-                <SheetClose asChild>
-                    <Button variant="ghost" size="icon" asChild className="relative">
-                        <Link to="/notifications">
-                            <BellIcon className="h-5 w-5" />
-                        {hasNotifications && <div className="absolute top-1.5 right-1.5 size-2 bg-red-500 rounded-full"></div>}
-                        </Link>
-                    </Button>
-                </SheetClose>
-                <SheetClose asChild>
-                    <Button variant="ghost" size="icon" asChild className="relative">
-                        <Link to="/messages">
-                            <MessageCircleIcon className="h-5 w-5" />
-                        {hasMessages && <div className="absolute top-1.5 right-1.5 size-2 bg-red-500 rounded-full"></div>}
-                        </Link>
-                   </Button>
-                </SheetClose>
-                <LanguageSwitcher />
-              </div>
+              <LanguageSwitcher />
             </div>
           ) : (
-            <div className="flex items-center w-full gap-2">
+            <div className="flex justify-between w-full items-center">
+              <div className="flex gap-2">
                 <Button asChild variant="secondary" className="flex-1">
-                    <SheetClose asChild><Link to="/auth/login">{t('nav.login')}</Link></SheetClose>
+                  <SheetClose asChild>
+                    <Link to="/auth/login">{t('nav.login')}</Link>
+                  </SheetClose>
                 </Button>
                 <Button asChild className="flex-1">
-                    <SheetClose asChild><Link to="/auth/join">{t('nav.join')}</Link></SheetClose>
+                  <SheetClose asChild>
+                    <Link to="/auth/join">{t('nav.join')}</Link>
+                  </SheetClose>
                 </Button>
-                <LanguageSwitcher />
+              </div>
+              <LanguageSwitcher />
             </div>
           )}
         </SheetFooter>

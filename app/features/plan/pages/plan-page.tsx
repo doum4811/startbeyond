@@ -89,15 +89,15 @@ export default function PlanOverviewPage({ loaderData }: PlanOverviewPageProps) 
   }
   
   return (
-    <div className="max-w-4xl mx-auto py-12 px-4 pt-16 bg-background min-h-screen">
-      <div className="mb-8">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <div className="text-center">
         <h1 className="font-bold text-4xl mb-2">{t('plan_hub.title')}</h1>
         <p className="text-lg text-muted-foreground">
           {t('plan_hub.description')}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Card>
           <CardHeader>
             <CardTitle>{t('plan_hub.tomorrows_plan_title')}</CardTitle>
@@ -182,8 +182,8 @@ export default function PlanOverviewPage({ loaderData }: PlanOverviewPageProps) 
         </Card>
       </div>
       
-      <div>
-        <h2 className="text-2xl font-semibold mb-4">{t('plan_hub.recent_notes_title')}</h2>
+      <div className="space-y-6">
+        <h2 className="text-2xl font-semibold mb-4 text-center">{t('plan_hub.recent_notes_title')}</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="md:col-span-1 flex flex-col">
                 <CardHeader><CardTitle className="text-lg">{t('plan_hub.todays_note_title')}</CardTitle></CardHeader>

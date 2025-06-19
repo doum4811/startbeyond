@@ -7,12 +7,14 @@ import {
   DropdownMenuTrigger,
 } from "~/common/components/ui/dropdown-menu";
 import { Globe } from "lucide-react";
+import Cookies from 'js-cookie';
 
 export function LanguageSwitcher() {
   const { i18n } = useTranslation();
 
   const changeLanguage = (lng: string) => {
     i18n.changeLanguage(lng);
+    Cookies.set('i18next', lng, { expires: 365 });
   };
 
   return (

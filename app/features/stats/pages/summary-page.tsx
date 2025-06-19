@@ -551,25 +551,23 @@ export default function SummaryStatsPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-background min-h-screen">
-      <div className="mb-4">
-        <StatsPageHeader
-          title={t('stats_summary_page.page_title')}
-          description={t('stats_summary_page.page_description_free')}
-          shareSettings={sharedLink || { page_type: 'summary', period: selectedMonthISO, is_public: false, settings: { include_summary: true, include_subcode_distribution: true } }}
-          onSettingsChange={handleSettingsChange}
-          isShareDialogOpen={isShareDialogOpen}
-          setIsShareDialogOpen={setIsShareDialogOpen}
-          isCopied={isCopied}
-          onCopyLink={handleCopyLink}
-          shareLink={sharedLink?.is_public && sharedLink?.token ? (typeof window !== 'undefined' ? `${window.location.origin}/share/${sharedLink.token}` : `/share/${sharedLink.token}`) : undefined}
-          periodButton={periodControl}
-          pdfButton={pdfButton}
-          fetcherState={fetcher.state}
-        />
-      </div>
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <StatsPageHeader
+        title={t('stats_summary_page.page_title')}
+        description={t('stats_summary_page.page_description_free')}
+        shareSettings={sharedLink || { page_type: 'summary', period: selectedMonthISO, is_public: false, settings: { include_summary: true, include_subcode_distribution: true } }}
+        onSettingsChange={handleSettingsChange}
+        isShareDialogOpen={isShareDialogOpen}
+        setIsShareDialogOpen={setIsShareDialogOpen}
+        isCopied={isCopied}
+        onCopyLink={handleCopyLink}
+        shareLink={sharedLink?.is_public && sharedLink?.token ? (typeof window !== 'undefined' ? `${window.location.origin}/share/${sharedLink.token}` : `/share/${sharedLink.token}`) : undefined}
+        periodButton={periodControl}
+        pdfButton={pdfButton}
+        fetcherState={fetcher.state}
+      />
 
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{t('stats_summary_page.total_records')}</CardTitle>
