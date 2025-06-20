@@ -384,7 +384,7 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                             <Input name="duration" type="number" placeholder={t('duration')} value={form.duration} onChange={e => { if(validateDuration(e.target.value)) setForm(f=>({...f, duration: e.target.value}))}} className={`w-24 ${durationError ? 'border-red-500' : ''}`} />
                             {durationError && <div className="absolute -bottom-6 left-0 text-xs text-red-500">{durationError}</div>}
                             </div>
-                        <Input name="comment" placeholder={t('comment')} value={form.comment} onChange={e => setForm(f=>({...f, comment: e.target.value}))} className="flex-1" />
+                        <Input name="comment" placeholder={t('comment')} value={form.comment} onChange={e => setForm(f=>({...f, comment: e.target.value}))} className="flex-1 min-w-[200px]" />
                         <input type="hidden" name="category_code" value={form.category_code} />
                         <div className="flex items-center space-x-2">
                           <Switch
@@ -415,10 +415,10 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
               <div className="overflow-x-auto">
                 <table className="min-w-full text-base">
                         <thead><tr className="border-b">
-                            <th className="py-2 px-2 text-left w-1/3">{t('category')}</th>
-                            <th className="py-2 px-2 text-left w-2/4">{t('comment')}</th>
-                            <th className="py-2 px-2 text-left">{t('duration')}</th>
-                            <th className="py-2 px-2 text-center">{t('action')}</th>
+                            <th className="py-2 px-2 text-left min-w-[120px]">{t('category')}</th>
+                            <th className="py-2 px-2 text-left min-w-[200px]">{t('comment')}</th>
+                            <th className="py-2 px-2 text-left min-w-[80px]">{t('duration')}</th>
+                            <th className="py-2 px-2 text-center min-w-[160px]">{t('action')}</th>
                         </tr></thead>
                   <tbody>
                             {records.map(rec => {
@@ -434,8 +434,8 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                                     </div>
                                 </div>
                             </td>
-                                        <td className="w-2/4">{rec.comment || '-'}</td>
-                                        <td className="w-[70px]">{rec.duration_minutes ? `${rec.duration_minutes}분` : (categoryInfo?.hasDuration ? "-" : "")}</td>
+                                        <td>{rec.comment || '-'}</td>
+                                        <td>{rec.duration_minutes ? `${rec.duration_minutes}분` : (categoryInfo?.hasDuration ? "-" : "")}</td>
                                         <td className="py-2 px-2 text-center">
                                             <div className="flex gap-1 justify-center">
                                                 <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setEditingSubcodeForRecordId(rec.id); setEditSubcodeValue(rec.subcode || ""); setShowMemoFormForRecordId(null); setSelectedRowId(rec.id); setIsEditing(false); }}>{t('subcode')}</Button>

@@ -349,7 +349,7 @@ function DateRangePicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <div className="flex gap-4 p-4">
+        <div className="flex flex-col md:flex-row gap-4 p-4">
           <div>
             <Label>{t("stats_records_page.start_date")}</Label>
             <Calendar
