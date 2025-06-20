@@ -146,8 +146,3 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
     </main>
   );
 }
-
-export const meta: MetaFunction = ({ data }) => {
-  // ... existing code ...
-};
-
