@@ -3,6 +3,7 @@ import {
     createServerClient,
     parseCookieHeader,
     serializeCookieHeader,
+    type CookieOptions,
   } from "@supabase/ssr";
   import type { Database as SupabaseDatabase } from "database.types";
   
@@ -12,6 +13,8 @@ import {
   );
   
   export const makeSSRClient = (request: Request) => {
+    const cookieHeader = request.headers.get("Cookie") ?? "";
+    const parsedCookies = parseCookieHeader(cookieHeader);
     const headers = new Headers();
   
     const serverSideClient = createServerClient<SupabaseDatabase>(
@@ -19,20 +22,21 @@ import {
       process.env.SUPABASE_ANON_KEY!,
       {
         cookies: {
-          async getAll() {
-            const parsed = parseCookieHeader(request.headers.get("Cookie") ?? "");
-            // value가 undefined인 경우를 제외
-            return parsed
-              .filter((c) => typeof c.value === "string")
-              .map((c) => ({ name: c.name, value: c.value as string }));
+          get(name: string) {
+            const cookie = parsedCookies.find((c) => c.name === name);
+            return cookie?.value;
           },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              headers.append(
-                "Set-Cookie",
-                serializeCookieHeader(name, value, options)
-              );
-            });
+          set(name: string, value: string, options: CookieOptions) {
+            headers.append(
+              "Set-Cookie",
+              serializeCookieHeader(name, value, options),
+            );
+          },
+          remove(name: string, options: CookieOptions) {
+            headers.append(
+              "Set-Cookie",
+              serializeCookieHeader(name, "", { ...options, maxAge: 0 }),
+            );
           },
         },
       }

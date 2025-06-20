@@ -27,18 +27,20 @@ import { getUserById } from "./features/users/queries";
 import { getUnreadNotificationCount } from "./features/notifications/queries";
 import { getUnreadMessageCount } from "./features/messages/queries";
 
-Sentry.init({
-  dsn: import.meta.env.VITE_SENTRY_DSN,
-  integrations: [
-    Sentry.browserTracingIntegration(),
-    Sentry.replayIntegration(),
-  ],
-  // Performance Monitoring
-  tracesSampleRate: 1.0, // 개발 중에는 1.0으로, 프로덕션에서는 낮은 값(예: 0.1)으로 조절하세요.
-  // Session Replay
-  replaysSessionSampleRate: 0.1, // 10%의 세션을 녹화합니다.
-  replaysOnErrorSampleRate: 1.0, // 에러가 발생한 세션은 100% 녹화합니다.
-});
+if (import.meta.env.PROD) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    integrations: [
+      Sentry.browserTracingIntegration(),
+      Sentry.replayIntegration(),
+    ],
+    // Performance Monitoring
+    tracesSampleRate: 0.1,
+    // Session Replay
+    replaysSessionSampleRate: 0.1, // 10%의 세션을 녹화합니다.
+    replaysOnErrorSampleRate: 1.0, // 에러가 발생한 세션은 100% 녹화합니다.
+  });
+}
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },

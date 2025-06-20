@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useMotionValue, useSpring, type SpringOptions } from "framer-motion";
-import { useMemo, useState, useRef, useLayoutEffect } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 
 interface Position {
   x: number;
@@ -46,7 +46,7 @@ export function Lens({
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerBounds, setContainerBounds] = useState<DOMRect | undefined>();
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (containerRef.current) {
       setContainerBounds(containerRef.current.getBoundingClientRect());
     }

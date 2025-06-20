@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "./ui/accordion";
 
 // function GitHubIcon(props: React.SVGProps<SVGSVGElement>) {
 //   return (
@@ -39,46 +40,91 @@ import { Link } from "react-router";
 //   );
 // }
 
+const footerNavs = [
+  {
+    title: 'Product',
+    items: [
+      { name: 'Community', href: '/community' },
+    ],
+  },
+  {
+    title: 'Company',
+    items: [
+      { name: 'About', href: '/about' },
+      { name: '공지사항', href: '/announcements' },
+      { name: 'Contact', href: '/contact' },
+    ],
+  },
+  {
+    title: 'Legal',
+    items: [
+      { name: 'Terms', href: '/terms' },
+      { name: 'Privacy', href: '/privacy' },
+    ],
+  },
+];
+
 export function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
     <footer className="bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300">
-      <div className="container mx-auto max-w-screen-xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-1">
+      <div className="container mx-auto max-w-screen-xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-8 text-center sm:text-left lg:grid-cols-3">
+          <div className="hidden sm:block lg:col-span-1">
             <h2 className="text-2xl font-bold">StartBeyond</h2>
-            <p className="mt-4 max-w-xs">
+            <p className="mx-auto mt-4 max-w-xs sm:mx-0">
               당신의 성장을 위한 첫걸음. 목표를 설정하고, 계획하고, 달성하세요.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-2">
-            <div>
-              <p className="font-semibold">Product</p>
-              <nav className="mt-4 flex flex-col space-y-2 text-sm">
-                <Link to="/community" className="hover:underline">Community</Link>
-              </nav>
-            </div>
-            <div>
-              <p className="font-semibold">Company</p>
-              <nav className="mt-4 flex flex-col space-y-2 text-sm">
-                <Link to="/about" className="hover:underline">About</Link>
-                <Link to="/announcements" className="hover:underline">공지사항</Link>
-                <Link to="/contact" className="hover:underline">Contact</Link>
-              </nav>
-            </div>
-            <div>
-              <p className="font-semibold">Legal</p>
-              <nav className="mt-4 flex flex-col space-y-2 text-sm">
-                <Link to="/terms" className="hover:underline">Terms</Link>
-                <Link to="/privacy" className="hover:underline">Privacy</Link>
-              </nav>
-            </div>
+          {/* Desktop Footer */}
+          <div className="hidden sm:grid grid-cols-3 gap-8 lg:col-span-2">
+            {footerNavs.map((nav) => (
+              <div key={nav.title}>
+                <p className="font-semibold">{nav.title}</p>
+                <nav className="mt-4 flex flex-col space-y-2 text-sm">
+                  {nav.items.map((item) => (
+                    <Link key={item.name} to={item.href} className="hover:underline">{item.name}</Link>
+                  ))}
+                </nav>
+              </div>
+            ))}
+          </div>
+
+          {/* Mobile Footer */}
+          <div className="sm:hidden lg:col-span-1">
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="more-links">
+                <AccordionTrigger className="py-0">더 보기</AccordionTrigger>
+                <AccordionContent>
+                  <div className="pt-4 text-center">
+                    <h2 className="text-2xl font-bold">StartBeyond</h2>
+                    <p className="mx-auto mt-4 max-w-xs">
+                      당신의 성장을 위한 첫걸음. 목표를 설정하고, 계획하고, 달성하세요.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 pt-4 text-left text-sm">
+                    {footerNavs.map((nav) => (
+                      <div key={nav.title}>
+                        <p className="font-semibold">{nav.title}</p>
+                        <nav className="mt-2 flex flex-col space-y-2">
+                          {nav.items.map((item) => (
+                            <Link key={item.name} to={item.href} className="hover:underline">
+                              {item.name}
+                            </Link>
+                          ))}
+                        </nav>
+                      </div>
+                    ))}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
         </div>
 
-        <div className="mt-8 border-t border-gray-200 pt-8 dark:border-gray-800 text-center text-sm">
+        <div className="mt-6 border-t border-gray-200 pt-6 dark:border-gray-800 text-center text-sm">
           <p>&copy; {currentYear} StartBeyond. All rights reserved. <em className="italic">Beta</em></p>
         </div>
       </div>

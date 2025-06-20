@@ -7,6 +7,7 @@ import { sql } from 'drizzle-orm';
 import type pkg from '@supabase/supabase-js';
 import type { Database } from "../../../database.types"; 
 import { DateTime } from "luxon";
+import { relations } from "drizzle-orm";
 
 export const sharedLinks = pgTable("shared_links", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -29,23 +30,32 @@ export const sharedLinks = pgTable("shared_links", {
   }),
 }));
 
-export const statsCache = pgTable("stats_cache", {
-  id: text("id").primaryKey(),
-  profile_id: uuid("profile_id").notNull().references(() => profiles.profile_id, { onDelete: 'cascade' }),
-  month_date: text("month_date").notNull(), // YYYY-MM
-  category_distribution: jsonb("category_distribution"),
-  activity_heatmap: jsonb("activity_heatmap"),
-  created_at: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updated_at: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-}, (table) => ({
-  profileMonthUnique: uniqueIndex('stats_cache_profile_month_idx').on(table.profile_id, table.month_date),
-  rls: pgPolicy("Allow users to manage their own stats cache", {
-    for: "all",
-    to: "authenticated",
-    using: sql`auth.uid() = ${table.profile_id}`,
-    withCheck: sql`auth.uid() = ${table.profile_id}`,
-  }),
-}));
+export const statsCache = pgTable(
+  "stats_cache",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    profile_id: uuid("profile_id")
+      .notNull()
+      .references(() => profiles.profile_id, { onDelete: "cascade" }),
+    month_date: text("month_date").notNull(), // YYYY-MM-01
+    category_distribution: jsonb("category_distribution").notNull(),
+    activity_heatmap: jsonb("activity_heatmap"),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => {
+    return {
+      profileMonthUnique: uniqueIndex("stats_cache_profile_month_idx").on(
+        table.profile_id,
+        table.month_date,
+      ),
+    };
+  },
+);
 
 // Export derived types
 export type SharedLink = typeof sharedLinks.$inferSelect;
