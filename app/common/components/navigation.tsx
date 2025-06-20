@@ -164,7 +164,7 @@ export default function Navigation({
                             N
                         </AvatarFallback> */}
                         {avatar ? (
-                            <AvatarImage src={avatar} />
+                            <AvatarImage className="object-cover" src={avatar} />
                             ) : (
                             <AvatarFallback>{name?.[0]}</AvatarFallback>
                          )}
@@ -248,7 +248,7 @@ export default function Navigation({
               <SheetClose asChild>
                 <Link to={`/users/${username}`} className="flex items-center gap-2 overflow-hidden">
                   <Avatar>
-                    {avatar ? <AvatarImage src={avatar} /> : <AvatarFallback>{name?.[0]}</AvatarFallback>}
+                    {avatar ? <AvatarImage className="object-cover" src={avatar} /> : <AvatarFallback>{name?.[0]}</AvatarFallback>}
                   </Avatar>
                   <div className="flex-1 overflow-hidden">
                       <div className="font-medium truncate">{name}</div>
