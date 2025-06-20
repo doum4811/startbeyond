@@ -1,4 +1,4 @@
-import { Link, Form, useParams, useNavigate, redirect, useActionData, useFetcher } from "react-router";
+import { Link, Form, useNavigate, redirect, useFetcher } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { Button } from "~/common/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "~/common/components/ui/card";
@@ -14,6 +14,17 @@ import { makeSSRClient } from "~/supa-client";
 import { useTranslation } from "react-i18next";
 import { cn } from "~/lib/utils";
 import { POST_CATEGORIES } from "../constants";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "~/common/components/ui/alert-dialog";
 
 export interface CommunityPostDetailPageLoaderData {
   post: CommunityPostWithAuthor | null;
@@ -201,12 +212,27 @@ export default function CommunityPostDetailPage({ loaderData }: { loaderData: Co
         </CardContent>
         {isOwner && (
           <CardFooter className="flex justify-end gap-2">
-            <Form method="post">
-              <input type="hidden" name="intent" value="deletePost" />
-              <Button variant="destructive" type="submit" onClick={(event) => !confirm(t('community.post_detail_page.delete_post_confirm')) && event.preventDefault() } >
-                <Trash2 className="mr-2 h-4 w-4" /> {t('community.post_detail_page.delete_post_button')}
-              </Button>
-            </Form>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive">
+                  <Trash2 className="mr-2 h-4 w-4" /> {t('community.post_detail_page.delete_post_button')}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{t('community.post_detail_page.delete_confirm_title')}</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t('community.post_detail_page.delete_post_confirm')}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => fetcher.submit({ intent: 'deletePost' }, { method: 'post' })}>
+                    {t('delete')}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardFooter>
         )}
       </Card>

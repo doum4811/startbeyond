@@ -5,6 +5,8 @@ export default [
     route("about", "common/pages/about-page.tsx"),
     route("terms", "common/pages/terms-page.tsx"),
     route("privacy", "common/pages/privacy-page.tsx"),
+    route("announcements", "common/pages/announcements-page.tsx"),
+    route("contact", "common/pages/contact-page.tsx"),
     route("daily", "features/daily/pages/daily-page.tsx"),
     ...prefix("plan", [
         index("features/plan/pages/plan-page.tsx"),

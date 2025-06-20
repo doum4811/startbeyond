@@ -43,60 +43,44 @@ export function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-gray-100 text-gray-700 py-6 dark:bg-gray-800 dark:text-gray-300">
-    {/* // <footer className="bg-gray-100 text-gray-700 py-6 dark:bg-gray-800 dark:text-gray-300"> */}
-      <div className="container mx-auto flex max-w-screen-lg flex-col items-center justify-between gap-4 px-4 sm:flex-row">
-        <div className="text-center sm:text-left">
-          <p className="text-sm">
-            © {currentYear} StartBeyond. All rights reserved.{" "}
-            <em className="italic">Beta</em>
-          </p>
+    <footer className="bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+      <div className="container mx-auto max-w-screen-xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <div className="lg:col-span-1">
+            <h2 className="text-2xl font-bold">StartBeyond</h2>
+            <p className="mt-4 max-w-xs">
+              당신의 성장을 위한 첫걸음. 목표를 설정하고, 계획하고, 달성하세요.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-2">
+            <div>
+              <p className="font-semibold">Product</p>
+              <nav className="mt-4 flex flex-col space-y-2 text-sm">
+                <Link to="/community" className="hover:underline">Community</Link>
+              </nav>
+            </div>
+            <div>
+              <p className="font-semibold">Company</p>
+              <nav className="mt-4 flex flex-col space-y-2 text-sm">
+                <Link to="/about" className="hover:underline">About</Link>
+                <Link to="/announcements" className="hover:underline">공지사항</Link>
+                <Link to="/contact" className="hover:underline">Contact</Link>
+              </nav>
+            </div>
+            <div>
+              <p className="font-semibold">Legal</p>
+              <nav className="mt-4 flex flex-col space-y-2 text-sm">
+                <Link to="/terms" className="hover:underline">Terms</Link>
+                <Link to="/privacy" className="hover:underline">Privacy</Link>
+              </nav>
+            </div>
+          </div>
         </div>
-        <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 sm:justify-end">
-          <Link
-            to="/about"
-            className="text-sm hover:underline"
-            aria-label="About"
-          >
-            About
-          </Link>
-          <Link
-            to="/terms"
-            className="text-sm hover:underline"
-            aria-label="Terms of Service"
-          >
-            Terms
-          </Link>
-          <Link
-            to="/privacy"
-            className="text-sm hover:underline"
-            aria-label="Privacy Policy"
-          >
-            Privacy
-          </Link>
-          <a
-            href="mailto:notivior@gmail.com"
-            className="text-sm hover:underline"
-          >
-            Contact
-          </a>
-          {/* <a
-            href="https://github.com/your-github"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="GitHub"
-          >
-            <GitHubIcon className="h-5 w-5" />
-          </a>
-          <a
-            href="https://twitter.com/your-twitter"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Twitter"
-          >
-            <TwitterIcon className="h-5 w-5" />
-          </a> */}
-        </nav>
+
+        <div className="mt-8 border-t border-gray-200 pt-8 dark:border-gray-800 text-center text-sm">
+          <p>&copy; {currentYear} StartBeyond. All rights reserved. <em className="italic">Beta</em></p>
+        </div>
       </div>
     </footer>
   );
