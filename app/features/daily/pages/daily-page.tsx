@@ -65,7 +65,7 @@ function CalendarPopover({ markedDates, currentSelectedDate }: { markedDates: st
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+      <PopoverTrigger>
         <Button variant="ghost" size="icon">
           <CalendarIcon className="w-5 h-5" />
       </Button>

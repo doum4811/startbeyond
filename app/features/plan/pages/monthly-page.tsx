@@ -890,7 +890,7 @@ function MonthlyCalendarPopover({ currentMonthISO, onMonthChange }: MonthlyCalen
   
     return (
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-        <PopoverTrigger asChild>
+        <PopoverTrigger>
           <Button variant="ghost" size="icon" aria-label="Select month">
             <CalendarIcon className="w-5 h-5" />
           </Button>

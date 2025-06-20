@@ -340,7 +340,7 @@ function DateRangePicker({
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
+      <PopoverTrigger>
         <Button variant="outline" className="w-64 justify-start text-left font-normal">
           <Search className="mr-2 h-4 w-4" />
           <span>
@@ -425,7 +425,7 @@ export default function RecordsPage() {
         </Link>
       </Button>
       <Popover>
-        <PopoverTrigger asChild>
+        <PopoverTrigger>
           <Button variant="outline" className="w-36" disabled={isPeriodSearch}>
             <CalendarIcon className="mr-2 h-4 w-4" />
             {startDate.setLocale(i18n.language).toFormat("yyyy MMMM")}

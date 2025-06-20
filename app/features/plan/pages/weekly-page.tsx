@@ -1020,7 +1020,7 @@ export default function WeeklyPlanPage() {
                 <ChevronLeft className="h-4 w-4" />
             </Button>
             <Popover>
-                <PopoverTrigger asChild>
+                <PopoverTrigger>
                     <Button
                         variant={"outline"}
                         className="w-full sm:w-[280px] justify-start text-left font-normal"

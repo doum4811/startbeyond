@@ -1054,7 +1054,7 @@ export default function TomorrowPlanPage({ loaderData }: TomorrowPlanPageProps) 
                     <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <Popover>
-                    <PopoverTrigger asChild>
+                    <PopoverTrigger>
                         <Button
                             variant={"outline"}
                             className="justify-start text-left font-normal"
