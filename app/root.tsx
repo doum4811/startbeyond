@@ -8,6 +8,7 @@ import {
   useLocation,
   useNavigation,
   type MetaFunction,
+  type ShouldRevalidateFunction,
 } from "react-router";
 import "./i18n";
 import { useTranslation } from "react-i18next";
@@ -91,6 +92,13 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
   }
   return { user: null, profile: null, hasNotifications: false, hasMessages: false };
 };
+
+export const shouldRevalidate: ShouldRevalidateFunction = ({ formMethod }) => {
+  // formMethod가 'get'이 아닌 경우(예: 'post', 'put', 'delete' 등)에만
+  // loader를 다시 실행하여 데이터를 업데이트합니다.
+  // 이는 데이터에 변경이 생기는 작업 후에만 최신 정보를 불러오기 위함입니다.
+  return formMethod?.toLowerCase() !== 'get';
+}
 
 export default function App({ loaderData }: Route.ComponentProps) {
   const { pathname } = useLocation();
