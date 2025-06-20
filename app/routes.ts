@@ -2,6 +2,9 @@ import { type RouteConfig, index, layout, prefix, route } from "@react-router/de
 
 export default [
     index("common/pages/home-page.tsx"),
+    route("about", "common/pages/about-page.tsx"),
+    route("terms", "common/pages/terms-page.tsx"),
+    route("privacy", "common/pages/privacy-page.tsx"),
     route("daily", "features/daily/pages/daily-page.tsx"),
     ...prefix("plan", [
         index("features/plan/pages/plan-page.tsx"),

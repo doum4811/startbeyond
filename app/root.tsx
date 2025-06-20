@@ -15,6 +15,7 @@ import { Toaster } from "sonner";
 import type { Route } from "./+types/root";
 import stylesheet from "./app.css?url";
 import Navigation from "./common/components/navigation";
+import { Footer } from "./common/components/footer";
 import { Settings } from "luxon";
 
 import { makeSSRClient } from "./supa-client";
@@ -53,6 +54,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <main>{children}</main>
+        <Footer />
         <Toaster />
         <ScrollRestoration />
         <Scripts />
