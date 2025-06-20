@@ -317,47 +317,63 @@ export async function getVisibleDailyRecords(
     viewerId: string | null;
   }
 ) {
-  const { data: profile } = await client
+  // 1. User must be logged in to view any activity.
+  if (!viewerId) {
+    return { data: [], error: null };
+  }
+
+  // 2. Fetch profile owner's visibility setting.
+  const { data: profile, error: profileError } = await client
     .from("profiles")
     .select("daily_record_visibility")
     .eq("profile_id", profileId)
     .single();
 
-  if (!profile) {
+  if (profileError || !profile) {
+    console.error("Error fetching profile for visibility check:", profileError);
     return { error: "Profile not found", data: null };
   }
 
-  if (profile.daily_record_visibility === "private") {
-    return { error: "private", data: [] };
-  }
+  const isOwner = profileId === viewerId;
 
-  if (profile.daily_record_visibility === "followers") {
-    if (!viewerId || profileId === viewerId) {
-      // Show records if it's the owner's profile
-    } else {
-      const { data: followStatus } = await client
-        .from("follows")
-        .select("follower_id")
-        .eq("follower_id", viewerId)
-        .eq("following_id", profileId)
-        .maybeSingle();
+  const canView = await (async () => {
+    if (isOwner) return true;
 
-      if (!followStatus) {
-        return { error: "not_following", data: [] };
-      }
+    switch (profile.daily_record_visibility) {
+      case "public":
+        return true;
+      case "followers":
+        const { data: followStatus, error: followError } = await client
+          .from("follows")
+          .select("follower_id")
+          .eq("follower_id", viewerId)
+          .eq("following_id", profileId)
+          .maybeSingle();
+        if (followError) {
+          console.error("Error checking follow status:", followError);
+          return false;
+        }
+        return !!followStatus;
+      default: // 'private' or other states
+        return false;
     }
+  })();
+
+  if (!canView) {
+    return { data: [], error: null };
   }
 
+  // 3. If checks pass, fetch public records.
   const { data, error } = await client
-      .from("daily_records")
+    .from("daily_records")
     .select("*, memos (*)")
     .eq("profile_id", profileId)
-      .eq("is_public", true)
-      .order("date", { ascending: false })
+    .eq("is_public", true)
+    .order("date", { ascending: false })
     .limit(30);
 
   if (error) {
-    console.error("Error fetching daily records:", error);
+    console.error("Error fetching visible daily records:", error);
     return { error: error.message, data: null };
   }
 

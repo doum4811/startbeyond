@@ -58,10 +58,9 @@ export interface SettingsPageLoaderData {
 }
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
-    const { t } = useTranslation();
   return [
-      { title: t('settings.categories.meta_title') },
-      { name: "description", content: t('settings.categories.meta_description') },
+      { title: "Category Settings" },
+      { name: "description", content: "Manage your categories and subcodes" },
   ];
 };
 

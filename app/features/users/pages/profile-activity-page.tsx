@@ -87,23 +87,11 @@ export default function ProfileActivityPage({
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border bg-card text-card-foreground shadow-sm p-8 space-y-4">
         <h3 className="text-xl font-semibold">
-          {error === "not_following"
-            ? t("profile.activity.not_following_title")
-            : t("profile.activity.private_title")}
+          {t("profile.activity.error_title", "Error")}
         </h3>
         <p className="text-muted-foreground">
-          {error === "not_following"
-            ? t("profile.activity.not_following_description")
-            : t("profile.activity.private_description")}
+          {t("profile.activity.error_description", "Could not load activity.")}
         </p>
-        {error === "not_following" && (
-          <Link
-            to={`/users/${username}`}
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2"
-          >
-            {t("profile.activity.go_to_profile")}
-          </Link>
-        )}
       </div>
     );
   }
