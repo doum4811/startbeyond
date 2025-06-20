@@ -85,7 +85,9 @@ export default function ConversationPage() {
                     <AvatarFallback>{otherUser.username?.[0]}</AvatarFallback>
                 </Avatar>
                 <Link to={`/users/${otherUser.username}`} className="font-semibold hover:underline">
-                    {otherUser.full_name || otherUser.username}
+                    {otherUser.full_name 
+                        ? `${otherUser.full_name} (@${otherUser.username})`
+                        : otherUser.username}
                 </Link>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">

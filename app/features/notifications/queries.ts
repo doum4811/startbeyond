@@ -6,6 +6,7 @@ export type Notification =
     actor: {
       username: string | null;
       avatar_url: string | null;
+      full_name: string | null;
     } | null;
   };
 
@@ -20,7 +21,8 @@ export async function getNotifications(
       *,
       actor:profiles!actor_id (
         username,
-        avatar_url
+        avatar_url,
+        full_name
       )
     `
     )

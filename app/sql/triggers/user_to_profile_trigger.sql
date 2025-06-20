@@ -6,9 +6,17 @@ CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
--- SET SEARCH_PATH = public; -- SECURITY DEFINER 함수 내에서는 search_path가 이미 PostgreSQL 기본값 및 함수 소유자 설정을 따르므로,
-                          -- 명시적으로 public으로 하는 것이 좋을 수도 있지만, 때로는 빼는 것이 더 안정적일 수 있습니다.
-                          -- 일단 주석 처리하고, 만약 public.profiles 참조에 문제가 생기면 주석을 해제하고 다시 시도합니다.
+-- SET SEARCH_PATH = public; -- SECURITY DEFINER 함수 
+내에서는 search_path가 이미 PostgreSQL 기본값 및 함수 소유자 
+설정을 따르므로,
+                          -- 명시적으로 public으로 하는 
+                          것이 좋을 수도 있지만, 때로는 빼는 
+                          것이 더 안정적일 수 있습니다.
+                          -- 일단 주석 처리하고, 만약 
+                          public.profiles 참조에 문제가 
+                          생기면 주석을 해제하고 다시 
+                          시도합니다.
+SET search_path = public
 AS $$
 BEGIN
   INSERT INTO public.profiles ( -- 스키마를 명시하여 안정성 확보

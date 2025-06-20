@@ -37,6 +37,13 @@ import { Bell, CalendarIcon, Plus, Trash2, X } from "lucide-react";
 import { getCategoryColor } from "../utils";
 import { Textarea } from "~/common/components/ui/textarea";
 import { Switch } from "~/common/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "~/common/components/ui/dialog";
 
 
 export { loader, action };
@@ -202,6 +209,9 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<string | null>(null);
 
+  const [showMemoDeleteConfirm, setShowMemoDeleteConfirm] = useState(false);
+  const [memoToDelete, setMemoToDelete] = useState<string | null>(null);
+
   const [showActivateCategoryDialog, setShowActivateCategoryDialog] = useState(false);
   const [planToActivate, setPlanToActivate] = useState<DailyPlanUI | null>(null);
 
@@ -283,6 +293,17 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
     }
   };
   
+  const handleDeleteMemo = () => {
+    if (memoToDelete) {
+      const formData = new FormData();
+      formData.append("intent", "deleteMemo");
+      formData.append("memoId", memoToDelete);
+      fetcher.submit(formData, { method: "POST" });
+      setShowMemoDeleteConfirm(false);
+      setMemoToDelete(null);
+    }
+  }
+
   const selectedRecord = records.find(r => r.id === selectedRowId);
 
   return (
@@ -418,12 +439,11 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                                         <td className="py-2 px-2 text-center">
                                             <div className="flex gap-1 justify-center">
                                                 <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setEditingSubcodeForRecordId(rec.id); setEditSubcodeValue(rec.subcode || ""); setShowMemoFormForRecordId(null); setSelectedRowId(rec.id); setIsEditing(false); }}>{t('subcode')}</Button>
-                                                <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setShowMemoFormForRecordId(rec.id); setMemoTitle(''); setMemoContent(''); setEditingSubcodeForRecordId(null); setSelectedRowId(rec.id); setIsEditing(false); }}>{t('comment')}</Button>
+                                                <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setShowMemoFormForRecordId(rec.id); setMemoTitle(''); setMemoContent(''); setEditingSubcodeForRecordId(null); setSelectedRowId(rec.id); setIsEditing(false); }}>{t('add_memo')}</Button>
                                             </div>
                                         </td>
                           </tr>
                                     {editingSubcodeForRecordId === rec.id && (<tr><td colSpan={4} className="bg-muted p-2"><fetcher.Form method="post" className="flex items-center gap-2" onSubmit={() => setEditingSubcodeForRecordId(null)}><input type="hidden" name="intent" value="updateSubcode" /><input type="hidden" name="recordId" value={rec.id} /><Input name="subcode" value={editSubcodeValue} onChange={e => setEditSubcodeValue(e.target.value)} className="flex-1" /><Button type="submit" size="sm">{t('save')}</Button><Button type="button" size="sm" variant="ghost" onClick={() => setEditingSubcodeForRecordId(null)}><X className="w-4 h-4"/></Button></fetcher.Form></td></tr>)}
-                                    {showMemoFormForRecordId === rec.id && (<tr><td colSpan={4} className="bg-muted p-4"><h4 className="font-medium text-md mb-2">{t('add_new_memo')}</h4><fetcher.Form method="post" className="flex flex-col gap-3" onSubmit={() => setShowMemoFormForRecordId(null)}><input type="hidden" name="intent" value="addMemo" /><input type="hidden" name="recordId" value={rec.id} /><Input name="memoTitle" placeholder={t('title')} value={memoTitle} onChange={e => setMemoTitle(e.target.value)} /><Textarea name="memoContent" placeholder={t('content')} value={memoContent} onChange={e => setMemoContent(e.target.value)} required /><div className="flex justify-end gap-2"><Button type="submit" size="sm">{t('save')}</Button><Button type="button" size="sm" variant="outline" onClick={() => setShowMemoFormForRecordId(null)}>{t('cancel')}</Button></div></fetcher.Form></td></tr>)}
                                 </React.Fragment>)
                     })}
                             {records.length === 0 && (<tr><td colSpan={4} className="text-center py-8 text-muted-foreground">{t('no_records_yet')}</td></tr>)}
@@ -452,7 +472,9 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                         <Card key={memo.id} className="bg-muted/50">
                             <CardHeader className="p-3 flex flex-row items-center justify-between">
                                 <CardTitle className="text-sm font-semibold">{memo.title || t('comment')}</CardTitle>
-                                <fetcher.Form method="post"><input type="hidden" name="intent" value="deleteMemo"/><input type="hidden" name="memoId" value={memo.id}/><Button variant="ghost" size="icon" className="h-6 w-6" type="submit"><X className="w-4 h-4"/></Button></fetcher.Form>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setMemoToDelete(memo.id); setShowMemoDeleteConfirm(true); }}>
+                                  <X className="w-4 h-4"/>
+                                </Button>
                     </CardHeader>
                             <CardContent className="p-3 pt-0">
                                 <p className="text-sm whitespace-pre-wrap">{memo.content}</p>
@@ -477,6 +499,37 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
+
+        <AlertDialog open={showMemoDeleteConfirm} onOpenChange={setShowMemoDeleteConfirm}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>{t('delete_memo_confirm_title')}</AlertDialogTitle>
+                    <AlertDialogDescription>{t('delete_memo_confirm_description')}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setMemoToDelete(null)}>{t('cancel')}</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDeleteMemo}>{t('delete')}</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
+      <Dialog open={showMemoFormForRecordId !== null} onOpenChange={(isOpen) => { if (!isOpen) setShowMemoFormForRecordId(null); }}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>{t('add_new_memo')}</DialogTitle>
+              </DialogHeader>
+              <fetcher.Form method="post" className="flex flex-col gap-4" onSubmit={() => setShowMemoFormForRecordId(null)}>
+                  <input type="hidden" name="intent" value="addMemo" />
+                  <input type="hidden" name="recordId" value={showMemoFormForRecordId || ""} />
+                  <Input name="memoTitle" placeholder={t('title')} value={memoTitle} onChange={e => setMemoTitle(e.target.value)} />
+                  <Textarea name="memoContent" placeholder={t('content')} value={memoContent} onChange={e => setMemoContent(e.target.value)} required />
+                  <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setShowMemoFormForRecordId(null)}>{t('cancel')}</Button>
+                      <Button type="submit">{t('save')}</Button>
+                  </DialogFooter>
+              </fetcher.Form>
+          </DialogContent>
+      </Dialog>
 
       {showActivateCategoryDialog && planToActivate && (
         <AlertDialog open={showActivateCategoryDialog} onOpenChange={setShowActivateCategoryDialog}>

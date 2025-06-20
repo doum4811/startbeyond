@@ -44,7 +44,11 @@ export default function MessagesLayout() {
                                 </Avatar>
                                 <div className="flex-1 overflow-hidden">
                                     <div className="flex justify-between items-center">
-                                        <p className="font-semibold truncate">{conv.other_user.full_name || conv.other_user.username}</p>
+                                        <p className="font-semibold truncate">
+                                            {conv.other_user.full_name 
+                                                ? `${conv.other_user.full_name} (@${conv.other_user.username})`
+                                                : conv.other_user.username}
+                                        </p>
                                         <p className="text-xs text-muted-foreground flex-shrink-0">
                                             {conv.last_message ? timeAgo(conv.last_message.created_at) : ""}
                                         </p>

@@ -115,7 +115,7 @@ export async function action({ request }: ActionFunctionArgs) {
   // Default intent is "update_profile"
   const fullName = formData.get("full_name") as string;
 
-  if (!fullName || fullName.trim().length < 2) {
+  if (!fullName || fullName.trim().length < 1) {
     return { 
         ok: false, 
         error: { 
@@ -214,7 +214,7 @@ export default function ProfileSettingsPage() {
                     name="full_name"
                     defaultValue={displayName}
                     required
-                    minLength={2}
+                    minLength={1}
                     aria-invalid={!!nameError}
                     aria-describedby="name-error"
                   />

@@ -36,14 +36,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "community_comments_post_id_community_posts_id_fk"
+            foreignKeyName: "community_comments_post_id_fkey"
             columns: ["post_id"]
             isOneToOne: false
             referencedRelation: "community_posts"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "community_comments_profile_id_profiles_profile_id_fk"
+            foreignKeyName: "community_comments_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -81,7 +81,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "community_posts_profile_id_profiles_profile_id_fk"
+            foreignKeyName: "community_posts_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -152,7 +152,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "daily_notes_profile_id_profiles_profile_id_fk"
+            foreignKeyName: "daily_notes_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -202,7 +202,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "daily_plans_profile_id_profiles_profile_id_fk"
+            foreignKeyName: "daily_plans_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -252,7 +252,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "daily_records_profile_id_profiles_profile_id_fk"
+            foreignKeyName: "daily_records_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -278,14 +278,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "follows_follower_id_profiles_profile_id_fk"
+            foreignKeyName: "follows_follower_id_fkey"
             columns: ["follower_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["profile_id"]
           },
           {
-            foreignKeyName: "follows_following_id_profiles_profile_id_fk"
+            foreignKeyName: "follows_following_id_fkey"
             columns: ["following_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -323,14 +323,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "memos_profile_id_profiles_profile_id_fk"
+            foreignKeyName: "memos_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["profile_id"]
           },
           {
-            foreignKeyName: "memos_record_id_daily_records_id_fk"
+            foreignKeyName: "memos_record_id_fkey"
             columns: ["record_id"]
             isOneToOne: false
             referencedRelation: "daily_records"
@@ -365,14 +365,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "messages_conversation_id_conversations_id_fk"
+            foreignKeyName: "messages_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "messages_sender_id_profiles_profile_id_fk"
+            foreignKeyName: "messages_sender_id_fkey"
             columns: ["sender_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -422,7 +422,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "monthly_goals_profile_id_profiles_profile_id_fk"
+            foreignKeyName: "monthly_goals_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -460,7 +460,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "monthly_reflections_profile_id_profiles_profile_id_fk"
+            foreignKeyName: "monthly_reflections_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -501,14 +501,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "notifications_actor_id_profiles_profile_id_fk"
+            foreignKeyName: "notifications_actor_id_fkey"
             columns: ["actor_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["profile_id"]
           },
           {
-            foreignKeyName: "notifications_recipient_id_profiles_profile_id_fk"
+            foreignKeyName: "notifications_recipient_id_fkey"
             columns: ["recipient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -594,7 +594,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "shared_links_profile_id_profiles_profile_id_fk"
+            foreignKeyName: "shared_links_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -632,7 +632,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "stats_cache_profile_id_profiles_profile_id_fk"
+            foreignKeyName: "stats_cache_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -679,7 +679,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "user_categories_profile_id_profiles_profile_id_fk"
+            foreignKeyName: "user_categories_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -717,7 +717,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "user_code_settings_profile_id_profiles_profile_id_fk"
+            foreignKeyName: "user_code_settings_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: true
             referencedRelation: "profiles"
@@ -752,7 +752,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "user_default_code_preferences_profile_id_profiles_profile_id_fk"
+            foreignKeyName: "user_default_code_preferences_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -796,7 +796,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "user_subcodes_profile_id_profiles_profile_id_fk"
+            foreignKeyName: "user_subcodes_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -840,7 +840,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "weekly_notes_profile_id_profiles_profile_id_fk"
+            foreignKeyName: "weekly_notes_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -893,7 +893,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "weekly_tasks_profile_id_profiles_profile_id_fk"
+            foreignKeyName: "weekly_tasks_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -906,7 +906,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      delete_user: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

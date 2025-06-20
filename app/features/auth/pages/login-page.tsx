@@ -95,7 +95,7 @@ export default function LoginPage({ actionData }: Route.ComponentProps) {
             name="password"
             required
             type="password"
-            placeholder="i.e startbeyond@example.com"
+            placeholder="••••••••"
           />
           {actionData && "formErrors" in actionData && (
             <p className="text-sm text-red-500">

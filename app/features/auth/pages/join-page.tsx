@@ -15,7 +15,9 @@ export const meta: Route.MetaFunction = () => {
 
 // export default function JoinPage() {
   const formSchema = z.object({
-    name: z.string().min(3),
+    name: z.string({
+      required_error: "Name is required",
+    }).min(1, "Name must be at least 1 character"),
     username: z.string().min(3),
     email: z.string().email(),
     password: z.string().min(8),
@@ -76,6 +78,7 @@ export const meta: Route.MetaFunction = () => {
             name="name"
             id="name"
             required
+            minLength={1}
             type="text"
             placeholder="Enter your name"
           />

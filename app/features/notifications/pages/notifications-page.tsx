@@ -26,15 +26,19 @@ export async function action({ request }: ActionFunctionArgs) {
 
 function getNotificationMessage(notification: notificationQueries.Notification, t: any) {
     const actorUsername = notification.actor?.username ?? t('notifications.anonymous');
+    const actorDisplayName = notification.actor?.full_name 
+        ? `${notification.actor.full_name} (@${actorUsername})`
+        : actorUsername;
+
     switch (notification.type) {
         case 'new_follower':
-            return <p dangerouslySetInnerHTML={{ __html: t('notifications.new_follower', { actor: actorUsername }) }} />;
+            return <p dangerouslySetInnerHTML={{ __html: t('notifications.new_follower', { actor: actorDisplayName }) }} />;
         case 'new_comment':
-            return <p dangerouslySetInnerHTML={{ __html: t('notifications.new_comment', { actor: actorUsername }) }} />;
+            return <p dangerouslySetInnerHTML={{ __html: t('notifications.new_comment', { actor: actorDisplayName }) }} />;
         case 'weekly_summary':
             return <p>{notification.message}</p>;
         case 'new_message':
-            return <p dangerouslySetInnerHTML={{ __html: t('notifications.new_message', { actor: actorUsername, message: notification.message }) }} />;
+            return <p dangerouslySetInnerHTML={{ __html: t('notifications.new_message', { actor: actorDisplayName, message: notification.message }) }} />;
         default:
             return <p>{t('notifications.default')}</p>;
     }

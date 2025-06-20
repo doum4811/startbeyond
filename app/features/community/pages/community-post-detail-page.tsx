@@ -14,17 +14,6 @@ import { makeSSRClient } from "~/supa-client";
 import { useTranslation } from "react-i18next";
 import { cn } from "~/lib/utils";
 import { POST_CATEGORIES } from "../constants";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "~/common/components/ui/alert-dialog";
 
 export interface CommunityPostDetailPageLoaderData {
   post: CommunityPostWithAuthor | null;
@@ -212,27 +201,12 @@ export default function CommunityPostDetailPage({ loaderData }: { loaderData: Co
         </CardContent>
         {isOwner && (
           <CardFooter className="flex justify-end gap-2">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive">
-                  <Trash2 className="mr-2 h-4 w-4" /> {t('community.post_detail_page.delete_post_button')}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{t('community.post_detail_page.delete_confirm_title')}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {t('community.post_detail_page.delete_post_confirm')}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => fetcher.submit({ intent: 'deletePost' }, { method: 'post' })}>
-                    {t('delete')}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            <Form method="post">
+              <input type="hidden" name="intent" value="deletePost" />
+              <Button variant="destructive" type="submit" onClick={(event) => !confirm(t('community.post_detail_page.delete_post_confirm')) && event.preventDefault() } >
+                <Trash2 className="mr-2 h-4 w-4" /> {t('community.post_detail_page.delete_post_button')}
+              </Button>
+            </Form>
           </CardFooter>
         )}
       </Card>
