@@ -55,11 +55,11 @@ export default function MessagesLayout({ loaderData }: Route.ComponentProps) {
                                     )}
                                 >
                                     <Avatar className="h-9 w-9">
-                                        <AvatarImage src={otherParticipant.avatar_url ?? undefined} alt={otherParticipant.full_name} />
-                                        <AvatarFallback>{otherParticipant.full_name?.[0]}</AvatarFallback>
+                                        <AvatarImage src={otherParticipant?.avatar_url ?? undefined} alt={otherParticipant?.full_name} />
+                                        <AvatarFallback>{otherParticipant?.full_name?.[0]}</AvatarFallback>
                                     </Avatar>
                                     <div className="flex-1 overflow-hidden">
-                                        <p className="font-semibold truncate">{otherParticipant.full_name}</p>
+                                        <p className="font-semibold truncate">{otherParticipant?.full_name ?? t('anonymous')}</p>
                                         <p className="text-sm truncate">{conv.last_message?.content ?? t('messages.no_messages_yet')}</p>
                                     </div>
                                      <span className="text-xs text-muted-foreground">
