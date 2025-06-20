@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, Form, useNavigate, useNavigation, redirect, useActionData } from "react-router";
-import type { ActionFunctionArgs, MetaFunction } from "react-router";
+import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { Button } from "~/common/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "~/common/components/ui/card";
 import { Input } from "~/common/components/ui/input";
@@ -12,21 +12,7 @@ import type { CommunityPostInsert } from "~/features/community/queries";
 import { makeSSRClient } from "~/supa-client";
 import { useTranslation } from "react-i18next";
 import { POST_CATEGORIES } from "../constants";
-
-// Dummy profile ID for now
-// async function getProfileId(_request: Request): Promise<string> {
-//   return "fd64e09d-e590-4545-8fd4-ae7b2b784e4a"; 
-// }
-async function getProfileId(request: Request): Promise<string> {
-  const { client } = makeSSRClient(request);
-  const { data: { user } } = await client.auth.getUser();
-  
-  if (!user) {
-    throw new Error("User not authenticated");
-  }
-  
-  return user.id;
-}
+import { getRequiredProfileId } from "~/features/users/utils";
 
 export const meta: MetaFunction = () => {
   return [
@@ -35,14 +21,22 @@ export const meta: MetaFunction = () => {
   ];
 };
 
+export async function loader({ request }: LoaderFunctionArgs) {
+  const { headers } = makeSSRClient(request);
+  await getRequiredProfileId(request);
+  // loader는 데이터를 반환하거나, 리디렉션하거나, 헤더와 함께 null을 반환할 수 있습니다.
+  // getRequiredProfileId가 오류를 발생시키지 않으면, 페이지 렌더링을 허용합니다.
+  return new Response(null, { headers });
+}
+
 interface ActionResponse {
   ok: boolean;
   errorKey?: string; // Return a key instead of a hardcoded string
 }
 
 export async function action({ request }: ActionFunctionArgs): Promise<Response | ActionResponse> {
-  const { client } = makeSSRClient(request);
-  const profileId = await getProfileId(request);
+  const { client, headers } = makeSSRClient(request);
+  const profileId = await getRequiredProfileId(request);
   const formData = await request.formData();
   const title = formData.get("title") as string;
   const content = formData.get("content") as string;
@@ -67,7 +61,7 @@ export async function action({ request }: ActionFunctionArgs): Promise<Response 
     };
     const newPost = await createCommunityPost(client, postData);
     if (newPost && newPost.id) {
-      return redirect(`/community/${newPost.id}`);
+      return redirect(`/community/${newPost.id}`, { headers });
     }
     return { ok: false, errorKey: "community.new_post_page.error_creation_failed" };
   } catch (error: any) {

@@ -6,7 +6,7 @@ import { Textarea } from "~/common/components/ui/textarea";
 import { Label } from "~/common/components/ui/label";
 import { CATEGORIES } from "~/common/types/daily";
 import type { CategoryCode, UICategory } from "~/common/types/daily";
-import { Link, useFetcher, useNavigate } from "react-router";
+import { Link, useFetcher, useNavigate, redirect } from "react-router";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { Calendar as CalendarIcon, PlusCircle, Trash2, Edit, Save, CheckSquare, XSquare, AlertCircle, Info, CheckCircle, AlertTriangle, X } from "lucide-react";
 import { DateTime } from "luxon";
@@ -206,101 +206,117 @@ export interface MonthlyPageLoaderData {
   categories: UICategory[];
 }
 
-export const loader = async ({ request }: LoaderFunctionArgs): Promise<MonthlyPageLoaderData> => {
-  const { client } = makeSSRClient(request);
-  const profileId = await getRequiredProfileId(request);
-  const url = new URL(request.url);
-  const monthParam = url.searchParams.get("month");
-  const selectedMonth = getCurrentMonthStartDateISO(monthParam);
-  const weeksInSelectedMonth = getWeeksInMonth(selectedMonth);
+export const loader = async ({ request }: LoaderFunctionArgs): Promise<MonthlyPageLoaderData | Response> => {
+  const { client, headers } = makeSSRClient(request);
+  try {
+    const profileId = await getRequiredProfileId(request);
+    const url = new URL(request.url);
+    const monthParam = url.searchParams.get("month");
+    const selectedMonth = getCurrentMonthStartDateISO(monthParam);
+    const weeksInSelectedMonth = getWeeksInMonth(selectedMonth);
 
-  const [
-    dbGoals, 
-    dbReflection,
-    userCategoriesData,
-    userDefaultCodePreferencesData
-  ] = await Promise.all([
-    planQueries.getMonthlyGoalsByMonth(client, { profileId, monthDate: selectedMonth }),
-    planQueries.getMonthlyReflectionByMonth(client, { profileId, monthDate: selectedMonth }),
-    settingsQueries.getUserCategories(client, { profileId }),
-    settingsQueries.getUserDefaultCodePreferences(client, { profileId })
-  ]);
+    const [
+      dbGoals, 
+      dbReflection,
+      userCategoriesData,
+      userDefaultCodePreferencesData
+    ] = await Promise.all([
+      planQueries.getMonthlyGoalsByMonth(client, { profileId, monthDate: selectedMonth }),
+      planQueries.getMonthlyReflectionByMonth(client, { profileId, monthDate: selectedMonth }),
+      settingsQueries.getUserCategories(client, { profileId }),
+      settingsQueries.getUserDefaultCodePreferences(client, { profileId })
+    ]);
 
-  const monthlyGoals: MonthlyGoalUI[] = (dbGoals || []).map(dbGoalToUIGoal);
-  const monthlyReflection: MonthlyReflectionUI | null = dbReflection ? dbReflectionToUIReflection(dbReflection) : null;
+    const monthlyGoals: MonthlyGoalUI[] = (dbGoals || []).map(dbGoalToUIGoal);
+    const monthlyReflection: MonthlyReflectionUI | null = dbReflection ? dbReflectionToUIReflection(dbReflection) : null;
 
-  // Process categories (Copied and adapted from tomorrow-page.tsx / weekly-page.tsx)
-  const processedCategories: UICategory[] = [];
-  const defaultCategoryPreferences = new Map(
-    (userDefaultCodePreferencesData || []).map(pref => [pref.default_category_code, pref.is_active])
-  );
+    // Process categories (Copied and adapted from tomorrow-page.tsx / weekly-page.tsx)
+    const processedCategories: UICategory[] = [];
+    const defaultCategoryPreferences = new Map(
+      (userDefaultCodePreferencesData || []).map(pref => [pref.default_category_code, pref.is_active])
+    );
 
-  for (const catCodeKey in CATEGORIES) {
-    if (Object.prototype.hasOwnProperty.call(CATEGORIES, catCodeKey)) {
-      const baseCategory = CATEGORIES[catCodeKey as CategoryCode];
-      const isActivePreference = defaultCategoryPreferences.get(baseCategory.code);
-      const isActive = isActivePreference === undefined ? true : isActivePreference;
+    for (const catCodeKey in CATEGORIES) {
+      if (Object.prototype.hasOwnProperty.call(CATEGORIES, catCodeKey)) {
+        const baseCategory = CATEGORIES[catCodeKey as CategoryCode];
+        const isActivePreference = defaultCategoryPreferences.get(baseCategory.code);
+        const isActive = isActivePreference === undefined ? true : isActivePreference;
 
-      processedCategories.push({
-        code: baseCategory.code,
-        label: baseCategory.label,
-        icon: baseCategory.icon,
-        isCustom: false,
-        isActive: isActive,
-        hasDuration: baseCategory.hasDuration,
-        sort_order: baseCategory.sort_order !== undefined ? baseCategory.sort_order : 999,
-      });
-    }
-  }
-
-  (userCategoriesData || []).forEach(userCat => {
-    const existingIndex = processedCategories.findIndex(c => c.code === userCat.code && !c.isCustom);
-    if (existingIndex !== -1) {
-        if(userCat.is_active) {
-            processedCategories.splice(existingIndex, 1);
-        } else {
-            return;
-        }
-    }
-    
-    if (!processedCategories.find(c => c.code === userCat.code && c.isCustom)) {
         processedCategories.push({
-            code: userCat.code,
-            label: userCat.label,
-            icon: userCat.icon || '📝', 
-            color: userCat.color || undefined,
-            isCustom: true,
-            isActive: userCat.is_active,
-            hasDuration: true, 
-            sort_order: userCat.sort_order !== null && userCat.sort_order !== undefined ? userCat.sort_order : 1000,
+          code: baseCategory.code,
+          label: baseCategory.label,
+          icon: baseCategory.icon,
+          isCustom: false,
+          isActive: isActive,
+          hasDuration: baseCategory.hasDuration,
+          sort_order: baseCategory.sort_order !== undefined ? baseCategory.sort_order : 999,
         });
+      }
     }
-  });
-  
-  processedCategories.sort((a, b) => {
-    if (a.isActive && !b.isActive) return -1;
-    if (!a.isActive && b.isActive) return 1;
-    if (a.isCustom && !b.isCustom) return -1;
-    if (!a.isCustom && b.isCustom) return 1;
-    return (a.sort_order ?? 999) - (b.sort_order ?? 999);
-  });
 
-  return {
-    profileId,
-    selectedMonth,
-    monthlyGoals,
-    monthlyReflection,
-    weeksInSelectedMonth,
-    categories: processedCategories,
-  };
+    (userCategoriesData || []).forEach(userCat => {
+      const existingIndex = processedCategories.findIndex(c => c.code === userCat.code && !c.isCustom);
+      if (existingIndex !== -1) {
+          if(userCat.is_active) {
+              processedCategories.splice(existingIndex, 1);
+          } else {
+              return;
+          }
+      }
+      
+      if (!processedCategories.find(c => c.code === userCat.code && c.isCustom)) {
+          processedCategories.push({
+              code: userCat.code,
+              label: userCat.label,
+              icon: userCat.icon || '📝', 
+              color: userCat.color || undefined,
+              isCustom: true,
+              isActive: userCat.is_active,
+              hasDuration: true, 
+              sort_order: userCat.sort_order !== null && userCat.sort_order !== undefined ? userCat.sort_order : 1000,
+          });
+      }
+    });
+    
+    processedCategories.sort((a, b) => {
+      if (a.isActive && !b.isActive) return -1;
+      if (!a.isActive && b.isActive) return 1;
+      if (a.isCustom && !b.isCustom) return -1;
+      if (!a.isCustom && b.isCustom) return 1;
+      return (a.sort_order ?? 999) - (b.sort_order ?? 999);
+    });
+
+    return {
+      profileId,
+      selectedMonth,
+      monthlyGoals,
+      monthlyReflection,
+      weeksInSelectedMonth,
+      categories: processedCategories,
+    };
+  } catch (error: any) {
+    if (error instanceof Response) {
+      return error;
+    }
+    return redirect("/auth/login", { headers });
+  }
 };
 
 // --- Action ---
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { client } = makeSSRClient(request);
-  const profileId = await getRequiredProfileId(request);
+  const { client, headers } = makeSSRClient(request);
+  let profileId: string;
+  try {
+    profileId = await getRequiredProfileId(request);
+  } catch (error: any) {
+    if (error instanceof Response) {
+      return error;
+    }
+    return redirect("/auth/login", { headers });
+  }
+
   const formData = await request.formData();
-  const intent = formData.get("intent") as string;
+  const intent = formData.get("intent");
   const selectedMonth = formData.get("month_date") as string || getCurrentMonthStartDateISO(); // Ensure month_date is passed
   const weeksInMonthForAction = getWeeksInMonth(selectedMonth); // Get weeks for action context
 

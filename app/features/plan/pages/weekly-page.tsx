@@ -29,7 +29,7 @@ import type { CategoryCode, UICategory } from "~/common/types/daily";
 import { CategorySelector } from "~/common/components/ui/CategorySelector";
 import * as settingsQueries from "~/features/settings/queries";
 import { makeSSRClient } from "~/supa-client";
-import { getProfileId } from "~/features/users/utils";
+import { getRequiredProfileId } from "~/features/users/utils";
 
 // --- UI Specific Types ---
 interface WeeklyTaskUI {
@@ -117,6 +117,7 @@ export interface WeeklyPageLoaderData {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<WeeklyPageLoaderData | Response> => {
+  const { client, headers } = makeSSRClient(request);
   try {
     const url = new URL(request.url);
     const weekParam = url.searchParams.get("week");
@@ -126,8 +127,7 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<WeeklyPag
     }
     const currentWeekStartDate = baseDate.startOf('week').toISODate()!;
 
-    const { client } = makeSSRClient(request);
-    const profileId = await getProfileId(request);
+    const profileId = await getRequiredProfileId(request);
     const currentWeekNumberInMonth = planQueries.getWeekOfMonth(currentWeekStartDate);
 
     const [
@@ -238,10 +238,10 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<WeeklyPag
       categories: processedCategories,
     };
   } catch (error: any) {
-    if (error.message === "User not authenticated") {
-      return redirect("/auth/login");
+    if (error instanceof Response) {
+        return error;
     }
-    throw error;
+    return redirect("/auth/login", { headers });
   }
 };
 
@@ -261,15 +261,15 @@ function dbTaskToUiTask(dbTask: DbWeeklyTask): WeeklyTaskUI {
 }
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { client } = makeSSRClient(request);
+  const { client, headers } = makeSSRClient(request);
   let profileId: string;
   try {
-    profileId = await getProfileId(request);
+    profileId = await getRequiredProfileId(request);
   } catch (error: any) {
-    if (error.message === "User not authenticated") {
-      return redirect("/auth/login");
+    if (error instanceof Response) {
+        return error;
     }
-    throw error;
+    return redirect("/auth/login", { headers });
   }
   
   const formData = await request.formData();

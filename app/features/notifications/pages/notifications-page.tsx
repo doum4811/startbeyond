@@ -1,6 +1,6 @@
 import { Form, Link, useLoaderData } from "react-router";
 import * as notificationQueries from "~/features/notifications/queries";
-import { getProfileId } from "~/features/users/utils";
+import { getRequiredProfileId } from "~/features/users/utils";
 import { makeSSRClient } from "~/supa-client";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "~/common/components/ui/avatar";
@@ -9,19 +9,30 @@ import { timeAgo } from "~/lib/utils";
 import { cn } from "~/lib/utils";
 import { Bell, UserPlus, MessageSquare, CalendarCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { redirect } from "react-router";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const { client } = makeSSRClient(request);
-  const userId = await getProfileId(request);
-  const notifications = await notificationQueries.getNotifications(client, { userId });
-  return { notifications };
+  const { client, headers } = makeSSRClient(request);
+  try {
+    const userId = await getRequiredProfileId(request);
+    const notifications = await notificationQueries.getNotifications(client, { userId });
+    return { notifications };
+  } catch (error) {
+    if (error instanceof Response) return error;
+    return redirect("/auth/login", { headers });
+  }
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-    const { client } = makeSSRClient(request);
-    const userId = await getProfileId(request);
-    await notificationQueries.markAllNotificationsAsRead(client, { userId });
-    return { ok: true };
+    const { client, headers } = makeSSRClient(request);
+    try {
+        const userId = await getRequiredProfileId(request);
+        await notificationQueries.markAllNotificationsAsRead(client, { userId });
+        return { ok: true };
+    } catch (error) {
+        if (error instanceof Response) return error;
+        return redirect("/auth/login", { headers });
+    }
 }
 
 function getNotificationMessage(notification: notificationQueries.Notification, t: any) {

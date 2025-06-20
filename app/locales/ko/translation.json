@@ -354,7 +354,52 @@
             "delete_confirm_title": "정말로 삭제하시겠습니까?",
             "delete_confirm_description": "이 작업은 취소할 수 없습니다. 계정이 영구적으로 삭제되며 서버에서 모든 데이터가 제거됩니다.",
             "delete_confirm_button": "네, 계정을 삭제합니다"
-        }
+        },
+        "description": "계정 설정을 관리할 수 있습니다.",
+        "profile": {
+            "title": "프로필",
+            "description": "다른 사용자에게 내 프로필이 표시되는 방식입니다.",
+            "form_title": "프로필 상세 정보",
+            "form_description": "개인 정보를 수정하세요.",
+            "avatar": {
+                "title": "프로필 이미지",
+                "description": "이미지를 클릭하여 새 이미지를 업로드하세요.",
+                "requirementsTitle": "요구사항",
+                "requirementsSize": "권장 사이즈: 128x128px",
+                "requirementsFormats": "허용 포맷: PNG, JPEG, WEBP",
+                "requirementsMaxSize": "최대 파일 사이즈: 1MB",
+                "updateButton": "이미지 저장"
+            },
+            "name_label": "전체 이름",
+            "headline_label": "직책",
+            "headline_placeholder": "직책이나 현재 역할을 입력하세요.",
+            "bio_label": "소개",
+            "bio_placeholder": "자신에 대해 간단히 소개해 주세요.",
+            "update_button": "프로필 업데이트",
+            "errors": {
+                "name_too_short": "이름은 최소 1자 이상이어야 합니다.",
+                "fileTooLarge": "파일이 너무 큽니다. 최대 파일 사이즈는 1MB입니다.",
+                "invalidFileType": "지원하지 않는 파일 형식입니다. PNG, JPEG, WEBP 파일을 사용해주세요."
+            }
+        },
+        "privacy": {
+            "title": "공개 범위",
+            "description": "다른 사용자에게 내 활동이 어떻게 보일지 설정합니다.",
+            "public": "전체 공개",
+            "followers_only": "팔로워만",
+            "private": "비공개 (나만 보기)",
+            "save_button": "설정 저장"
+        },
+        "danger_zone": {
+            "title": "위험 구역",
+            "description": "이 작업은 영구적이며 되돌릴 수 없습니다.",
+            "delete_account": "계정 삭제",
+            "confirm_title": "정말로 삭제하시겠습니까?",
+            "confirm_description": "이 작업은 되돌릴 수 없습니다. 계정이 영구적으로 삭제되며 서버에서 모든 데이터가 제거됩니다.",
+            "confirm_delete": "이해했습니다, 계정을 삭제합니다"
+        },
+        "saving": "저장 중...",
+        "cancel": "취소"
     },
     "notifications": {
         "title": "알림",

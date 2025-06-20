@@ -8,7 +8,7 @@ import { CATEGORIES, type CategoryCode, type Category } from "~/common/types/dai
 import type { DailyPageLoaderData, DailyRecordUI, DailyNoteUI, DailyPlanUI, MemoUI, UICategory } from "./types";
 import { getToday } from "./utils";
 import { makeSSRClient } from "~/supa-client";
-import { getProfileId } from "~/features/users/utils";
+import { getRequiredProfileId } from "~/features/users/utils";
 import type { DailyRecord as DbDailyRecord, DailyNote as DbDailyNote, Memo as DbMemo } from "~/features/daily/queries";
 import type { DailyPlan as DbDailyPlan } from "~/features/plan/queries";
 
@@ -27,9 +27,9 @@ import type { DailyPlan as DbDailyPlan } from "~/features/plan/queries";
 } */
 
 export async function loader({ request }: LoaderFunctionArgs): Promise<DailyPageLoaderData | Response> {
+  const { client, headers } = makeSSRClient(request);
   try {
-    const { client } = makeSSRClient(request);
-    const profileId = await getProfileId(request);
+    const profileId = await getRequiredProfileId(request);
     const url = new URL(request.url);
     const selectedDate = url.searchParams.get("date") || getToday();
 

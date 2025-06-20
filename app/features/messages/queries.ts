@@ -100,6 +100,11 @@ export async function getConversationById(
 
     const p1 = Array.isArray(conv.participant1) ? conv.participant1[0] : conv.participant1;
     const p2 = Array.isArray(conv.participant2) ? conv.participant2[0] : conv.participant2;
+    
+    if (!p1 || !p2) {
+        console.error(`Could not find one or both participants for conversation ${conversationId}`);
+        return null;
+    }
 
     const other_user = p1.profile_id === userId ? p2 : p1;
 
@@ -122,6 +127,7 @@ export async function getMessages(
             created_at,
             sender_id,
             sender:profiles (
+                profile_id,
                 username,
                 full_name,
                 avatar_url
@@ -163,8 +169,12 @@ export async function createMessage(
             content: content,
         })
         .select(`
-            *,
+            id,
+            content,
+            created_at,
+            sender_id,
             sender:profiles (
+                profile_id,
                 username,
                 full_name,
                 avatar_url

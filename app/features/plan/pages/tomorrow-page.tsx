@@ -21,7 +21,7 @@ import type { DailyPlan as DbDailyPlan, DailyPlanInsert, DailyPlanUpdate, Weekly
 import * as settingsQueries from "~/features/settings/queries";
 import type { UserCategory as DbUserCategory, UserDefaultCodePreference as DbUserDefaultCodePreference } from "~/features/settings/queries";
 import { makeSSRClient } from "~/supa-client";
-import { getProfileId } from "~/features/users/utils";
+import { getRequiredProfileId } from "~/features/users/utils";
 
 // UI-specific types
 // REMOVE UICategory interface definition from here
@@ -110,9 +110,9 @@ export interface TomorrowPageLoaderData {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs): Promise<TomorrowPageLoaderData | Response> => {
+  const { client, headers } = makeSSRClient(request);
   try {
-    const { client } = makeSSRClient(request);
-    const profileId = await getProfileId(request);
+    const profileId = await getRequiredProfileId(request);
 
     const url = new URL(request.url);
     const dateParam = url.searchParams.get("date");
@@ -232,24 +232,24 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<TomorrowP
       categories: processedCategories, // Use processedCategories
     };
   } catch (error: any) {
-    if (error.message === "User not authenticated") {
-      return redirect("/auth/login");
+    if (error instanceof Response) {
+        return error;
     }
-    throw error;
+    return redirect("/auth/login", { headers });
   }
 };
 
 // Action
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { client } = makeSSRClient(request);
+  const { client, headers } = makeSSRClient(request);
   let profileId: string;
   try {
-    profileId = await getProfileId(request);
+    profileId = await getRequiredProfileId(request);
   } catch (error: any) {
-    if (error.message === "User not authenticated") {
-      return redirect("/auth/login");
+    if (error instanceof Response) {
+        return error;
     }
-    throw error;
+    return redirect("/auth/login", { headers });
   }
 
   const formData = await request.formData();

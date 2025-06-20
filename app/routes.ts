@@ -64,7 +64,7 @@ export default [
           route("edit", "features/users/pages/profile-edit-page.tsx"),
         ]),
       ]),
-      route("/users/:username/welcome", "features/users/pages/welcome-page.tsx"),
+      // route("/users/:username/welcome", "features/users/pages/welcome-page.tsx"),
         // CRON Job API Route
   route("api/cron/weekly-summary", "features/notifications/api/weekly-summary.ts"),
 ] satisfies RouteConfig;

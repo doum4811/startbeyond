@@ -254,126 +254,70 @@
             "free-talk": "Free Talk"
         }
     },
-    "settings": {
-        "profile": {
-            "title": "Edit profile",
-            "description": "Update your public profile information.",
-            "name": "Name",
-            "headline": "Headline",
-            "bio": "Bio",
-            "save_changes": "Save changes",
-            "saving": "Saving...",
-            "avatar": "Avatar",
-            "avatar_hint": "PNG, JPG, GIF, WEBP. Max 5MB.",
-            "form_title": "Profile Information",
-            "form_description": "This information will be displayed to other users.",
-            "name_hint": "Your public display name.",
-            "headline_hint": "A brief introduction to yourself.",
-            "bio_hint": "Your public bio, which will be displayed on your profile page.",
-            "update_profile_button": "Update profile",
-            "avatar_title": "Avatar",
-            "avatar_description": "This is your public avatar.",
-            "avatar_size_hint": "Recommended size: 128x128px",
-            "avatar_formats_hint": "Allowed formats: PNG, JPEG, WEBP",
-            "avatar_max_size_hint": "Max file size: 1MB",
-            "update_avatar_button": "Update Avatar",
-            "errors": {
-                "name_too_short": "Name must be at least 2 characters long."
-            },
-            "go_to_profile": "Go to Profile",
-            "activity": {
-                "not_following_title": "This account is private",
-                "not_following_description": "Follow this account to see their activity.",
-                "private_title": "Private Activity",
-                "private_description": "This user's activity is private.",
-                "no_activity": "No activity to show yet.",
-                "view_memos": "View {{count}} memo(s)",
-                "duration": "{{minutes}} min",
-                "no_comment": "No comment"
-            }
+    "posts": {
+        "title": "Posts",
+        "no_posts": "No posts yet."
+    },
+    "community_new_post_page": {
+        "title": "New Post",
+        "back_to_community": "Back to Community",
+        "category_label": "Category",
+        "category_placeholder": "Select a category",
+        "title_label": "Title",
+        "title_placeholder": "Enter a title for your post",
+        "content_label": "Content",
+        "content_placeholder": "Share your thoughts or goals with the community...",
+        "submit_button": "Post",
+        "error_category_required": "Please select a category.",
+        "error_title_required": "Please enter a title.",
+        "error_content_required": "Please enter content."
+    },
+"settings": {
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "profile": {
+        "title": "Edit Profile",
+        "description": "Update your public profile information.",
+        "form_title": "Profile Details",
+        "form_description": "Update your personal information.",
+        "avatar": {
+            "title": "Profile Image",
+            "description": "Click the image to upload a new one.",
+            "requirementsTitle": "Requirements",
+            "requirementsSize": "Recommended size: 128x128px",
+            "requirementsFormats": "Allowed formats: PNG, JPEG, WEBP",
+            "requirementsMaxSize": "Max file size: 1MB",
+            "updateButton": "Save Image"
         },
-        "categories": {
-            "meta_title": "Code Settings - StartBeyond",
-            "meta_description": "Manage your custom categories, subcodes, and default code preferences.",
-            "page_title": "Code Management",
-            "page_description": "Manage categories and subcodes used throughout the application.",
-            "tabs": {
-                "categories": "Categories",
-                "subcodes": "Subcodes",
-                "input_settings": "Input Settings"
-            },
-            "default_categories_title": "Default Categories",
-            "default_categories_description": "These are the default categories provided by the app. Change their active status to control visibility.",
-            "custom_categories_title": "Custom Categories",
-            "custom_categories_description": "Add, edit, delete, and reorder your own custom categories.",
-            "add_category": "Add Category",
-            "edit_category": "Edit Category",
-            "category_form_description": "Create a new category for tracking your activities.",
-            "category_code": "Category Code",
-            "category_label": "Category Label",
-            "icon_and_color": "Icon & Color",
-            "select_icon": "Select Icon",
-            "active": "Active",
-            "inactive": "Inactive",
-            "no_custom_categories": "No custom categories found.",
-            "subcodes_title": "Subcode Management",
-            "subcodes_description": "Manage frequently used subcodes for each category. Favorited subcodes are recommended first.",
-            "add_subcode": "Add Subcode",
-            "edit_subcode": "Edit Subcode",
-            "subcode_form_description": "Add a new subcode for the selected parent category.",
-            "parent_category": "Parent Category",
-            "select_parent_category": "Select a parent category",
-            "subcode": "Subcode",
-            "subcode_placeholder": "e.g., React Lecture",
-            "subcode_description": "Description",
-            "subcode_description_placeholder": "e.g., Watching a Udemy course",
-            "favorite": "Favorite",
-            "search_subcodes_placeholder": "Search subcodes...",
-            "table": {
-                "parent_category": "Parent Category",
-                "subcode": "Subcode",
-                "description": "Description",
-                "favorite": "Favorite"
-            },
-            "no_subcodes": "No subcodes found.",
-            "input_settings_title": "Input Settings",
-            "input_settings_description": "Configure autocomplete and recommendation features for subcode input.",
-            "enable_autocomplete": "Enable Subcode Autocomplete",
-            "enable_autocomplete_description": "Suggests subcodes as you type based on your history.",
-            "enable_recommendations": "Enable Subcode Recommendations",
-            "enable_recommendations_description": "Shows a list of recommended subcodes before you start typing.",
-            "recommendation_source": "Recommendation Source",
-            "recommendation_source_options": {
-                "frequency": "By Frequency",
-                "recency": "By Recency"
-            },
-            "recommendation_source_description": "Determines how subcodes are recommended.",
-            "save_changes": "Save Settings",
-            "delete_category_confirm_title": "Delete Category?",
-            "delete_category_confirm_description": "This will permanently delete the category and may affect existing records. This action cannot be undone.",
-            "delete_subcode_confirm_title": "Delete Subcode?",
-            "delete_subcode_confirm_description": "This will permanently delete the subcode. This action cannot be undone.",
-            "toggle_default_category_confirm_title": "Toggle Default Category?",
-            "toggle_default_category_confirm_description": "Disabling a default category will hide it from selection menus. Associated data will not be deleted.",
-            "confirm_toggle": "Confirm",
-            "page_title": "Code & Sub-code Settings"
-        },
-        "privacy": {
-            "title": "Privacy Settings",
-            "description": "Control how others see your activity.",
-            "followers_only": "Followers only",
-            "public": "Public",
-            "save_button": "Save Privacy"
-        },
-        "account": {
-            "delete_account_title": "Delete Account",
-            "delete_account_description": "Permanently delete your account and all of your content. This action is not reversible.",
-            "delete_account_button": "Delete My Account",
-            "delete_confirm_title": "Are you absolutely sure?",
-            "delete_confirm_description": "This action cannot be undone. This will permanently delete your account and remove your data from our servers.",
-            "delete_confirm_button": "Yes, delete my account"
+        "name_label": "Full Name",
+        "headline_label": "Headline",
+        "headline_placeholder": "Enter your title or current role.",
+        "bio_label": "Bio",
+        "bio_placeholder": "Tell us a little about yourself.",
+        "update_button": "Update Profile",
+        "errors": {
+            "name_too_short": "Name must be at least 1 character long.",
+            "fileTooLarge": "File is too large. Max file size is 1MB.",
+            "invalidFileType": "Invalid file type. Please use PNG, JPEG, or WEBP."
         }
     },
+    "privacy": {
+        "title": "Visibility",
+        "description": "Control how others see your activity.",
+        "public": "Public",
+        "followers_only": "Followers only",
+        "private": "Private (Only you)",
+        "save_button": "Save Settings"
+    },
+    "danger_zone": {
+        "title": "Danger Zone",
+        "description": "These actions are permanent and cannot be undone.",
+        "delete_account": "Delete Account",
+        "confirm_title": "Are you absolutely sure?",
+        "confirm_description": "This action cannot be undone. This will permanently delete your account and remove your data from our servers.",
+        "confirm_delete": "I understand, delete my account"
+    }
+},
     "notifications": {
         "title": "Notifications",
         "mark_all_read": "Mark all as read",
@@ -612,23 +556,5 @@
         "download": "Download PDF",
         "loading": "Generating..."
     },
-    "share": "공유하기",
-    "posts": {
-        "title": "Posts",
-        "no_posts": "No posts yet."
-    },
-    "community_new_post_page": {
-        "title": "New Post",
-        "back_to_community": "Back to Community",
-        "category_label": "Category",
-        "category_placeholder": "Select a category",
-        "title_label": "Title",
-        "title_placeholder": "Enter a title for your post",
-        "content_label": "Content",
-        "content_placeholder": "Share your thoughts or goals with the community...",
-        "submit_button": "Post",
-        "error_category_required": "Please select a category.",
-        "error_title_required": "Please enter a title.",
-        "error_content_required": "Please enter content."
-    }
+    "share": "Share"
 } 

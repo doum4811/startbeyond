@@ -1,11 +1,9 @@
 import {
   Form,
   useFetcher,
-  useLoaderData,
   redirect,
   type ActionFunctionArgs,
   type LoaderFunctionArgs,
-  useRevalidator,
 } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Button } from "~/common/components/ui/button";
@@ -21,7 +19,6 @@ import {
   CardTitle,
 } from "~/common/components/ui/card";
 import { makeSSRClient } from "~/supa-client";
-import { getProfileId } from "~/features/users/utils";
 import * as userQueries from "~/features/users/queries";
 import { useState, useEffect } from "react";
 import {
@@ -43,27 +40,65 @@ import {
   AlertDialogCancel,
   AlertDialogTrigger,
 } from "~/common/components/ui/alert-dialog";
+import { getRequiredProfileId } from '~/features/users/utils';
+import { Alert, AlertDescription, AlertTitle } from "~/common/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
-export async function loader({ request }: LoaderFunctionArgs) {
-  const { client } = makeSSRClient(request);
-  const profileId = await getProfileId(request);
-  const user = await userQueries.getUserProfileById(client, { profileId });
+type ProfileEditPageLoaderData = Awaited<ReturnType<typeof loader>>;
 
-  if (!user) {
-    throw new Response("User not found", { status: 404 });
+export async function loader({ request, params }: LoaderFunctionArgs) {
+  const { client, headers } = makeSSRClient(request);
+  const { username } = params;
+
+  if (!username) {
+    throw new Response("Username not provided in URL", { status: 400, headers });
   }
-  return { user };
+
+  const loggedInProfileId = await getRequiredProfileId(request);
+  const userToEdit = await userQueries.getUserProfile(client, { username });
+
+  if (!userToEdit) {
+    throw new Response("User not found", { status: 404, headers });
+  }
+  
+  if (userToEdit.profile_id !== loggedInProfileId) {
+    return redirect(`/users/${userToEdit.username}`);
+  }
+
+  return { user: userToEdit };
 }
 
-export async function action({ request }: ActionFunctionArgs) {
-  const { client } = makeSSRClient(request);
-  const profileId = await getProfileId(request);
+export async function action({ request, params }: ActionFunctionArgs) {
+  const { client, headers } = makeSSRClient(request);
+  const { username } = params;
+
+  if (!username) {
+    throw new Response("Username not provided in URL", { status: 400, headers });
+  }
+
+  const loggedInProfileId = await getRequiredProfileId(request);
+  const userToEdit = await userQueries.getUserProfile(client, { username });
+
+  if (!userToEdit || userToEdit.profile_id !== loggedInProfileId) {
+    throw new Response("You are not authorized to perform this action.", { status: 403, headers });
+  }
+  
+  const profileId = loggedInProfileId;
   const formData = await request.formData();
   const intent = formData.get("intent");
 
   if (intent === "update_avatar") {
     const avatarFile = formData.get("avatar") as File;
     if (avatarFile && avatarFile.size > 0) {
+       const MAX_SIZE = 1 * 1024 * 1024; // 1MB
+       if (avatarFile.size > MAX_SIZE) {
+           return { ok: false, error: { message: "fileTooLarge" } };
+       }
+       const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+        if (!ALLOWED_TYPES.includes(avatarFile.type)) {
+            return { ok: false, error: { message: "invalidFileType" } };
+        }
+
       const { data: uploadData, error: uploadError } = await client.storage
         .from("avatars")
         .upload(`${profileId}/${Date.now()}`, avatarFile, {
@@ -72,7 +107,6 @@ export async function action({ request }: ActionFunctionArgs) {
         });
 
       if (uploadError) {
-        console.error("Failed to upload avatar:", uploadError);
         return { ok: false, error: uploadError };
       }
 
@@ -84,7 +118,7 @@ export async function action({ request }: ActionFunctionArgs) {
         profileId,
         updates: { avatar_url: urlData.publicUrl },
       });
-      return { ok: true };
+      return redirect(`/users/${username}/edit`, { headers });
     }
     return { ok: false, error: { message: "No file provided" } };
   }
@@ -104,15 +138,11 @@ export async function action({ request }: ActionFunctionArgs) {
   if (intent === "delete_account") {
     const { error } = await client.rpc('delete_user');
     if (error) {
-      console.error("Failed to delete account:", error);
       return { ok: false, error: { message: "Failed to delete account." } };
     }
-    // On successful deletion, Supabase handles session invalidation.
-    // Redirecting to home page.
-    return redirect("/");
+    return redirect("/", { headers });
   }
 
-  // Default intent is "update_profile"
   const fullName = formData.get("full_name") as string;
 
   if (!fullName || fullName.trim().length < 1) {
@@ -140,42 +170,68 @@ export async function action({ request }: ActionFunctionArgs) {
     return { ok: false, message: "Failed to update profile." };
   }
 
-  return redirect(`/users/${user.username}`);
+  return redirect(`/users/${user.username}`, { headers });
 }
 
-export default function ProfileSettingsPage() {
-  const { user } = useLoaderData<typeof loader>();
+interface ProfileSettingsPageProps {
+  loaderData: ProfileEditPageLoaderData;
+}
+
+export default function ProfileSettingsPage({ loaderData }: ProfileSettingsPageProps) {
+  if (loaderData instanceof Response) {
+    return null;
+  }
+  
+  const { user } = loaderData;
+
+  if (!user) {
+    return <div>User not found.</div>;
+  }
+
   const profileFetcher = useFetcher<typeof action>();
   const avatarFetcher = useFetcher<typeof action>();
   const privacyFetcher = useFetcher<typeof action>();
   const deleteAccountFetcher = useFetcher<typeof action>();
   const { t } = useTranslation();
+  
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const { revalidate } = useRevalidator();
-
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  
   useEffect(() => {
-    if (avatarFetcher.data?.ok === true && avatarFetcher.state === 'idle') {
-      revalidate();
-      setAvatarPreview(null);
+    const errorData = avatarFetcher.data as any;
+    if (avatarFetcher.data?.ok === false && errorData.error?.message) {
+        setAvatarError(t(`settings.profile.errors.${errorData.error.message}`));
     }
-  }, [avatarFetcher.data, avatarFetcher.state, revalidate]);
+  }, [avatarFetcher.data, t]);
 
-  const userProfile = user as any;
 
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setAvatarError(null);
+    setAvatarPreview(null);
+    setAvatarFile(null);
+
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
+      const MAX_SIZE = 1 * 1024 * 1024; // 1MB
+      const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+      if (file.size > MAX_SIZE) {
+        setAvatarError(t('settings.profile.errors.fileTooLarge'));
+        return;
+      }
+
+      if (!ALLOWED_TYPES.includes(file.type)) {
+        setAvatarError(t('settings.profile.errors.invalidFileType'));
+        return;
+      }
+      
       setAvatarPreview(URL.createObjectURL(file));
-      const formData = new FormData();
-      formData.append("avatar", file);
-      formData.append("intent", "update_avatar");
-      avatarFetcher.submit(formData, {
-        method: "post",
-        encType: "multipart/form-data",
-      });
+      setAvatarFile(file);
     }
   };
 
+  const userProfile = user as any;
   const displayName = userProfile.full_name ?? "";
 
   const actionData = profileFetcher.data;
@@ -196,169 +252,172 @@ export default function ProfileSettingsPage() {
         </p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-2">
-       <Card>
-            <profileFetcher.Form method="post">
-              <input type="hidden" name="intent" value="update_profile" />
-            <CardHeader>
-                <CardTitle>{t("settings.profile.form_title")}</CardTitle>
-                <CardDescription>
-                  {t("settings.profile.form_description")}
-                </CardDescription>
-            </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-2">
-                  <Label htmlFor="full_name">{t("settings.profile.name")}</Label>
-                  <Input
-                    id="full_name"
-                    name="full_name"
-                    defaultValue={displayName}
-                    required
-                    minLength={1}
-                    aria-invalid={!!nameError}
-                    aria-describedby="name-error"
-                  />
-                  {nameError && <p id="name-error" className="text-sm text-red-500 mt-1">{nameError}</p>}
-                  <p className="text-sm text-muted-foreground">
-                    {t("settings.profile.name_hint")}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="headline">
-                    {t("settings.profile.headline")}
-                  </Label>
-                  <Input
-                    id="headline"
-                    name="headline"
-                    defaultValue={userProfile.headline ?? ""}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    {t("settings.profile.headline_hint")}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="bio">{t("settings.profile.bio")}</Label>
-                  <Textarea
-                    id="bio"
-                    name="bio"
-                    defaultValue={userProfile.bio ?? ""}
-                    rows={4}
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    {t("settings.profile.bio_hint")}
-                  </p>
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button type="submit" disabled={profileFetcher.state === "submitting"}>
-                  {profileFetcher.state === "submitting"
-                    ? t("settings.profile.saving")
-                    : t("settings.profile.update_profile_button")}
-                </Button>
-              </CardFooter>
-            </profileFetcher.Form>
-          </Card>
-        </div>
-        <div className="md:col-span-1 space-y-8">
-          <Card>
-            <avatarFetcher.Form method="post" encType="multipart/form-data">
-              <input type="hidden" name="intent" value="update_avatar" />
-              <CardHeader>
-                <CardTitle>{t("settings.profile.avatar_title")}</CardTitle>
-                <CardDescription>
-                  {t("settings.profile.avatar_description")}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center gap-6">
-                <Avatar className="h-32 w-32">
-                  <AvatarImage src={avatarPreview || userProfile.avatar_url} />
-                  <AvatarFallback>
-                    {displayName?.[0] || userProfile.username?.[0]}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="w-full space-y-2">
-                    <Label htmlFor="avatar" className="sr-only">Choose file</Label>
-                    <Input id="avatar" name="avatar" type="file" accept="image/png, image/jpeg, image/webp" onChange={handleAvatarChange} disabled={avatarFetcher.state === "submitting"} />
-                </div>
-                <div className="text-xs text-muted-foreground text-center">
-                  <p>{t("settings.profile.avatar_size_hint")}</p>
-                  <p>{t("settings.profile.avatar_formats_hint")}</p>
-                  <p>{t("settings.profile.avatar_max_size_hint")}</p>
-                </div>
-                {avatarFetcher.state === "submitting" && <p>{t("settings.profile.saving")}</p>}
-              </CardContent>
-            </avatarFetcher.Form>
-          </Card>
-          <Card>
-            <privacyFetcher.Form method="post">
-              <input type="hidden" name="intent" value="update_privacy" />
-              <CardHeader>
-                <CardTitle>{t("settings.privacy.title")}</CardTitle>
-                <CardDescription>
-                  {t("settings.privacy.description")}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <RadioGroup name="daily_record_visibility" defaultValue={userProfile.daily_record_visibility}>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="followers" id="followers" />
-                    <Label htmlFor="followers">{t("settings.privacy.followers_only")}</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="public" id="public" />
-                    <Label htmlFor="public">{t("settings.privacy.public")}</Label>
-                  </div>
-                </RadioGroup>
-            </CardContent>
-            <CardFooter>
-                <Button type="submit" disabled={privacyFetcher.state === "submitting"}>
-                  {privacyFetcher.state === "submitting"
-                    ? t("settings.profile.saving")
-                    : t("settings.privacy.save_button")}
-                </Button>
-            </CardFooter>
-            </privacyFetcher.Form>
-          </Card>
-        </div>
-      </div>
+        <div className="md:col-span-2 space-y-8">
+            {/* Avatar Card */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>{t("settings.profile.avatar.title")}</CardTitle>
+                    <CardDescription>{t("settings.profile.avatar.description")}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                     <avatarFetcher.Form method="post" encType="multipart/form-data" onSubmit={() => setAvatarError(null)}>
+                        <input type="hidden" name="intent" value="update_avatar" />
+                        <div className="flex items-center gap-6">
+                            <Label htmlFor="avatar-upload">
+                                <Avatar className="h-20 w-20 cursor-pointer">
+                                <AvatarImage src={avatarPreview ?? userProfile.avatar_url} />
+                                <AvatarFallback>
+                                    {displayName.charAt(0)}
+                                </AvatarFallback>
+                                </Avatar>
+                            </Label>
+                            <input
+                                id="avatar-upload"
+                                name="avatar"
+                                type="file"
+                                className="hidden"
+                                accept="image/png, image/jpeg, image/webp"
+                                onChange={handleAvatarChange}
+                            />
+                            <div className="space-y-2">
+                                <p className="font-semibold">{t("settings.profile.avatar.requirementsTitle")}</p>
+                                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                                    <li>{t("settings.profile.avatar.requirementsSize")}</li>
+                                    <li>{t("settings.profile.avatar.requirementsFormats")}</li>
+                                    <li>{t("settings.profile.avatar.requirementsMaxSize")}</li>
+                                </ul>
+                            </div>
+                        </div>
+                        {avatarError && (
+                            <Alert variant="destructive" className="mt-4">
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertTitle>Error</AlertTitle>
+                                <AlertDescription>{avatarError}</AlertDescription>
+                            </Alert>
+                        )}
+                         <div className="pt-4">
+                            <Button type="submit" disabled={!avatarFile || avatarFetcher.state !== 'idle'}>
+                                {avatarFetcher.state === 'submitting' ? t('settings.saving') : t('settings.profile.avatar.updateButton')}
+                            </Button>
+                        </div>
+                    </avatarFetcher.Form>
+                </CardContent>
+            </Card>
 
-      <div className="mt-8">
-        <Card className="border-destructive">
-          <CardHeader>
-            <CardTitle className="text-destructive">{t("settings.account.delete_account_title")}</CardTitle>
-            <CardDescription>{t("settings.account.delete_account_description")}</CardDescription>
-          </CardHeader>
-          <CardFooter>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive">{t("settings.account.delete_account_button")}</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{t("settings.account.delete_confirm_title")}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {t("settings.account.delete_confirm_description")}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{t("cancel")}</AlertDialogCancel>
-                  <deleteAccountFetcher.Form method="post" className="inline-block">
-                    <input type="hidden" name="intent" value="delete_account" />
-                    <Button
-                      type="submit"
-                      variant="destructive"
-                      disabled={deleteAccountFetcher.state === "submitting"}
-                    >
-                      {deleteAccountFetcher.state === "submitting" ? t("settings.profile.saving") : t("settings.account.delete_confirm_button")}
+            {/* Profile Info Card */}
+            <Card>
+                <profileFetcher.Form method="post">
+                <input type="hidden" name="intent" value="update_profile" />
+                <CardHeader>
+                    <CardTitle>{t("settings.profile.form_title")}</CardTitle>
+                    <CardDescription>
+                    {t("settings.profile.form_description")}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="full_name">{t("settings.profile.name_label")}</Label>
+                        <Input
+                            id="full_name"
+                            name="full_name"
+                            defaultValue={displayName}
+                        />
+                         {nameError && <p className="text-sm text-destructive">{nameError}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="headline">{t("settings.profile.headline_label")}</Label>
+                        <Input
+                            id="headline"
+                            name="headline"
+                            defaultValue={userProfile.headline ?? ""}
+                            placeholder={t("settings.profile.headline_placeholder")}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="bio">{t("settings.profile.bio_label")}</Label>
+                        <Textarea
+                            id="bio"
+                            name="bio"
+                            rows={4}
+                            defaultValue={userProfile.bio ?? ""}
+                            placeholder={t("settings.profile.bio_placeholder")}
+                        />
+                    </div>
+                </CardContent>
+                <CardFooter>
+                    <Button type="submit" disabled={profileFetcher.state !== 'idle'}>
+                         {profileFetcher.state === 'submitting' ? t('settings.saving') : t('settings.profile.update_button')}
                     </Button>
-                  </deleteAccountFetcher.Form>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </CardFooter>
-      </Card>
-      </div>
+                </CardFooter>
+                </profileFetcher.Form>
+            </Card>
+        </div>
 
+        <div className="space-y-8">
+            {/* Privacy Card */}
+            <Card>
+                <privacyFetcher.Form method="post">
+                    <input type="hidden" name="intent" value="update_privacy" />
+                    <CardHeader>
+                    <CardTitle>{t("settings.privacy.title")}</CardTitle>
+                    <CardDescription>
+                        {t("settings.privacy.description")}
+                    </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <RadioGroup name="daily_record_visibility" defaultValue={user.daily_record_visibility}>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="public" id="r1" />
+                                <Label htmlFor="r1">{t("settings.privacy.public")}</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="followers" id="r2" />
+                                <Label htmlFor="r2">{t("settings.privacy.followers_only")}</Label>
+                            </div>
+                        </RadioGroup>
+                    </CardContent>
+                    <CardFooter>
+                         <Button type="submit" disabled={privacyFetcher.state !== 'idle'}>
+                            {privacyFetcher.state === 'submitting' ? t('settings.saving') : t('settings.privacy.save_button')}
+                        </Button>
+                    </CardFooter>
+                </privacyFetcher.Form>
+            </Card>
+        </div>
+      </div>
+        {/* Delete Account Card */}
+        <div className="mt-8">
+            <Card className="border-destructive">
+                <CardHeader>
+                    <CardTitle className="text-destructive">{t("settings.danger_zone.title")}</CardTitle>
+                    <CardDescription>{t("settings.danger_zone.description")}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive">{t("settings.danger_zone.delete_account")}</Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <deleteAccountFetcher.Form method="post">
+                                <input type="hidden" name="intent" value="delete_account" />
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>{t("settings.danger_zone.confirm_title")}</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        {t("settings.danger_zone.confirm_description")}
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>{t("settings.cancel")}</AlertDialogCancel>
+                                    <Button type="submit" variant="destructive" disabled={deleteAccountFetcher.state !== 'idle'}>
+                                        {t("settings.danger_zone.confirm_delete")}
+                                    </Button>
+                                </AlertDialogFooter>
+                            </deleteAccountFetcher.Form>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </CardContent>
+            </Card>
+        </div>
     </div>
   );
-} 
+}
