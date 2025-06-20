@@ -19,41 +19,42 @@ import { cn } from "~/lib/utils";
 import type { Route } from "./+types/profile-layout";
 import { getUserProfile, getFollowStatus, getFollowCounts } from "../queries";
 import { makeSSRClient } from "~/supa-client";
-import { getProfileId } from "../utils";
+
+type ProfileLayoutLoaderData = Awaited<ReturnType<typeof loader>>;
 
 export const meta: Route.MetaFunction = ({ data }) => {
-  if (!data?.user) {
+  const pageData = data as Exclude<ProfileLayoutLoaderData, Response>;
+  if (!pageData?.user) {
     return [{ title: "User not found | startbeyond" }];
   }
-  return [{ title: `${data.user.full_name} | startbeyond` }];
+  return [{ title: `${pageData.user.full_name} | startbeyond` }];
 };
 
 export const loader = async ({
   request,
   params,
 }: Route.LoaderArgs) => {
-  const { client } = makeSSRClient(request);
+  const { client, headers } = makeSSRClient(request);
   const { username } = params;
 
   if (!username) {
-    throw new Response("Not Found", { status: 404 });
+    throw new Response("Not Found", { status: 404, headers });
   }
+
+  const { data: { user: authUser } } = await client.auth.getUser();
+  if (!authUser) {
+    return redirect("/auth/login", { headers });
+  }
+  const currentUserId = authUser.id;
 
   const user = await getUserProfile(client, { username });
   if (!user) {
-    throw new Response("Not Found", { status: 404 });
+    throw new Response("Not Found", { status: 404, headers });
   }
 
-  let currentUserId: string | null = null;
-  try {
-    currentUserId = await getProfileId(request);
-  } catch (e) {
-    // Not logged in, fine to proceed
-  }
-  
   const isOwnProfile = currentUserId === user.profile_id;
   let isFollowing = false;
-  if (currentUserId && !isOwnProfile) {
+  if (!isOwnProfile) {
       const status = await getFollowStatus(client, { followerId: currentUserId, followingId: user.profile_id });
       isFollowing = status.isFollowing;
   }
@@ -67,6 +68,9 @@ export default function ProfileLayout({
   loaderData,
   params,
 }: Route.ComponentProps) {
+  if (loaderData instanceof Response) {
+    return null;
+  }
   const { user, isFollowing, followers, following, isOwnProfile } = loaderData;
   const fetcher = useFetcher();
   

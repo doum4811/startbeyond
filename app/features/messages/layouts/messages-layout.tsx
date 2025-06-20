@@ -7,12 +7,20 @@ import { cn } from "~/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "~/common/components/ui/avatar";
 import { timeAgo } from "~/lib/utils";
 import { useTranslation } from "react-i18next";
+import { redirect } from "react-router";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-    const { client } = makeSSRClient(request);
-    const profileId = await getProfileId(request);
-    const conversations = await getConversations(client, profileId);
-    return { conversations, profileId };
+    try {
+        const { client } = makeSSRClient(request);
+        const profileId = await getProfileId(request);
+        const conversations = await getConversations(client, profileId);
+        return { conversations, profileId };
+    } catch (error: any) {
+        if (error.message === "User not authenticated") {
+            return redirect("/auth/login");
+        }
+        throw error;
+    }
 }
 
 export default function MessagesLayout() {

@@ -29,7 +29,7 @@ export const WelcomeUser = ({
 }: WelcomeUserProps) => (
   <Html>
     <Head />
-    <Preview>시작을 기록하면, 변화가 시작돼요. StartBeyond에 오신 걸 환영해요!</Preview>
+    <Preview>시작을 기록하면, 변화가 시작돼요.</Preview>
     <Tailwind>
       <Body className="mx-auto my-auto bg-white font-sans">
         <Container className="mx-auto my-10 w-[465px] rounded border border-solid border-gray-200 p-5">
@@ -44,7 +44,9 @@ export const WelcomeUser = ({
           <Heading className="mx-0 my-7 p-0 text-center text-2xl font-normal text-black">
             안녕하세요, {username}님! 👋
             <br />
-            StartBeyond에 함께하게 되어 정말 반가워요.
+            StartBeyond에 오신 걸 환영해요!
+            <br />
+            함께하게 되어 정말 반가워요.
           </Heading>
           <Text className="text-sm leading-6 text-black">
             우리는 <strong>"작은 기록이 큰 변화를 만든다"</strong>는 믿음으로
