@@ -82,14 +82,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }// export default function App() {
 export const loader = async ({ request }: Route.LoaderArgs) => {
   const { client } = makeSSRClient(request);
-  const { data: { user } } = await client.auth.getUser();
-  // return { user };
+  const {
+    data: { user },
+  } = await client.auth.getUser();
+
   if (user) {
-    const profile = await getUserById(client, { id: user?.id });
-    const unreadNotifications = await getUnreadNotificationCount(client, { userId: user.id });
-    const unreadMessages = await getUnreadMessageCount(client, user.id);
-    return { user, profile, hasNotifications: unreadNotifications > 0, hasMessages: unreadMessages > 0 };
+    const [profile, unreadNotifications, unreadMessages] = await Promise.all([
+      getUserById(client, { id: user.id }),
+      getUnreadNotificationCount(client, { userId: user.id }),
+      getUnreadMessageCount(client, user.id),
+    ]);
+    return {
+      user,
+      profile,
+      hasNotifications: unreadNotifications > 0,
+      hasMessages: unreadMessages > 0,
+    };
   }
+
   return { user: null, profile: null, hasNotifications: false, hasMessages: false };
 };
 

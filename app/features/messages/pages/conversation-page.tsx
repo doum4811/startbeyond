@@ -111,7 +111,7 @@ export default function ConversationPage() {
                     <div className="text-xs text-muted-foreground">@{otherUser.username}</div>
                 </div>
             </header>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="h-[50vh] overflow-y-scroll p-4 space-y-4">
                 {messages.map((msg) => {
                     const isCurrentUser = msg.sender_id === currentUserId;
                     const senderProfile = Array.isArray(msg.sender) ? msg.sender[0] : msg.sender;
