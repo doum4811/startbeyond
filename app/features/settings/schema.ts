@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, varchar, integer, boolean, timestamp, uniqueIndex, pgPolicy } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, varchar, integer, boolean, timestamp, uniqueIndex, pgPolicy, index } from "drizzle-orm/pg-core";
 import { profiles } from '../users/schema';
 import { sql } from 'drizzle-orm';
 
@@ -15,11 +15,12 @@ export const userCategories = pgTable("user_categories", {
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
   // Consider adding: UNIQUE(profile_id, code)
 }, (table) => ({
+  profileIdx: index("user_categories_profile_id_idx").on(table.profile_id),
   rls: pgPolicy("user_categories_rls", {
     for: "all",
     to: "authenticated",
-    using: sql`auth.uid() = ${table.profile_id}`,
-    withCheck: sql`auth.uid() = ${table.profile_id}`,
+    using: sql`(select auth.uid()) = ${table.profile_id}`,
+    withCheck: sql`(select auth.uid()) = ${table.profile_id}`,
   }),
 }));
 
@@ -35,11 +36,12 @@ export const userSubcodes = pgTable("user_subcodes", {
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
   // Consider adding: UNIQUE(profile_id, parent_category_code, subcode)
 }, (table) => ({
+  profileIdx: index("user_subcodes_profile_id_idx").on(table.profile_id),
   rls: pgPolicy("user_subcodes_rls", {
     for: "all",
     to: "authenticated",
-    using: sql`auth.uid() = ${table.profile_id}`,
-    withCheck: sql`auth.uid() = ${table.profile_id}`,
+    using: sql`(select auth.uid()) = ${table.profile_id}`,
+    withCheck: sql`(select auth.uid()) = ${table.profile_id}`,
   }),
 }));
 
@@ -55,8 +57,8 @@ export const userCodeSettings = pgTable("user_code_settings", {
   rls: pgPolicy("user_code_settings_rls", {
     for: "all",
     to: "authenticated",
-    using: sql`auth.uid() = ${table.profile_id}`,
-    withCheck: sql`auth.uid() = ${table.profile_id}`,
+    using: sql`(select auth.uid()) = ${table.profile_id}`,
+    withCheck: sql`(select auth.uid()) = ${table.profile_id}`,
   }),
 }));
 
@@ -72,8 +74,8 @@ export const userDefaultCodePreferences = pgTable("user_default_code_preferences
   rls: pgPolicy("user_default_code_preferences_rls", {
     for: "all",
     to: "authenticated",
-    using: sql`auth.uid() = ${table.profile_id}`,
-    withCheck: sql`auth.uid() = ${table.profile_id}`,
+    using: sql`(select auth.uid()) = ${table.profile_id}`,
+    withCheck: sql`(select auth.uid()) = ${table.profile_id}`,
   }),
 }));
 

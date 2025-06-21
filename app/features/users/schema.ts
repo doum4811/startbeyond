@@ -8,6 +8,7 @@ import {
     uuid,
     pgPolicy,
     primaryKey,
+    index,
   } from "drizzle-orm/pg-core";
 import { sql } from 'drizzle-orm';
 import { authUsers } from "drizzle-orm/supabase";
@@ -55,7 +56,8 @@ export const profiles = pgTable("profiles", {
         pgPolicy("Allow users to update their own profile", {
             for: "update",
             to: "authenticated",
-            using: sql`auth.uid() = ${table.profile_id}`,
+            using: sql`(select auth.uid()) = ${table.profile_id}`,
+            withCheck: sql`(select auth.uid()) = ${table.profile_id}`,
         }),
     ]
   }));
@@ -70,21 +72,22 @@ export const profiles = pgTable("profiles", {
     created_at: timestamp("created_at").notNull().defaultNow(),
   }, (table) => ({
     pk: primaryKey({ columns: [table.follower_id, table.following_id] }),
+    followingIdx: index("follows_following_id_idx").on(table.following_id),
     rls: [
       pgPolicy("Allow users to see their own follow relationships", {
         for: "select",
         to: "authenticated",
-        using: sql`auth.uid() = ${table.follower_id} OR auth.uid() = ${table.following_id}`,
+        using: sql`(select auth.uid()) = ${table.follower_id} OR (select auth.uid()) = ${table.following_id}`,
       }),
       pgPolicy("Allow users to follow others", {
         for: "insert",
         to: "authenticated",
-        withCheck: sql`auth.uid() = ${table.follower_id}`,
+        withCheck: sql`(select auth.uid()) = ${table.follower_id}`,
       }),
       pgPolicy("Allow users to unfollow others", {
         for: "delete",
         to: "authenticated",
-        using: sql`auth.uid() = ${table.follower_id}`,
+        using: sql`(select auth.uid()) = ${table.follower_id}`,
       }),
     ]
   }));

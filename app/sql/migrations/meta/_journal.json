@@ -22,6 +22,13 @@
       "when": 1750491630517,
       "tag": "0002_grants_and_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1750501922842,
+      "tag": "0010_optimized_rls_and_indexes",
+      "breakpoints": true
     }
   ]
 }

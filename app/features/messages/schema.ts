@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, primaryKey, boolean, pgPolicy, foreignKey } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, primaryKey, boolean, pgPolicy, foreignKey, index } from "drizzle-orm/pg-core";
 import { profiles } from "~/features/users/schema";
 import { sql } from "drizzle-orm";
 
@@ -19,11 +19,13 @@ export const conversations = pgTable("conversations", {
         foreignColumns: [profiles.profile_id],
         name: "conversations_participant2_id_fkey"
     }).onDelete("cascade"),
+    participant1Idx: index("conversations_participant1_id_idx").on(table.participant1_id),
+    participant2Idx: index("conversations_participant2_id_idx").on(table.participant2_id),
     rls: pgPolicy("conversations_rls", {
         for: "all",
         to: "authenticated",
-        using: sql`auth.uid() = ${table.participant1_id} OR auth.uid() = ${table.participant2_id}`,
-        withCheck: sql`auth.uid() = ${table.participant1_id} OR auth.uid() = ${table.participant2_id}`,
+        using: sql`(select auth.uid()) = ${table.participant1_id} OR (select auth.uid()) = ${table.participant2_id}`,
+        withCheck: sql`(select auth.uid()) = ${table.participant1_id} OR (select auth.uid()) = ${table.participant2_id}`,
     }),
 }));
 
@@ -36,25 +38,27 @@ export const messages = pgTable("messages", {
     created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     is_read: boolean("is_read").default(false).notNull(),
 }, (table) => ({
+    conversationIdx: index("messages_conversation_id_idx").on(table.conversation_id),
+    senderIdx: index("messages_sender_id_idx").on(table.sender_id),
     rls: pgPolicy("messages_rls", {
         for: "all",
         to: "authenticated",
         using: sql`
-            auth.uid() = ${table.sender_id} OR
+            (select auth.uid()) = ${table.sender_id} OR
             (
                 SELECT true
                 FROM conversations c
                 WHERE c.id = ${table.conversation_id}
-                AND (c.participant1_id = auth.uid() OR c.participant2_id = auth.uid())
+                AND (c.participant1_id = (select auth.uid()) OR c.participant2_id = (select auth.uid()))
             )
         `,
         withCheck: sql`
-            auth.uid() = ${table.sender_id} AND
+            (select auth.uid()) = ${table.sender_id} AND
             (
                 SELECT true
                 FROM conversations c
                 WHERE c.id = ${table.conversation_id}
-                AND (c.participant1_id = auth.uid() OR c.participant2_id = auth.uid())
+                AND (c.participant1_id = (select auth.uid()) OR c.participant2_id = (select auth.uid()))
             )
         `,
     }),

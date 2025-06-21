@@ -1,4 +1,4 @@
-import { pgTable, uuid, date, text, integer, boolean, timestamp, varchar, pgPolicy } from "drizzle-orm/pg-core";
+import { pgTable, uuid, date, text, integer, boolean, timestamp, varchar, pgPolicy, index } from "drizzle-orm/pg-core";
 import { profiles } from '../users/schema';
 import { sql } from 'drizzle-orm';
 
@@ -14,14 +14,31 @@ export const dailyRecords = pgTable("daily_records", {
   linked_plan_id: uuid("linked_plan_id"),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
-}, (table) => ([
-  pgPolicy("daily_records_rls", {
-    for: "all",
-    to: "authenticated",
-    using: sql`auth.uid() = ${table.profile_id}`,
-    withCheck: sql`auth.uid() = ${table.profile_id}`,
-  }),
-]));
+}, (table) => ({
+  profileIdx: index("daily_records_profile_id_idx").on(table.profile_id),
+  rls: [
+    pgPolicy("Allow read on own or public records", {
+        for: "select",
+        to: "authenticated",
+        using: sql`(${table.profile_id} = (select auth.uid())) OR (is_public = true)`
+    }),
+    pgPolicy("Allow insert on own records", {
+        for: "insert",
+        to: "authenticated",
+        withCheck: sql`${table.profile_id} = (select auth.uid())`
+    }),
+    pgPolicy("Allow update on own records", {
+        for: "update",
+        to: "authenticated",
+        using: sql`${table.profile_id} = (select auth.uid())`
+    }),
+    pgPolicy("Allow delete on own records", {
+        for: "delete",
+        to: "authenticated",
+        using: sql`${table.profile_id} = (select auth.uid())`
+    }),
+  ]
+}));
 
 export const dailyNotes = pgTable("daily_notes", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -30,14 +47,15 @@ export const dailyNotes = pgTable("daily_notes", {
   content: text("content").notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
-}, (table) => ([
-  pgPolicy("daily_notes_rls", {
+}, (table) => ({
+  profileIdx: index("daily_notes_profile_id_idx").on(table.profile_id),
+  rls: pgPolicy("Allow full access for owners", {
     for: "all",
     to: "authenticated",
-    using: sql`auth.uid() = ${table.profile_id}`,
-    withCheck: sql`auth.uid() = ${table.profile_id}`,
+    using: sql`(select auth.uid()) = ${table.profile_id}`,
+    withCheck: sql`(select auth.uid()) = ${table.profile_id}`,
   }),
-]));
+}));
 
 export const memos = pgTable("memos", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -47,11 +65,29 @@ export const memos = pgTable("memos", {
   content: text("content").notNull(),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull().$onUpdateFn(() => sql`now()`),
-}, (table) => ([
-  pgPolicy("memos_rls", {
-    for: "all",
-    to: "authenticated",
-    using: sql`auth.uid() = ${table.profile_id}`,
-    withCheck: sql`auth.uid() = ${table.profile_id}`,
-  }),
-]));
+}, (table) => ({
+  recordIdx: index("memos_record_id_idx").on(table.record_id),
+  profileIdx: index("memos_profile_id_idx").on(table.profile_id),
+  rls: [
+    pgPolicy("Allow read on memos for own or public records", {
+      for: "select",
+      to: "authenticated",
+      using: sql`(${table.profile_id} = (select auth.uid())) OR (exists (select 1 from daily_records where daily_records.id = ${table.record_id} and daily_records.is_public = true))`
+    }),
+    pgPolicy("Allow insert on memos for own records", {
+        for: "insert",
+        to: "authenticated",
+        withCheck: sql`${table.profile_id} = (select auth.uid())`
+    }),
+    pgPolicy("Allow update on memos for own records", {
+        for: "update",
+        to: "authenticated",
+        using: sql`${table.profile_id} = (select auth.uid())`
+    }),
+    pgPolicy("Allow delete on memos for own records", {
+        for: "delete",
+        to: "authenticated",
+        using: sql`${table.profile_id} = (select auth.uid())`
+    }),
+  ]
+}));
