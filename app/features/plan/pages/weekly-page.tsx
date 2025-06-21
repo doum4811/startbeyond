@@ -130,19 +130,12 @@ export const loader = async ({ request }: LoaderFunctionArgs): Promise<WeeklyPag
     const profileId = await getRequiredProfileId(request);
     const currentWeekNumberInMonth = planQueries.getWeekOfMonth(currentWeekStartDate);
 
-    const [
-      dbWeeklyTasks, 
-      dbWeeklyNoteData, 
-      dbMonthlyGoals,
-      userCategoriesData,
-      userDefaultCodePreferencesData
-    ] = await Promise.all([
-      planQueries.getWeeklyTasksByWeek(client, { profileId, weekStartDate: currentWeekStartDate }),
-      planQueries.getWeeklyNoteByWeek(client, { profileId, weekStartDate: currentWeekStartDate }),
-      planQueries.getMonthlyGoalsForWeek(client, { profileId, dateInWeek: currentWeekStartDate }),
-      settingsQueries.getUserCategories(client, { profileId }),
-      settingsQueries.getUserDefaultCodePreferences(client, { profileId })
-    ]);
+    // Sequential fetching to avoid Supabase rate limits
+    const dbWeeklyTasks = await planQueries.getWeeklyTasksByWeek(client, { profileId, weekStartDate: currentWeekStartDate });
+    const dbWeeklyNoteData = await planQueries.getWeeklyNoteByWeek(client, { profileId, weekStartDate: currentWeekStartDate });
+    const dbMonthlyGoals = await planQueries.getMonthlyGoalsForWeek(client, { profileId, dateInWeek: currentWeekStartDate });
+    const userCategoriesData = await settingsQueries.getUserCategories(client, { profileId });
+    const userDefaultCodePreferencesData = await settingsQueries.getUserDefaultCodePreferences(client, { profileId });
 
     const weeklyTasks: WeeklyTaskUI[] = (dbWeeklyTasks || []).map((task: DbWeeklyTask): WeeklyTaskUI => ({
       id: task.id,
@@ -282,10 +275,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const currentWeekStartDate = baseDate.startOf('week').toISODate()!;
 
   const activeCategoriesForAction = await (async () => {
-    const [userCategoriesDb, defaultPreferencesDb] = await Promise.all([
-        settingsQueries.getUserCategories(client, { profileId }),
-        settingsQueries.getUserDefaultCodePreferences(client, { profileId })
-    ]);
+    // Sequential fetching to avoid Supabase rate limits
+    const userCategoriesDb = await settingsQueries.getUserCategories(client, { profileId });
+    const defaultPreferencesDb = await settingsQueries.getUserDefaultCodePreferences(client, { profileId });
+
     const categoriesToValidate: UICategory[] = [];
     const defaultPrefsMap = new Map((defaultPreferencesDb || []).map(p => [p.default_category_code, p.is_active]));
     for (const key in CATEGORIES) {

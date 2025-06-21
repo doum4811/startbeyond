@@ -194,48 +194,23 @@ export const upsertStatsCache = async (
     stats: Omit<StatsCache, 'time_analysis'>;
   }
 ): Promise<void> => {
-  // Manual upsert: Check if a record exists first.
-  const { data: existing, error: selectError } = await client
-    .from("stats_cache")
-    .select("id")
-    .eq("profile_id", profileId)
-    .eq("month_date", monthDate)
-    .maybeSingle();
-
-  if (selectError) {
-    console.error("Error selecting from stats_cache:", selectError);
-    throw selectError;
-  }
-
   const dataToUpsert = {
-      profile_id: profileId,
-      month_date: monthDate,
-      category_distribution: stats.category_distribution as any,
+    profile_id: profileId,
+    month_date: monthDate,
+    category_distribution: stats.category_distribution as any,
     activity_heatmap: stats.activity_heatmap as any ?? null,
-    updated_at: new Date().toISOString(), // Manually set updated_at
+    updated_at: new Date().toISOString(),
   };
 
-  if (existing) {
-    // UPDATE if record exists
-    const { error: updateError } = await client
-      .from("stats_cache")
-      .update(dataToUpsert)
-      .eq("id", existing.id);
-
-    if (updateError) {
-      console.error("Error updating stats cache:", updateError);
-      throw updateError;
-    }
-  } else {
-    // INSERT if record does not exist
-    const { error: insertError } = await client
+  const { error } = await client
     .from("stats_cache")
-      .insert(dataToUpsert as any);
+    .upsert(dataToUpsert as any, {
+      onConflict: 'profile_id, month_date'
+    });
 
-    if (insertError) {
-      console.error("Error inserting into stats cache:", insertError);
-      throw insertError;
-    }
+  if (error) {
+    console.error("Error upserting stats cache:", error);
+    throw error;
   }
 };
 
