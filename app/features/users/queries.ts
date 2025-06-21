@@ -1,15 +1,12 @@
-import pkg from '@supabase/supabase-js';
-import type { Database } from 'database.types';
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "../../../database.types";
 import { CATEGORIES as DEFAULT_CATEGORIES } from "~/common/types/daily";
 import { getUserCategories } from "~/features/settings/queries";
-// import type { Database } from "~/supa-client";
 
-// Types from database.types.ts
-type ProfileTable = Database['public']['Tables']['profiles'];
-export type Profile = ProfileTable['Row'];
-type ProfileInsert = ProfileTable['Insert']; // Usually handled by auth trigger
-type ProfileUpdate = ProfileTable['Update'];
+// --- Single Source of Truth for Types ---
+export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
+type ProfileUpdate = Database["public"]["Tables"]["profiles"]["Update"];
+// -----------------------------------------
 
 // Column constants
 const PROFILE_COLUMNS = `
@@ -28,7 +25,7 @@ const PROFILE_COLUMNS = `
 // == Profiles ==
 
 export const getProfileById = async (
-  client: pkg.SupabaseClient<Database>,
+  client: SupabaseClient<Database>,
   { profileId }: { profileId: string }
 ) => {
   const { data, error } = await client
@@ -46,7 +43,7 @@ export const getProfileById = async (
 }
 
 export const getProfileByUsername = async (
-  client: pkg.SupabaseClient<Database>,
+  client: SupabaseClient<Database>,
   { username }: { username: string }
 ) => {
   const { data, error } = await client
@@ -64,10 +61,9 @@ export const getProfileByUsername = async (
 }
 
 export const updateProfile = async (
-  client: pkg.SupabaseClient<Database>,
+  client: SupabaseClient<Database>,
   { profileId, updates }: { profileId: string; updates: ProfileUpdate }
 ) => {
-  // Ensure profile_id from updates is not overriding the path/session profileId
   const { profile_id, ...safeUpdates } = updates;
   
   const { data, error } = await client
@@ -84,54 +80,21 @@ export const updateProfile = async (
   return data;
 }
 
-// Example of a more complex query if needed later (similar to the reference):
-// export async function getUserProfileWithStats(
-//   { profileId }: { profileId: string }
-// ) {
-//   const { data, error } = await client
-//     .from("profiles")
-//     .select(`
-//       ${PROFILE_COLUMNS},
-//       daily_records_count:daily_records(count),
-//       memos_count:memos(count)
-//     `)
-//     .eq("profile_id", profileId)
-//     .single();
+// Note: Profile creation is typically handled by a database trigger.
+export async function getUserById(client: SupabaseClient<Database>, { id }: { id: string }): Promise<Profile | null> {
+    const { data, error } = await client
+        .from("profiles")
+        .select(`*`)
+        .eq("profile_id", id)
+        .maybeSingle();
 
-//   if (error) {
-//     if (error.code === 'PGRST116') return null;
-//     console.error("Error fetching profile with stats:", error.message);
-//     throw new Error(error.message);
-//   }
-//   return data;
-// }
+    if (error) {
+        console.error("Error fetching user profile by ID:", error);
+        return null;
+    }
 
-// Note: Profile creation is typically handled by a database trigger 
-// (e.g., handle_new_user) when a new user signs up in auth.users table.
-// Direct creation of a profile via API might be less common unless specific admin tools are built. 
-
-export const getUserById = async (
-  client: pkg.SupabaseClient<Database>,
-  { id }: { id: string }
-) => {
-  const { data, error } = await client
-    .from("profiles")
-    .select(
-      `
-        profile_id,
-        full_name,
-        username,
-        avatar_url 
-        `
-    )
-    .eq("profile_id", id)
-    .single();
-  if (error) {
-    if (error.code === 'PGRST116') return null; // Not found
-    throw error;
-  }
-  return data;
-};
+    return data;
+}
 
 export async function getUserProfile(
   client: SupabaseClient<Database>,
@@ -317,12 +280,10 @@ export async function getVisibleDailyRecords(
     viewerId: string | null;
   }
 ) {
-  // 1. User must be logged in to view any activity.
   if (!viewerId) {
     return { data: [], error: null };
   }
 
-  // 2. Fetch profile owner's visibility setting.
   const { data: profile, error: profileError } = await client
     .from("profiles")
     .select("daily_record_visibility")
@@ -354,7 +315,7 @@ export async function getVisibleDailyRecords(
           return false;
         }
         return !!followStatus;
-      default: // 'private' or other states
+      default:
         return false;
     }
   })();
@@ -363,7 +324,6 @@ export async function getVisibleDailyRecords(
     return { data: [], error: null };
   }
 
-  // 3. If checks pass, fetch public records.
   const { data, error } = await client
     .from("daily_records")
     .select("*, memos (*)")
@@ -379,3 +339,5 @@ export async function getVisibleDailyRecords(
 
   return { data, error: null };
 }
+
+export type UserProfile = Awaited<ReturnType<typeof getUserProfile>>;
