@@ -81,6 +81,7 @@ export default function ConversationPage() {
     const { conversationId } = useParams();
 
     const [messages, setMessages] = useState(initialData.messages);
+    const [inputValue, setInputValue] = useState('');
     const currentUserId = initialData.profileId;
     const otherUser = initialData.conversation.other_user;
 
@@ -94,6 +95,7 @@ export default function ConversationPage() {
         const data = fetcher.data;
         if (fetcher.state === 'idle' && data && 'ok' in data && data.ok && data.newMessage) {
             setMessages(prev => [...prev, data.newMessage as MessageFromRPC]);
+            setInputValue('');
         }
     }, [fetcher.data, fetcher.state]);
     
@@ -131,12 +133,14 @@ export default function ConversationPage() {
                 <fetcher.Form method="post" action={`/messages/${conversationId}`} className="flex items-center gap-2">
                     <Input
                         name="content"
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
                         placeholder={t("messages.type_a_message")}
                         autoComplete="off"
                         className="flex-1"
                         disabled={fetcher.state === 'submitting'}
                     />
-                    <Button type="submit" size="icon" disabled={fetcher.state === 'submitting'}>
+                    <Button type="submit" size="icon" disabled={fetcher.state === 'submitting' || !inputValue.trim()}>
                         <SendHorizonal className="h-5 w-5" />
                     </Button>
                 </fetcher.Form>
