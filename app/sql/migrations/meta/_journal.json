@@ -29,6 +29,34 @@
       "when": 1750501922842,
       "tag": "0010_optimized_rls_and_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1750571098392,
+      "tag": "0004_sharp_radioactive_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1750585000000,
+      "tag": "0005_manual_rls_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1750590000000,
+      "tag": "0006_enable_rls_for_stats",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1750600000000,
+      "tag": "0007_fix_stats_cache_id_default",
+      "breakpoints": true
     }
   ]
 }

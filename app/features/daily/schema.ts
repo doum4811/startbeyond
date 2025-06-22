@@ -17,22 +17,24 @@ export const dailyRecords = pgTable("daily_records", {
 }, (table) => ({
   profileIdx: index("daily_records_profile_id_idx").on(table.profile_id),
   rls: [
-    pgPolicy("Allow read on own or public records", {
+    pgPolicy("Allow read on own or public records_v2", {
         for: "select",
         to: "authenticated",
         using: sql`(${table.profile_id} = (select auth.uid())) OR (is_public = true)`
     }),
-    pgPolicy("Allow insert on own records", {
+    pgPolicy("Allow insert on own records_v2", {
         for: "insert",
         to: "authenticated",
+        using: sql`${table.profile_id} = (select auth.uid())`,
         withCheck: sql`${table.profile_id} = (select auth.uid())`
     }),
-    pgPolicy("Allow update on own records", {
+    pgPolicy("Allow update on own records_v2", {
         for: "update",
         to: "authenticated",
-        using: sql`${table.profile_id} = (select auth.uid())`
+        using: sql`${table.profile_id} = (select auth.uid())`,
+        withCheck: sql`${table.profile_id} = (select auth.uid())`
     }),
-    pgPolicy("Allow delete on own records", {
+    pgPolicy("Allow delete on own records_v2", {
         for: "delete",
         to: "authenticated",
         using: sql`${table.profile_id} = (select auth.uid())`

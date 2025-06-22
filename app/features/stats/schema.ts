@@ -34,7 +34,7 @@ export const sharedLinks = pgTable("shared_links", {
 export const statsCache = pgTable(
   "stats_cache",
   {
-    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid("id").primaryKey().defaultRandom(),
     profile_id: uuid("profile_id")
       .notNull()
       .references(() => profiles.profile_id, { onDelete: "cascade" }),

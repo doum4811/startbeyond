@@ -3,6 +3,7 @@ import type { MetaFunction } from "react-router";
 import { DateTime } from "luxon";
 import React, { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import {
   Collapsible,
   CollapsibleContent,
@@ -224,13 +225,17 @@ export default function DailyPage({ loaderData }: DailyPageProps) {
   const activeCategories = useMemo(() => categories.filter(cat => cat.isActive), [categories]);
 
   useEffect(() => {
-    if (fetcher.state === 'idle' && fetcher.data?.ok) {
+    if (fetcher.state === 'idle') {
+      if (fetcher.data?.ok) {
     const firstActiveCategory = categories.find(c => c.isActive);
       setForm({ category_code: firstActiveCategory?.code || "", duration: "", comment: "", is_public: false });
     setIsEditing(false);
     setSelectedRowId(null);
                 setEditingSubcodeForRecordId(null);
                 setShowMemoFormForRecordId(null);
+      } else if (fetcher.data && fetcher.data.ok === false) {
+        toast.error(fetcher.data.error || "An unknown error occurred.");
+      }
     }
   }, [fetcher.state, fetcher.data, categories]);
 
