@@ -371,7 +371,7 @@
                 "updateButton": "이미지 저장"
             },
             "name_label": "전체 이름",
-            "headline_label": "직책",
+            "headline_label": "프로필 제목",
             "headline_placeholder": "직책이나 현재 역할을 입력하세요.",
             "bio_label": "소개",
             "bio_placeholder": "자신에 대해 간단히 소개해 주세요.",

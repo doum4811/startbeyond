@@ -616,7 +616,7 @@ export type Database = {
           activity_heatmap?: Json | null
           category_distribution?: Json | null
           created_at?: string
-          id: string
+          id?: string
           month_date: string
           profile_id: string
           updated_at?: string
