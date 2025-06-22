@@ -264,10 +264,11 @@ function AdvancedStatsPage() {
 
   const handleCopyLink = () => {
     if (typeof window === 'undefined' || !sharedLink?.token) return;
-    const url = `${window.location.origin}/share/${sharedLink.token}`;
+    const baseUrl = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
+    const url = `${baseUrl}/share/${sharedLink.token}`;
     navigator.clipboard.writeText(url).then(() => {
-        setIsCopied(true); 
-        setTimeout(() => setIsCopied(false), 2000);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
     });
   };
 
@@ -294,7 +295,7 @@ function AdvancedStatsPage() {
     navigate(`?year=${currentYear + 1}`);
   };
 
-  const periodButton = (
+  const periodControl = (
     <div className="flex items-center gap-2">
       <Button variant="outline" size="icon" onClick={handlePrevYear}>
         <ChevronLeft className="h-4 w-4" />
@@ -310,14 +311,14 @@ function AdvancedStatsPage() {
     <div className="w-full max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 bg-background min-h-screen space-y-6">
       <StatsPageHeader
         title={t("stats_advanced_page.title", { year: currentYear })}
-        periodButton={periodButton}
+        periodButton={periodControl}
         shareSettings={sharedLink || { page_type: 'advanced', period: String(currentYear), is_public: false, settings: { include_heatmap: true, include_comparison: true } }}
         onSettingsChange={handleSettingsChange}
         isShareDialogOpen={isShareDialogOpen}
         setIsShareDialogOpen={setIsShareDialogOpen}
         isCopied={isCopied}
         onCopyLink={handleCopyLink}
-        shareLink={sharedLink?.is_public && sharedLink?.token ? (typeof window !== 'undefined' ? `${window.location.origin}/share/${sharedLink.token}` : `/share/${sharedLink.token}`) : undefined}
+        shareLink={sharedLink?.is_public && sharedLink?.token ? (import.meta.env.VITE_PUBLIC_URL || (typeof window !== 'undefined' ? window.location.origin : '')) + `/share/${sharedLink.token}` : undefined}
         fetcherState={fetcher.state}
       />
 

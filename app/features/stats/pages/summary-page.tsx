@@ -499,7 +499,8 @@ export default function SummaryStatsPage() {
 
   function handleCopyLink() {
     if (typeof window === 'undefined' || !sharedLink?.token) return;
-    const url = `${window.location.origin}/share/${sharedLink.token}`;
+    const baseUrl = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
+    const url = `${baseUrl}/share/${sharedLink.token}`;
     navigator.clipboard.writeText(url).then(() => {
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
@@ -561,7 +562,7 @@ export default function SummaryStatsPage() {
         setIsShareDialogOpen={setIsShareDialogOpen}
         isCopied={isCopied}
         onCopyLink={handleCopyLink}
-        shareLink={sharedLink?.is_public && sharedLink?.token ? (typeof window !== 'undefined' ? `${window.location.origin}/share/${sharedLink.token}` : `/share/${sharedLink.token}`) : undefined}
+        shareLink={sharedLink?.is_public && sharedLink?.token ? (import.meta.env.VITE_PUBLIC_URL || (typeof window !== 'undefined' ? window.location.origin : '')) + `/share/${sharedLink.token}` : undefined}
         periodButton={periodControl}
         pdfButton={pdfButton}
         fetcherState={fetcher.state}

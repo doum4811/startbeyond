@@ -493,10 +493,11 @@ export default function RecordsPage() {
 
   const handleCopyLink = () => {
     if (typeof window === 'undefined' || !sharedLink?.token) return;
-    const url = `${window.location.origin}/share/${sharedLink.token}`;
+    const baseUrl = import.meta.env.VITE_PUBLIC_URL || window.location.origin;
+    const url = `${baseUrl}/share/${sharedLink.token}`;
     navigator.clipboard.writeText(url).then(() => {
-        setIsCopied(true);
-        setTimeout(() => setIsCopied(false), 2000);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
     });
   };
   
@@ -551,7 +552,7 @@ export default function RecordsPage() {
         setIsShareDialogOpen={setIsShareDialogOpen}
         isCopied={isCopied}
         onCopyLink={handleCopyLink}
-        shareLink={sharedLink?.is_public && sharedLink?.token ? (typeof window !== 'undefined' ? `${window.location.origin}/share/${sharedLink.token}` : `/share/${sharedLink.token}`) : undefined}
+        shareLink={sharedLink?.is_public && sharedLink?.token ? (import.meta.env.VITE_PUBLIC_URL || (typeof window !== 'undefined' ? window.location.origin : '')) + `/share/${sharedLink.token}` : undefined}
         fetcherState={fetcher.state}
       />
       </div>
